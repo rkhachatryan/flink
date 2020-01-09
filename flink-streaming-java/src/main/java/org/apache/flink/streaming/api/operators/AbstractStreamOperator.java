@@ -61,6 +61,7 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeServiceAware;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.util.LatencyStats;
 import org.apache.flink.util.CloseableIterable;
@@ -93,7 +94,7 @@ import java.util.Locale;
  */
 @PublicEvolving
 public abstract class AbstractStreamOperator<OUT>
-		implements StreamOperator<OUT>, SetupableStreamOperator<OUT>, Serializable {
+		implements StreamOperator<OUT>, SetupableStreamOperator<OUT>, ProcessingTimeServiceAware, Serializable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -174,7 +175,6 @@ public abstract class AbstractStreamOperator<OUT>
 	public void setup(StreamTask<?, ?> containingTask, StreamConfig config, Output<StreamRecord<OUT>> output) {
 		final Environment environment = containingTask.getEnvironment();
 		this.container = containingTask;
-		this.processingTimeService = containingTask.getProcessingTimeService(config.getChainIndex());
 		this.config = config;
 		try {
 			OperatorMetricGroup operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorName());
@@ -232,6 +232,11 @@ public abstract class AbstractStreamOperator<OUT>
 
 		stateKeySelector1 = config.getStatePartitioner(0, getUserCodeClassloader());
 		stateKeySelector2 = config.getStatePartitioner(1, getUserCodeClassloader());
+	}
+
+	@Override
+	public void setProcessingTimeService(ProcessingTimeService processingTimeService) {
+		this.processingTimeService = Preconditions.checkNotNull(processingTimeService);
 	}
 
 	@Override
@@ -558,7 +563,8 @@ public abstract class AbstractStreamOperator<OUT>
 	 * Returns the {@link ProcessingTimeService} responsible for getting the current
 	 * processing time and registering timers.
 	 */
-	protected ProcessingTimeService getProcessingTimeService() {
+	@Override
+	public ProcessingTimeService getProcessingTimeService() {
 		return processingTimeService;
 	}
 
@@ -672,7 +678,6 @@ public abstract class AbstractStreamOperator<OUT>
 	public final ChainingStrategy getChainingStrategy() {
 		return chainingStrategy;
 	}
-
 
 	// ------------------------------------------------------------------------
 	//  Metrics

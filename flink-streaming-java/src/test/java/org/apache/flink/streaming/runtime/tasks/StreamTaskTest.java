@@ -105,13 +105,14 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.InternalTimeServiceManager;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.Output;
+import org.apache.flink.streaming.api.operators.StreamMap;
 import org.apache.flink.streaming.api.operators.StreamOperator;
-import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamOperatorStateContext;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
@@ -905,7 +906,15 @@ public class StreamTaskTest extends TestLogger {
 	 */
 	@Test
 	public void testThreadInvariants() throws Throwable {
-		try (MockEnvironment mockEnvironment = new MockEnvironmentBuilder().build()) {
+		Configuration taskConfiguration = new Configuration();
+		StreamConfig streamConfig = new StreamConfig(taskConfiguration);
+		streamConfig.setStreamOperator(new StreamMap<>(value -> value));
+		streamConfig.setOperatorID(new OperatorID());
+		try (MockEnvironment mockEnvironment =
+				new MockEnvironmentBuilder()
+					.setTaskConfiguration(taskConfiguration)
+					.build()) {
+
 			ClassLoader taskClassLoader = new TestUserCodeClassLoader();
 
 			RunningTask<ThreadInspectingTask> runningTask = runTask(() -> {
@@ -1513,7 +1522,7 @@ public class StreamTaskTest extends TestLogger {
 			checkTaskThreadInfo();
 
 			// Create a time trigger to validate that it would also be invoked in the task's thread.
-			getProcessingTimeService(0).registerTimer(0, new ProcessingTimeCallback() {
+			getHeadOperator().getProcessingTimeService().registerTimer(0, new ProcessingTimeCallback() {
 				@Override
 				public void onProcessingTime(long timestamp) throws Exception {
 					checkTaskThreadInfo();
@@ -1779,7 +1788,7 @@ public class StreamTaskTest extends TestLogger {
 		}
 	}
 
-	private static class UnusedOperatorFactory implements StreamOperatorFactory<String> {
+	private static class UnusedOperatorFactory extends AbstractStreamOperatorFactory<String> {
 		@Override
 		public <T extends StreamOperator<String>> T createStreamOperator(
 				StreamTask<?, ?> containingTask,
@@ -1790,11 +1799,6 @@ public class StreamTaskTest extends TestLogger {
 
 		@Override
 		public void setChainingStrategy(ChainingStrategy strategy) {
-		}
-
-		@Override
-		public ChainingStrategy getChainingStrategy() {
-			return ChainingStrategy.ALWAYS;
 		}
 
 		@Override

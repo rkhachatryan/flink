@@ -64,6 +64,7 @@ import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeServiceAware;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.runtime.tasks.TestProcessingTimeService;
 import org.apache.flink.util.OutputTag;
@@ -351,8 +352,13 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 			if (operator == null) {
 				this.operator = StreamOperatorFactoryUtil.createOperator(factory, mockTask, config,
 						new MockOutput(outputSerializer));
-			} else if (operator instanceof SetupableStreamOperator) {
-				((SetupableStreamOperator) operator).setup(mockTask, config, new MockOutput(outputSerializer));
+			} else {
+				if (operator instanceof ProcessingTimeServiceAware) {
+					((ProcessingTimeServiceAware) operator).setProcessingTimeService(processingTimeService);
+				}
+				if (operator instanceof SetupableStreamOperator) {
+					((SetupableStreamOperator) operator).setup(mockTask, config, new MockOutput(outputSerializer));
+				}
 			}
 			setupCalled = true;
 			this.mockTask.init();
