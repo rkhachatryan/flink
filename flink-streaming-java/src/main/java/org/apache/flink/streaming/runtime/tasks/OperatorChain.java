@@ -57,6 +57,7 @@ import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusProvider;
 import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxExecutorFactory;
 import org.apache.flink.util.OutputTag;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;
@@ -165,9 +166,14 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 			}
 
 			// add head operator to end of chain
-			allOps.add(headOperator);
+			if (headOperator != null) {
+				allOps.add(headOperator);
+			}
 
 			this.allOperators = allOps.toArray(new StreamOperator<?>[allOps.size()]);
+			for (int i = 0; i < allOperators.length; i++) {
+				Preconditions.checkNotNull(allOperators[i], "operator is null in chain at index " + i);
+			}
 
 			success = true;
 		}
