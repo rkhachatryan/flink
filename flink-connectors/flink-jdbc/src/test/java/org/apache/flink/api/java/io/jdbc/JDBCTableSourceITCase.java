@@ -32,6 +32,9 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.apache.flink.api.java.io.jdbc.JdbcTestFixture.SELECT_ALL_BOOKS;
+import static org.apache.flink.api.java.io.jdbc.JdbcTestFixture.SELECT_ID_BOOKS;
+
 /**
  * IT case for {@link JDBCTableSource}.
  */
@@ -107,4 +110,8 @@ public class JDBCTableSourceITCase extends JDBCTestBase {
 		StreamITCase.compareWithList(expected);
 	}
 
+	@Override
+	protected DbMetadata getDbMetadata() {
+		return JdbcTestFixture.DERBY_EBOOKSHOP_DB;
+	}
 }
