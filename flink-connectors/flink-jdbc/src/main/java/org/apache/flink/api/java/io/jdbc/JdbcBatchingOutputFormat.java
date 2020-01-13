@@ -56,11 +56,11 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 	private transient ScheduledFuture<?> scheduledFuture;
 	private transient volatile Exception flushException;
 
-	JdbcBatchingOutputFormat(JdbcConnectionOptions connectionOptions,
+	JdbcBatchingOutputFormat(JdbcConnectionProvider connectionProvider,
 								JdbcExecutionOptions executionOptions,
 								Function<RuntimeContext, JdbcExec> statementExecutorCreator,
 								Function<In, JdbcIn> recordExtractor) {
-		super(connectionOptions);
+		super(connectionProvider);
 		this.executionOptions = executionOptions;
 		this.statementRunnerCreator = statementExecutorCreator;
 		this.jdbcRecordExtractor = recordExtractor;
@@ -268,7 +268,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 					.withFieldNames(fieldNames).withKeyFields(keyFields).withFieldTypes(fieldTypes).build();
 			if (dml.getKeyFields() == null || dml.getKeyFields().length == 0) {
 				return new JdbcBatchingOutputFormat<>(
-						options,
+						new SimpleJdbcConnectionProvider(options),
 						JdbcExecutionOptions.builder().withBatchSize(flushMaxSize).withMaxRetries(maxRetryTimes).withBatchIntervalMs(flushIntervalMills).build(),
 						unused -> JdbcBatchStatementExecutor.simpleRow(
 								options.getDialect().getInsertIntoStatement(dml.getTableName(), dml.getFieldNames()),
@@ -279,7 +279,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 						});
 			} else {
 				return new TableJdbcUpsertOutputFormat(
-						options,
+						new SimpleJdbcConnectionProvider(options),
 						dml,
 						JdbcExecutionOptions.builder().withBatchSize(flushMaxSize).withBatchIntervalMs(flushIntervalMills).build());
 			}
