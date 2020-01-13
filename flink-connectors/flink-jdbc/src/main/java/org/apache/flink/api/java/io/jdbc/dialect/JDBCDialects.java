@@ -18,15 +18,50 @@
 
 package org.apache.flink.api.java.io.jdbc.dialect;
 
+import org.apache.flink.api.java.io.jdbc.JdbcDmlOptions;
+import org.apache.flink.util.Preconditions;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Default Jdbc dialects.
+ * Default JDBC dialects.
  */
 public final class JDBCDialects {
+
+	/**
+	 * JDBCDialectName.
+	 */
+	public enum JDBCDialectName {
+		DERBY {
+			@Override
+			public JDBCDialect getInstance(JdbcDmlOptions options) {
+				return new DerbyDialect();
+			}
+		},
+		MYSQL {
+			@Override
+			public JDBCDialect getInstance(JdbcDmlOptions options) {
+				return new MySQLDialect();
+			}
+		},
+		POSTGRES {
+			@Override
+			public JDBCDialect getInstance(JdbcDmlOptions options) {
+				return new PostgresDialect();
+			}
+		},
+		CUSTOM {
+			@Override
+			public JDBCDialect getInstance(JdbcDmlOptions options) {
+				return Preconditions.checkNotNull(options.getCustomDialect());
+			}
+		};
+
+		public abstract JDBCDialect getInstance(JdbcDmlOptions options);
+	}
 
 	private static final List<JDBCDialect> DIALECTS = Arrays.asList(
 		new DerbyDialect(),
@@ -63,6 +98,11 @@ public final class JDBCDialects {
 		@Override
 		public String quoteIdentifier(String identifier) {
 			return identifier;
+		}
+
+		@Override
+		public JDBCDialectName getName() {
+			return JDBCDialectName.DERBY;
 		}
 	}
 
@@ -101,6 +141,11 @@ public final class JDBCDialects {
 					" ON DUPLICATE KEY UPDATE " + updateClause
 			);
 		}
+
+		@Override
+		public JDBCDialectName getName() {
+			return JDBCDialectName.MYSQL;
+		}
 	}
 
 	private static class PostgresDialect implements JDBCDialect {
@@ -132,6 +177,11 @@ public final class JDBCDialects {
 							" ON CONFLICT (" + uniqueColumns + ")" +
 							" DO UPDATE SET " + updateClause
 			);
+		}
+
+		@Override
+		public JDBCDialectName getName() {
+			return JDBCDialectName.POSTGRES;
 		}
 	}
 }

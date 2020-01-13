@@ -38,18 +38,12 @@ abstract class AbstractJdbcOutputFormat<T> extends RichOutputFormat<T> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcOutputFormat.class);
 
-	private final String username;
-	private final String password;
-	private final String drivername;
-	protected final String dbURL;
+	private final JdbcConnectionOptions options;
 
 	protected transient Connection connection;
 
-	public AbstractJdbcOutputFormat(String username, String password, String drivername, String dbURL) {
-		this.username = username;
-		this.password = password;
-		this.drivername = drivername;
-		this.dbURL = dbURL;
+	public AbstractJdbcOutputFormat(JdbcConnectionOptions options) {
+		this.options = options;
 	}
 
 	@Override
@@ -57,11 +51,11 @@ abstract class AbstractJdbcOutputFormat<T> extends RichOutputFormat<T> {
 	}
 
 	protected void establishConnection() throws SQLException, ClassNotFoundException {
-		Class.forName(drivername);
-		if (username == null) {
-			connection = DriverManager.getConnection(dbURL);
+		Class.forName(options.getDriverName());
+		if (options.username == null) {
+			connection = DriverManager.getConnection(options.url);
 		} else {
-			connection = DriverManager.getConnection(dbURL, username, password);
+			connection = DriverManager.getConnection(options.url, options.username, options.password);
 		}
 	}
 
