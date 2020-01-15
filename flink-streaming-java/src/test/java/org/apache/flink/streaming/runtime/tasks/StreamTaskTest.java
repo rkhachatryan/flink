@@ -109,6 +109,7 @@ import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.InternalTimeServiceManager;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamMap;
@@ -476,9 +477,10 @@ public class StreamTaskTest extends TestLogger {
 		RunningTask<MockStreamTask> task = runTask(() -> createMockStreamTask(
 			declineDummyEnvironment,
 			operatorChain(
+				streamOperatorWithSnapshotException(testException),
 				streamOperatorWithSnapshot(operatorSnapshotResult1),
-				streamOperatorWithSnapshot(operatorSnapshotResult2),
-				streamOperatorWithSnapshotException(testException))));
+				streamOperatorWithSnapshot(operatorSnapshotResult2)
+				)));
 		MockStreamTask streamTask = task.streamTask;
 
 		waitTaskIsRunning(streamTask, task.invocationFuture);
@@ -736,7 +738,7 @@ public class StreamTaskTest extends TestLogger {
 			DoneFuture.of(SnapshotResult.of(managedOperatorStateHandle)),
 			DoneFuture.of(SnapshotResult.of(rawOperatorStateHandle)));
 
-		final StreamOperator<?> streamOperator = streamOperatorWithSnapshot(operatorSnapshotResult);
+		final OneInputStreamOperator<String, String> streamOperator = streamOperatorWithSnapshot(operatorSnapshotResult);
 
 		final AcknowledgeDummyEnvironment mockEnvironment = new AcknowledgeDummyEnvironment();
 
@@ -813,7 +815,7 @@ public class StreamTaskTest extends TestLogger {
 			checkpointResponder);
 
 		// mock the operator with empty snapshot result (all state handles are null)
-		StreamOperator<?> statelessOperator = streamOperatorWithSnapshot(new OperatorSnapshotFutures());
+		OneInputStreamOperator<String, String> statelessOperator = streamOperatorWithSnapshot(new OperatorSnapshotFutures());
 
 		try (MockEnvironment mockEnvironment = new MockEnvironmentBuilder()
 			.setTaskStateManager(taskStateManager)
@@ -1030,8 +1032,9 @@ public class StreamTaskTest extends TestLogger {
 	//  Test Utilities
 	// ------------------------------------------------------------------------
 
-	private static StreamOperator<?> streamOperatorWithSnapshot(OperatorSnapshotFutures operatorSnapshotResult) throws Exception {
-		StreamOperator<?> operator = mock(StreamOperator.class);
+	private static <T> OneInputStreamOperator<T, T> streamOperatorWithSnapshot(OperatorSnapshotFutures operatorSnapshotResult) throws Exception {
+		@SuppressWarnings("unchecked")
+		OneInputStreamOperator<T, T> operator = mock(OneInputStreamOperator.class);
 		when(operator.getOperatorID()).thenReturn(new OperatorID());
 
 		when(operator.snapshotState(anyLong(), anyLong(), any(CheckpointOptions.class), any(CheckpointStreamFactory.class)))
@@ -1040,8 +1043,9 @@ public class StreamTaskTest extends TestLogger {
 		return operator;
 	}
 
-	private static StreamOperator<?> streamOperatorWithSnapshotException(Exception exception) throws Exception {
-		StreamOperator<?> operator = mock(StreamOperator.class);
+	private static <T> OneInputStreamOperator<T, T> streamOperatorWithSnapshotException(Exception exception) throws Exception {
+		@SuppressWarnings("unchecked")
+		OneInputStreamOperator<T, T> operator = mock(OneInputStreamOperator.class);
 		when(operator.getOperatorID()).thenReturn(new OperatorID());
 
 		when(operator.snapshotState(anyLong(), anyLong(), any(CheckpointOptions.class), any(CheckpointStreamFactory.class)))
@@ -1050,10 +1054,8 @@ public class StreamTaskTest extends TestLogger {
 		return operator;
 	}
 
-	private static <T> OperatorChain<T, AbstractStreamOperator<T>> operatorChain(StreamOperator<?>... streamOperators) {
-		OperatorChain<T, AbstractStreamOperator<T>> operatorChain = mock(OperatorChain.class);
-		when(operatorChain.getAllOperators()).thenReturn(streamOperators);
-		return operatorChain;
+	private static <T> OperatorChain<T, AbstractStreamOperator<T>> operatorChain(OneInputStreamOperator<T, T>... streamOperators) throws Exception {
+		return OperatorChainTest.setupOperatorChain(streamOperators);
 	}
 
 	private static class RunningTask<T extends StreamTask<?, ?>> {
