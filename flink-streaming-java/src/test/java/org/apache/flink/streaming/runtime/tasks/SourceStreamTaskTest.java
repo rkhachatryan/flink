@@ -25,6 +25,7 @@ import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.testutils.MultiShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.execution.CancelTaskException;
@@ -49,6 +50,7 @@ import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -64,6 +66,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.util.Preconditions.checkState;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -168,7 +171,7 @@ public class SourceStreamTaskTest {
 	}
 
 	@Test
-	public void testMarkingEndOfInput() throws Exception {
+	public void testClosingAllOperatorsOnChainProperly() throws Exception {
 		final StreamTaskTestHarness<String> testHarness = new StreamTaskTestHarness<>(
 			SourceStreamTask::new,
 			BasicTypeInfo.STRING_TYPE_INFO);
@@ -187,20 +190,30 @@ public class SourceStreamTaskTest {
 		StreamConfig streamConfig = testHarness.getStreamConfig();
 		streamConfig.setTimeCharacteristic(TimeCharacteristic.ProcessingTime);
 
-		ConcurrentLinkedQueue<Object> expectedOutput = new ConcurrentLinkedQueue<>();
-
 		testHarness.invoke();
 		testHarness.waitForTaskCompletion();
 
-		expectedOutput.add(new StreamRecord<>("Hello"));
-		expectedOutput.add(new StreamRecord<>("[Source0]: EndOfInput"));
-		expectedOutput.add(new StreamRecord<>("[Source0]: Bye"));
-		expectedOutput.add(new StreamRecord<>("[Operator1]: EndOfInput"));
-		expectedOutput.add(new StreamRecord<>("[Operator1]: Bye"));
+		ArrayList<StreamRecord<String>> expected = new ArrayList<>();
+		Collections.addAll(expected,
+			new StreamRecord<>("Hello"),
+			new StreamRecord<>("[Source0]: End of input"),
+			new StreamRecord<>("[Source0]: Bye"),
+			new StreamRecord<>("[Source0]: Timer registered in close"),
+			new StreamRecord<>("[Operator1]: End of input"),
+			new StreamRecord<>("[Operator1]: Bye"),
+			new StreamRecord<>("[Operator1]: Timer registered in close"));
 
-		TestHarnessUtil.assertOutputEquals("Output was not correct.",
-			expectedOutput,
-			testHarness.getOutput());
+		Object[] output = testHarness.getOutput().toArray();
+
+		assertTrue(output.length >= (expected.size() - 2));
+		for (int[] indexes : new int[][] {{output.length - 1, expected.size() - 1}, {3, 3}}) {
+			@SuppressWarnings("unchecked")
+			StreamRecord<String> record = (StreamRecord<String>) output[indexes[0]];
+			if (!record.getValue().endsWith("Timer registered in close")) {
+				expected.remove(indexes[1]);
+			}
+		}
+		assertArrayEquals("Output was not correct.", expected.toArray(), output);
 	}
 
 	@Test
@@ -226,7 +239,7 @@ public class SourceStreamTaskTest {
 		ConcurrentLinkedQueue<Object> expectedOutput = new ConcurrentLinkedQueue<>();
 
 		testHarness.invoke();
-		CancelTestSource.getDataProcessing().get();
+		CancelTestSource.getDataProcessing().await();
 		testHarness.getTask().cancel();
 
 		try {
@@ -605,9 +618,9 @@ public class SourceStreamTaskTest {
 	private static class CancelTestSource extends FromElementsFunction<String> {
 		private static final long serialVersionUID = 8713065281092996067L;
 
-		private static CompletableFuture<Void> dataProcessing = new CompletableFuture<>();
+		private static MultiShotLatch dataProcessing = new MultiShotLatch();
 
-		private static CompletableFuture<Void> cancellationWaiting = new CompletableFuture<>();
+		private static MultiShotLatch cancellationWaiting = new MultiShotLatch();
 
 		public CancelTestSource(TypeSerializer<String> serializer, String... elements) throws IOException {
 			super(serializer, elements);
@@ -617,18 +630,17 @@ public class SourceStreamTaskTest {
 		public void run(SourceContext<String> ctx) throws Exception {
 			super.run(ctx);
 
-			dataProcessing.complete(null);
-			cancellationWaiting.get();
+			dataProcessing.trigger();
+			cancellationWaiting.await();
 		}
 
 		@Override
 		public void cancel() {
 			super.cancel();
-
-			cancellationWaiting.complete(null);
+			cancellationWaiting.trigger();
 		}
 
-		public static CompletableFuture<Void> getDataProcessing() {
+		public static MultiShotLatch getDataProcessing() {
 			return dataProcessing;
 		}
 	}
@@ -685,12 +697,20 @@ public class SourceStreamTaskTest {
 
 		@Override
 		public void endInput() {
-			output.collect(new StreamRecord<>("[" + name + "]: EndOfInput"));
+			output("[" + name + "]: End of input");
 		}
 
 		@Override
-		public void close() {
-			output.collect(new StreamRecord<>("[" + name + "]: Bye"));
+		public void close() throws Exception {
+			ProcessingTimeService timeService = getProcessingTimeService();
+			timeService.registerTimer(timeService.getCurrentProcessingTime(), t -> output("[" + name + "]: Timer registered in close"));
+
+			output("[" + name + "]: Bye");
+			super.close();
+		}
+
+		private void output(String record) {
+			output.collect(new StreamRecord<>(record));
 		}
 	}
 }

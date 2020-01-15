@@ -48,18 +48,21 @@ import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.io.StreamTwoInputProcessor;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
-import org.apache.flink.streaming.util.TestBoundedTwoInputOperator;
 import org.apache.flink.streaming.util.TestHarnessUtil;
 
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link TwoInputStreamTask}. Theses tests implicitly also test the
@@ -573,7 +576,7 @@ public class TwoInputStreamTaskTest {
 	}
 
 	@Test
-	public void testHandlingEndOfInput() throws Exception {
+	public void testClosingAllOperatorsOnChainProperly() throws Exception {
 		final TwoInputStreamTaskTestHarness<String, String, String> testHarness = new TwoInputStreamTaskTestHarness<>(
 			TwoInputStreamTask::new,
 			BasicTypeInfo.STRING_TYPE_INFO,
@@ -590,8 +593,6 @@ public class TwoInputStreamTaskTest {
 				BasicTypeInfo.STRING_TYPE_INFO.createSerializer(new ExecutionConfig()))
 			.finish();
 
-		ConcurrentLinkedQueue<Object> expectedOutput = new ConcurrentLinkedQueue<>();
-
 		testHarness.invoke();
 		testHarness.waitForTaskRunning();
 
@@ -605,17 +606,29 @@ public class TwoInputStreamTaskTest {
 
 		testHarness.waitForTaskCompletion();
 
-		expectedOutput.add(new StreamRecord<>("[Operator0-1]: Hello-1"));
-		expectedOutput.add(new StreamRecord<>("[Operator0-1]: EndOfInput"));
-		expectedOutput.add(new StreamRecord<>("[Operator0-2]: Hello-2"));
-		expectedOutput.add(new StreamRecord<>("[Operator0-2]: EndOfInput"));
-		expectedOutput.add(new StreamRecord<>("[Operator0]: Bye"));
-		expectedOutput.add(new StreamRecord<>("[Operator1]: EndOfInput"));
-		expectedOutput.add(new StreamRecord<>("[Operator1]: Bye"));
+		ArrayList<StreamRecord<String>> expected = new ArrayList<>();
+		Collections.addAll(expected,
+			new StreamRecord<>("[Operator0-1]: Hello-1"),
+			new StreamRecord<>("[Operator0-1]: End of input"),
+			new StreamRecord<>("[Operator0-2]: Hello-2"),
+			new StreamRecord<>("[Operator0-2]: End of input"),
+			new StreamRecord<>("[Operator0]: Bye"),
+			new StreamRecord<>("[Operator0]: Timer registered in close"),
+			new StreamRecord<>("[Operator1]: End of input"),
+			new StreamRecord<>("[Operator1]: Bye"),
+			new StreamRecord<>("[Operator1]: Timer registered in close"));
 
-		TestHarnessUtil.assertOutputEquals("Output was not correct.",
-			expectedOutput,
-			testHarness.getOutput());
+		Object[] output = testHarness.getOutput().toArray();
+
+		assertTrue(output.length >= (expected.size() - 2));
+		for (int[] indexes : new int[][] {{output.length - 1, expected.size() - 1}, {5, 5}}) {
+			@SuppressWarnings("unchecked")
+			StreamRecord<String> record = (StreamRecord<String>) output[indexes[0]];
+			if (!record.getValue().endsWith("Timer registered in close")) {
+				expected.remove(indexes[1]);
+			}
+		}
+		assertArrayEquals("Output was not correct.", expected.toArray(), output);
 	}
 
 	// This must only be used in one test, otherwise the static fields will be changed
