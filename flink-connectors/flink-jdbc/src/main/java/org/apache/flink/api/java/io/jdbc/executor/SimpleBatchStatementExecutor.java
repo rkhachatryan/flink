@@ -18,24 +18,20 @@
 
 package org.apache.flink.api.java.io.jdbc.executor;
 
-import org.apache.flink.types.Row;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import static org.apache.flink.api.java.io.jdbc.JDBCUtils.setRecordToStatement;
-
-class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<Row> {
+class SimpleBatchStatementExecutor<T> implements JdbcBatchStatementExecutor<T> {
 
 	private final String sql;
-	private final int[] paramTypes;
+	private final ParameterSetter<T> parameterSetter;
 
 	private transient PreparedStatement st;
 
-	SimpleBatchStatementExecutor(String sql, int[] paramTypes) {
+	SimpleBatchStatementExecutor(String sql, ParameterSetter<T> parameterSetter) {
 		this.sql = sql;
-		this.paramTypes = paramTypes;
+		this.parameterSetter = parameterSetter;
 	}
 
 	@Override
@@ -44,8 +40,8 @@ class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<Row> {
 	}
 
 	@Override
-	public void process(Row record) throws SQLException {
-		setRecordToStatement(st, paramTypes, record);
+	public void process(T record) throws SQLException {
+		parameterSetter.accept(st, record);
 		st.addBatch();
 	}
 
