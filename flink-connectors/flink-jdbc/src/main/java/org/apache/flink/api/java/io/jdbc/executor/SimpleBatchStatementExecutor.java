@@ -16,9 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.flink.api.java.io.jdbc.writer;
+package org.apache.flink.api.java.io.jdbc.executor;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.types.Row;
 
 import java.sql.Connection;
@@ -26,47 +25,40 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static org.apache.flink.api.java.io.jdbc.JDBCUtils.setRecordToStatement;
-import static org.apache.flink.util.Preconditions.checkArgument;
 
-/**
- * Just append record to jdbc, can not receive retract/delete message.
- */
-public class AppendOnlyWriter implements JDBCWriter {
+class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<Row> {
 
-	private static final long serialVersionUID = 1L;
+	private final String sql;
+	private final int[] paramTypes;
 
-	private final String insertSQL;
-	private final int[] fieldTypes;
+	private transient PreparedStatement st;
 
-	private transient PreparedStatement statement;
-
-	public AppendOnlyWriter(String insertSQL, int[] fieldTypes) {
-		this.insertSQL = insertSQL;
-		this.fieldTypes = fieldTypes;
+	SimpleBatchStatementExecutor(String sql, int[] paramTypes) {
+		this.sql = sql;
+		this.paramTypes = paramTypes;
 	}
 
 	@Override
 	public void open(Connection connection) throws SQLException {
-		this.statement = connection.prepareStatement(insertSQL);
+		this.st = connection.prepareStatement(sql);
 	}
 
 	@Override
-	public void addRecord(Tuple2<Boolean, Row> record) throws SQLException {
-		checkArgument(record.f0, "Append mode can not receive retract/delete message.");
-		setRecordToStatement(statement, fieldTypes, record.f1);
-		statement.addBatch();
+	public void process(Row record) throws SQLException {
+		setRecordToStatement(st, paramTypes, record);
+		st.addBatch();
 	}
 
 	@Override
 	public void executeBatch() throws SQLException {
-		statement.executeBatch();
+		st.executeBatch();
 	}
 
 	@Override
 	public void close() throws SQLException {
-		if (statement != null) {
-			statement.close();
-			statement = null;
+		if (st != null) {
+			st.close();
+			st = null;
 		}
 	}
 }
