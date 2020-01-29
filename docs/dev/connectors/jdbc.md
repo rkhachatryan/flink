@@ -113,3 +113,78 @@ Please refer to the [API documentation]({{ site.javadocs_baseurl }}/api/java/org
 ### Drawbacks
 1. Pre-requisites must be met
 1. Index overhead
+
+## Exactly once
+[JdbcXaSinkFunction]({{ site.javadocs_baseurl }}/api/java/org/apache/flink/api/java/io/jdbc/xa/JdbcXaSinkFunction.html)
+uses XA transactions to provide exactly once guarantees.
+
+That is, if a checkpoint succeeds, all records sent as part of this checkpoint are committed
+
+If a checkpoint fails then job is restarted, database transaction is rolled back, and records are sent again.
+
+Each parallel subtask has it's own transactions, independent from other subtasks.
+
+### Pre-requisites
+Database driver support.
+Most RDBMS vendors support XA and include necessary classes into their standard driver jars.
+
+### Usage
+{% highlight java %}
+RecordConverter<Book> rowConverter = book -> {
+    Row row = new Row(3);
+    row.setField(0, entry.id);
+    row.setField(1, entry.title);
+    row.setField(2, entry.author);
+    return row;
+};
+DataSourceSupplier dsFactory = () -> {
+    MysqlXADataSource ds = new MysqlXADataSource();
+    // configure data source ...
+    return ds;
+};
+
+SinkFunction<Object> sink = FlinkJDBCFacade.exactlyOnceSink(
+        JDBCInsertOptions.from("insert into books values(?,?,?)", INTEGER, VARCHAR, VARCHAR),
+        JDBCBatchOptions.defaults(),
+        JDBCExactlyOnceOptions.defaults(),
+        dsFactory,
+        rowConverter);
+{% endhighlight %}
+
+Please refer to the [API documentation]({{ site.javadocs_baseurl }}/api/java/org/apache/flink/api/java/io/jdbc/JdbcXaExactlyOnceSinkFunction.html) for more details.
+
+### XID generation
+By default xids are derived from:
+1. checkpoint id
+1. subtask index
+1. 4 random bytes to provide uniqueness across other jobs and apps (generated at startup using SecureRandom)
+
+If this doesn't suit your environment (i.e. xids can collide) you can provide your XidGenerator implementation.
+
+### Transactions cleanup after failures.
+By default Flink rolls back only transactions that are known to it, i.e. saved in state.
+If the database you use supports setting XA timeout, you should set it using JDBCExactlyOnceOptionsBuilder#setTimeoutSec.
+
+You can instruct it to rollback other prepared transactions by using recoveredAndRollback constructor parameter.
+
+NOTE that this can have some undesired effects:
+- interfere with other subtasks or applications (one subtask rolling back transactions prepared by the other one (and known to it))
+- block when using with some non-MVCC databases, if there are ended-not-prepared transactions
+
+### State size
+In the common case state holds only the previous and current transactions. 
+However, it may contain more data in the following cases:
+1. when commit failures accumulate. This can be controlled by the maxCommitAttempts parameter
+1. after recovery from state with several not committed transactions
+1. when MaxConcurrentCheckpoints is > 1
+
+### Drawbacks
+1. Pre-requisites must be met
+1. transactions overhead (e.g. potential GC delay and increased undo segment)
+
+### Limitations
+1. Consistency is only guaranteed within partitions.
+1. In some cases Flink is unable to rollback prepared transaction upon job recovery. In this case you can either:
+   1. use timeouts (if they are supported by the database)
+   1. allow Flink to request all prepared transaction and roll them back (recoveredAndRollback option)
+   1. rollback manually
