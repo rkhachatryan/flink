@@ -44,10 +44,9 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 
 	private static final Logger LOG = LoggerFactory.getLogger(JdbcBatchingOutputFormat.class);
 
-	static final int DEFAULT_MAX_RETRY_TIMES = 3;
-
-	final JdbcDmlOptions dmlOptions;
-	private final JdbcBatchOptions batchOptions;
+	private final JdbcExecutionOptions executionOptions;
+	private final Function<RuntimeContext, JdbcExec> statementRunnerCreator;
+	final Function<In, JdbcIn> jdbcRecordExtractor;
 
 	private transient JdbcExec jdbcStatementExecutor;
 	private transient int batchCount = 0;
@@ -56,17 +55,13 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
 	private transient volatile Exception flushException;
-	private final Function<RuntimeContext, JdbcExec> statementRunnerCreator;
-	final Function<In, JdbcIn> jdbcRecordExtractor;
 
 	JdbcBatchingOutputFormat(JdbcConnectionOptions connectionOptions,
-								JdbcDmlOptions dmlOptions,
-								JdbcBatchOptions batchOptions,
+								JdbcExecutionOptions executionOptions,
 								Function<RuntimeContext, JdbcExec> statementExecutorCreator,
 								Function<In, JdbcIn> recordExtractor) {
 		super(connectionOptions);
-		this.dmlOptions = dmlOptions;
-		this.batchOptions = batchOptions;
+		this.executionOptions = executionOptions;
 		this.statementRunnerCreator = statementExecutorCreator;
 		this.jdbcRecordExtractor = recordExtractor;
 	}
@@ -85,7 +80,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 		} catch (SQLException e) {
 			throw new IOException("unable to open JDBC writer", e);
 		}
-		if (batchOptions.getIntervalMs() != 0 && batchOptions.getSize() != 1) {
+		if (executionOptions.getBatchIntervalMs() != 0 && executionOptions.getBatchSize() != 1) {
 			this.scheduler = Executors.newScheduledThreadPool(1, new ExecutorThreadFactory("jdbc-upsert-output-format"));
 			this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(() -> {
 				synchronized (JdbcBatchingOutputFormat.this) {
@@ -97,7 +92,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 						}
 					}
 				}
-			}, batchOptions.getIntervalMs(), batchOptions.getIntervalMs(), TimeUnit.MILLISECONDS);
+			}, executionOptions.getBatchIntervalMs(), executionOptions.getBatchIntervalMs(), TimeUnit.MILLISECONDS);
 		}
 	}
 
@@ -114,7 +109,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 		try {
 			doWriteRecord(record);
 			batchCount++;
-			if (batchCount >= batchOptions.getSize()) {
+			if (batchCount >= executionOptions.getBatchSize()) {
 				flush();
 			}
 		} catch (Exception e) {
@@ -130,14 +125,14 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 	public synchronized void flush() throws IOException {
 		checkFlushException();
 
-		for (int i = 1; i <= dmlOptions.getMaxRetries(); i++) {
+		for (int i = 1; i <= executionOptions.getMaxRetries(); i++) {
 			try {
 				attemptFlush();
 				batchCount = 0;
 				break;
 			} catch (SQLException e) {
 				LOG.error("JDBC executeBatch error, retry times = {}", i, e);
-				if (i >= dmlOptions.getMaxRetries()) {
+				if (i >= executionOptions.getMaxRetries()) {
 					throw new IOException(e);
 				}
 				try {
@@ -201,7 +196,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 		private int[] fieldTypes;
 		private int flushMaxSize = DEFAULT_FLUSH_MAX_SIZE;
 		private long flushIntervalMills = DEFAULT_FLUSH_INTERVAL_MILLS;
-		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+		private int maxRetryTimes = JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES;
 
 		/**
 		 * required, jdbc options.
@@ -270,12 +265,11 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 			checkNotNull(fieldNames, "No fieldNames supplied.");
 			JdbcDmlOptions dml = JdbcDmlOptions.builder()
 					.withTableName(options.getTableName()).withDialect(options.getDialect().getName())
-					.withFieldNames(fieldNames).withKeyFields(keyFields).withFieldTypes(fieldTypes).withMaxRetries(maxRetryTimes).build();
+					.withFieldNames(fieldNames).withKeyFields(keyFields).withFieldTypes(fieldTypes).build();
 			if (dml.getKeyFields() == null || dml.getKeyFields().length == 0) {
 				return new JdbcBatchingOutputFormat<>(
 						options,
-						dml,
-						JdbcBatchOptions.builder().withSize(flushMaxSize).withIntervalMs(flushIntervalMills).build(),
+						JdbcExecutionOptions.builder().withBatchSize(flushMaxSize).withMaxRetries(maxRetryTimes).withBatchIntervalMs(flushIntervalMills).build(),
 						unused -> JdbcBatchStatementExecutor.simpleRow(
 								options.getDialect().getInsertIntoStatement(dml.getTableName(), dml.getFieldNames()),
 								dml.getFieldTypes()),
@@ -287,7 +281,7 @@ class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementEx
 				return new TableJdbcUpsertOutputFormat(
 						options,
 						dml,
-						JdbcBatchOptions.builder().withSize(flushMaxSize).withIntervalMs(flushIntervalMills).build());
+						JdbcExecutionOptions.builder().withBatchSize(flushMaxSize).withBatchIntervalMs(flushIntervalMills).build());
 			}
 		}
 	}

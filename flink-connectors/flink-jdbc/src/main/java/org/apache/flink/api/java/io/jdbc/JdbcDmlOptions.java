@@ -32,8 +32,6 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 
 	private static final long serialVersionUID = 1L;
 
-	private static final int DEFAULT_MAX_RETRY_TIMES = 3;
-
 	private final String[] fieldNames;
 	@Nullable
 	private final String[] keyFields;
@@ -41,25 +39,19 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 	private final JDBCDialectName dialectName;
 	@Nullable
 	private final JDBCDialect customDialect;
-	private final int maxRetries;
 
-	public static JDBCUpsertOptionsBuilder builder() {
-		return new JDBCUpsertOptionsBuilder();
+	public static JdbcDmlOptionsBuilder builder() {
+		return new JdbcDmlOptionsBuilder();
 	}
 
-	private JdbcDmlOptions(String tableName, JDBCDialectName dialectName, String[] fieldNames, int[] fieldTypes, String[] keyFields, int maxRetries, @Nullable JDBCDialect customDialect) {
+	private JdbcDmlOptions(String tableName, JDBCDialectName dialectName, String[] fieldNames, int[] fieldTypes, String[] keyFields, @Nullable JDBCDialect customDialect) {
 		super(fieldTypes);
 		this.tableName = Preconditions.checkNotNull(tableName, "table is empty");
 		this.dialectName = Preconditions.checkNotNull(dialectName, "dialect name is empty");
 		this.fieldNames = Preconditions.checkNotNull(fieldNames, "field names is empty");
 		this.keyFields = keyFields;
-		this.maxRetries = maxRetries;
 		this.customDialect = customDialect;
 		Preconditions.checkArgument((dialectName == JDBCDialectName.CUSTOM) == (customDialect != null));
-	}
-
-	public int getMaxRetries() {
-		return maxRetries;
 	}
 
 	public String getTableName() {
@@ -87,50 +79,44 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 	/**
 	 * JDBCUpsertOptionsBuilder.
 	 */
-	public static class JDBCUpsertOptionsBuilder extends JDBCUpdateQueryOptionsBuilder<JDBCUpsertOptionsBuilder> {
+	public static class JdbcDmlOptionsBuilder extends JDBCUpdateQueryOptionsBuilder<JdbcDmlOptionsBuilder> {
 		private String tableName;
 		private String[] fieldNames;
 		private String[] keyFields;
 		private JDBCDialectName dialectName;
 		private JDBCDialect customDialect;
-		private int maxRetries = DEFAULT_MAX_RETRY_TIMES;
-
-		public JDBCUpsertOptionsBuilder withMaxRetries(int maxRetries) {
-			this.maxRetries = maxRetries;
-			return this;
-		}
 
 		@Override
-		protected JDBCUpsertOptionsBuilder self() {
+		protected JdbcDmlOptionsBuilder self() {
 			return this;
 		}
 
-		public JDBCUpsertOptionsBuilder withFieldNames(String field, String... fieldNames) {
+		public JdbcDmlOptionsBuilder withFieldNames(String field, String... fieldNames) {
 			this.fieldNames = concat(field, fieldNames);
 			return this;
 		}
 
-		public JDBCUpsertOptionsBuilder withFieldNames(String[] fieldNames) {
+		public JdbcDmlOptionsBuilder withFieldNames(String[] fieldNames) {
 			this.fieldNames = fieldNames;
 			return this;
 		}
 
-		public JDBCUpsertOptionsBuilder withKeyFields(String keyField, String... keyFields) {
+		public JdbcDmlOptionsBuilder withKeyFields(String keyField, String... keyFields) {
 			this.keyFields = concat(keyField, keyFields);
 			return this;
 		}
 
-		public JDBCUpsertOptionsBuilder withKeyFields(String[] keyFields) {
+		public JdbcDmlOptionsBuilder withKeyFields(String[] keyFields) {
 			this.keyFields = keyFields;
 			return this;
 		}
 
-		public JDBCUpsertOptionsBuilder withTableName(String tableName) {
+		public JdbcDmlOptionsBuilder withTableName(String tableName) {
 			this.tableName = tableName;
 			return self();
 		}
 
-		public JDBCUpsertOptionsBuilder withDialect(JDBCDialectName dialect) {
+		public JdbcDmlOptionsBuilder withDialect(JDBCDialectName dialect) {
 			this.dialectName = dialect;
 			return self();
 		}
@@ -141,7 +127,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 		}
 
 		public JdbcDmlOptions build() {
-			return new JdbcDmlOptions(tableName, dialectName, fieldNames, fieldTypes, keyFields, maxRetries, customDialect);
+			return new JdbcDmlOptions(tableName, dialectName, fieldNames, fieldTypes, keyFields, customDialect);
 		}
 
 		static String[] concat(String first, String... next) {
