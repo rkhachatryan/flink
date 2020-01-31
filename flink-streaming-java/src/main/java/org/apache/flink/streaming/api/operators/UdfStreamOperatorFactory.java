@@ -26,7 +26,7 @@ import org.apache.flink.api.common.functions.Function;
  * @param <OUT> The output type of the operator
  */
 @Internal
-public interface UdfStreamOperatorFactory<OUT> extends StreamOperatorFactory<OUT> {
+public interface UdfStreamOperatorFactory<OUT, T extends StreamOperator<OUT>> extends StreamOperatorFactory<OUT, T> {
 
 	/**
 	 * @return user define function.

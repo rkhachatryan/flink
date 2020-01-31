@@ -28,7 +28,6 @@ import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.Output;
-import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.OneInputStreamTask;
@@ -78,7 +77,7 @@ public class StreamTaskOperatorTimerTest extends TestLogger {
 		assertThat(events, is(Arrays.asList(trigger, RESULT_PREFIX + "1:0", RESULT_PREFIX + "0:0")));
 	}
 
-	private static class TestOperatorFactory implements OneInputStreamOperatorFactory<String, String>, YieldingOperatorFactory<String> {
+	private static class TestOperatorFactory implements OneInputStreamOperatorFactory<String, String, TestOperator>, YieldingOperatorFactory<String, TestOperator> {
 		private MailboxExecutor mailboxExecutor;
 
 		@Override
@@ -87,13 +86,13 @@ public class StreamTaskOperatorTimerTest extends TestLogger {
 		}
 
 		@Override
-		public <Operator extends StreamOperator<String>> Operator createStreamOperator(
+		public TestOperator createStreamOperator(
 				StreamTask<?, ?> containingTask,
 				StreamConfig config,
 				Output<StreamRecord<String>> output) {
 			TestOperator operator = new TestOperator(config.getChainIndex(), mailboxExecutor);
 			operator.setup(containingTask, config, output);
-			return (Operator) operator;
+			return operator;
 		}
 
 		@Override
@@ -106,7 +105,7 @@ public class StreamTaskOperatorTimerTest extends TestLogger {
 		}
 
 		@Override
-		public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+		public Class<TestOperator> getStreamOperatorClass(ClassLoader classLoader) {
 			return TestOperator.class;
 		}
 	}

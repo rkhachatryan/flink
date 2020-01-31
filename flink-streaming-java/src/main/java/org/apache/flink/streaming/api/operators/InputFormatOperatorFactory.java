@@ -27,7 +27,7 @@ import org.apache.flink.core.io.InputSplit;
  * @param <OUT> The output type of the operator
  */
 @Internal
-public interface InputFormatOperatorFactory<OUT> extends StreamOperatorFactory<OUT> {
+public interface InputFormatOperatorFactory<OUT, T extends StreamOperator<OUT>> extends StreamOperatorFactory<OUT, T> {
 
 	/**
 	 * @return input format of this operator factory.

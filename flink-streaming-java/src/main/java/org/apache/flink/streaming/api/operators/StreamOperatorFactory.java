@@ -33,13 +33,12 @@ import java.io.Serializable;
  * @param <OUT> The output type of the operator
  */
 @Internal
-public interface StreamOperatorFactory<OUT> extends Serializable {
+public interface StreamOperatorFactory<OUT, T extends StreamOperator<OUT>> extends Serializable {
 
 	/**
 	 * Create the operator. Sets access to the context and the output.
 	 */
-	<T extends StreamOperator<OUT>> T createStreamOperator(
-			StreamTask<?, ?> containingTask, StreamConfig config, Output<StreamRecord<OUT>> output);
+	T createStreamOperator(StreamTask<?, ?> containingTask, StreamConfig config, Output<StreamRecord<OUT>> output);
 
 	/**
 	 * Set the chaining strategy for operator factory.
@@ -96,5 +95,5 @@ public interface StreamOperatorFactory<OUT> extends Serializable {
 	/**
 	 * Returns the runtime class of the stream operator.
 	 */
-	Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader);
+	Class<? super T> getStreamOperatorClass(ClassLoader classLoader);
 }

@@ -26,13 +26,10 @@ import org.apache.flink.api.common.functions.Function;
  * @param <OUT> The output type of the operator
  */
 @Internal
-public class SimpleUdfStreamOperatorFactory<OUT> extends SimpleOperatorFactory<OUT> implements UdfStreamOperatorFactory<OUT> {
+public class SimpleUdfStreamOperatorFactory<OUT, T extends AbstractUdfStreamOperator<OUT, ?>> extends SimpleOperatorFactory<OUT, T> implements UdfStreamOperatorFactory<OUT, T> {
 
-	private final AbstractUdfStreamOperator<OUT, ?> operator;
-
-	public SimpleUdfStreamOperatorFactory(AbstractUdfStreamOperator<OUT, ?> operator) {
+	public SimpleUdfStreamOperatorFactory(T operator) {
 		super(operator);
-		this.operator = operator;
 	}
 
 	@Override

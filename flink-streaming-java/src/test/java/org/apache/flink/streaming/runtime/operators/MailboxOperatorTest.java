@@ -27,7 +27,6 @@ import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.Output;
-import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.OneInputStreamTask;
@@ -80,8 +79,8 @@ public class MailboxOperatorTest extends TestLogger {
 		assertThat(numMailsProcessed, is(Arrays.asList(0, 2, 4)));
 	}
 
-	private static class ReplicatingMailOperatorFactory implements OneInputStreamOperatorFactory<Integer, Integer>,
-			YieldingOperatorFactory<Integer> {
+	private static class ReplicatingMailOperatorFactory implements OneInputStreamOperatorFactory<Integer, Integer, ReplicatingMailOperator>,
+			YieldingOperatorFactory<Integer, ReplicatingMailOperator> {
 		private MailboxExecutor mailboxExecutor;
 
 		@Override
@@ -90,13 +89,13 @@ public class MailboxOperatorTest extends TestLogger {
 		}
 
 		@Override
-		public <Operator extends StreamOperator<Integer>> Operator createStreamOperator(
+		public ReplicatingMailOperator createStreamOperator(
 				StreamTask<?, ?> containingTask,
 				StreamConfig config,
 				Output<StreamRecord<Integer>> output) {
 			ReplicatingMailOperator operator = new ReplicatingMailOperator(mailboxExecutor);
 			operator.setup(containingTask, config, output);
-			return (Operator) operator;
+			return operator;
 		}
 
 		@Override
@@ -109,7 +108,7 @@ public class MailboxOperatorTest extends TestLogger {
 		}
 
 		@Override
-		public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+		public Class<ReplicatingMailOperator> getStreamOperatorClass(ClassLoader classLoader) {
 			return ReplicatingMailOperator.class;
 		}
 	}

@@ -21,6 +21,6 @@ package org.apache.flink.streaming.api.operators;
  * An operator that needs access to the {@link MailboxExecutor} to yield to downstream operators needs to be created
  * through a factory implementing this interface.
  */
-public interface YieldingOperatorFactory<OUT> extends StreamOperatorFactory<OUT> {
+public interface YieldingOperatorFactory<OUT, T extends StreamOperator<OUT>> extends StreamOperatorFactory<OUT, T> {
 	void setMailboxExecutor(MailboxExecutor mailboxExecutor);
 }

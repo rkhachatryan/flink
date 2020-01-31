@@ -595,8 +595,8 @@ public class StreamingJobGraphGenerator {
 		StreamNode upStreamVertex = streamGraph.getSourceVertex(edge);
 		StreamNode downStreamVertex = streamGraph.getTargetVertex(edge);
 
-		StreamOperatorFactory<?> headOperator = upStreamVertex.getOperatorFactory();
-		StreamOperatorFactory<?> outOperator = downStreamVertex.getOperatorFactory();
+		StreamOperatorFactory<?, ?> headOperator = upStreamVertex.getOperatorFactory();
+		StreamOperatorFactory<?, ?> outOperator = downStreamVertex.getOperatorFactory();
 
 		return downStreamVertex.getInEdges().size() == 1
 				&& outOperator != null

@@ -29,16 +29,12 @@ import static org.apache.flink.util.Preconditions.checkState;
  * @param <IN> The input type of the operator.
  */
 @Internal
-public class SimpleOutputFormatOperatorFactory<IN>
-	extends SimpleOperatorFactory<Object> implements OutputFormatOperatorFactory<IN> {
+public class SimpleOutputFormatOperatorFactory<IN, T extends StreamSink<IN>>
+	extends SimpleOperatorFactory<Object, T> implements OutputFormatOperatorFactory<IN, T> {
 
-	private final StreamSink<IN> operator;
-
-	public SimpleOutputFormatOperatorFactory(StreamSink<IN> operator) {
+	public SimpleOutputFormatOperatorFactory(T operator) {
 		super(operator);
-
 		checkState(operator.getUserFunction() instanceof OutputFormatSinkFunction);
-		this.operator = operator;
 	}
 
 	@Override

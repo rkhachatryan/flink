@@ -24,7 +24,6 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.Output;
-import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.YieldingOperatorFactory;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 
@@ -33,7 +32,7 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
  *
  * @param <OUT> The output type of the operator
  */
-public class AsyncWaitOperatorFactory<IN, OUT> implements OneInputStreamOperatorFactory<IN, OUT>, YieldingOperatorFactory<OUT> {
+public class AsyncWaitOperatorFactory<IN, OUT> implements OneInputStreamOperatorFactory<IN, OUT, AsyncWaitOperator<IN, OUT>>, YieldingOperatorFactory<OUT, AsyncWaitOperator<IN, OUT>> {
 	private final AsyncFunction<IN, OUT> asyncFunction;
 	private final long timeout;
 	private final int capacity;
@@ -58,8 +57,8 @@ public class AsyncWaitOperatorFactory<IN, OUT> implements OneInputStreamOperator
 	}
 
 	@Override
-	public StreamOperator createStreamOperator(StreamTask containingTask, StreamConfig config, Output output) {
-		AsyncWaitOperator asyncWaitOperator = new AsyncWaitOperator(
+	public AsyncWaitOperator<IN, OUT> createStreamOperator(StreamTask containingTask, StreamConfig config, Output output) {
+		AsyncWaitOperator<IN, OUT> asyncWaitOperator = new AsyncWaitOperator<>(
 				asyncFunction,
 				timeout,
 				capacity,
@@ -80,7 +79,8 @@ public class AsyncWaitOperatorFactory<IN, OUT> implements OneInputStreamOperator
 	}
 
 	@Override
-	public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+	@SuppressWarnings("rawtypes")
+	public Class<AsyncWaitOperator> getStreamOperatorClass(ClassLoader classLoader) {
 		return AsyncWaitOperator.class;
 	}
 }

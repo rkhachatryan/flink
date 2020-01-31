@@ -26,7 +26,7 @@ import org.apache.flink.api.common.io.OutputFormat;
  * @param <IN> The input type of the operator.
  */
 @Internal
-public interface OutputFormatOperatorFactory<IN> extends StreamOperatorFactory<Object> {
+public interface OutputFormatOperatorFactory<IN, T extends StreamOperator<Object>> extends StreamOperatorFactory<Object, T> {
 
 	/**
 	 * @return output format of the operator created by this factory.

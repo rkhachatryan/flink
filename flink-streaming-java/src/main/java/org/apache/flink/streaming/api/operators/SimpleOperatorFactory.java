@@ -35,31 +35,31 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <OUT> The output type of the operator
  */
 @Internal
-public class SimpleOperatorFactory<OUT> implements StreamOperatorFactory<OUT> {
+public class SimpleOperatorFactory<OUT, T extends StreamOperator<OUT>> implements StreamOperatorFactory<OUT, T> {
 
-	private final StreamOperator<OUT> operator;
+	protected final T operator;
 
 	/**
 	 * Create a SimpleOperatorFactory from existed StreamOperator.
 	 */
 	@SuppressWarnings("unchecked")
-	public static <OUT> SimpleOperatorFactory<OUT> of(StreamOperator<OUT> operator) {
+	public static <OUT, T extends StreamOperator<OUT>> SimpleOperatorFactory<OUT, ?> of(T operator) {
 		if (operator == null) {
 			return null;
 		} else if (operator instanceof StreamSource &&
-				((StreamSource) operator).getUserFunction() instanceof InputFormatSourceFunction) {
-			return new SimpleInputFormatOperatorFactory<OUT>((StreamSource) operator);
+				((StreamSource<OUT, ?>) operator).getUserFunction() instanceof InputFormatSourceFunction) {
+			return new SimpleInputFormatOperatorFactory<>((StreamSource<OUT, InputFormatSourceFunction<OUT>>) operator);
 		} else if (operator instanceof StreamSink &&
-			((StreamSink) operator).getUserFunction() instanceof OutputFormatSinkFunction) {
-			return new SimpleOutputFormatOperatorFactory<>((StreamSink) operator);
+			((StreamSink<?>) operator).getUserFunction() instanceof OutputFormatSinkFunction) {
+			return (SimpleOperatorFactory<OUT, ?>) new SimpleOutputFormatOperatorFactory<>((StreamSink<Object>) operator);
 		} else if (operator instanceof AbstractUdfStreamOperator) {
-			return new SimpleUdfStreamOperatorFactory<OUT>((AbstractUdfStreamOperator) operator);
+			return new SimpleUdfStreamOperatorFactory<>((AbstractUdfStreamOperator<OUT, ?>) operator);
 		} else {
 			return new SimpleOperatorFactory<>(operator);
 		}
 	}
 
-	protected SimpleOperatorFactory(StreamOperator<OUT> operator) {
+	protected SimpleOperatorFactory(T operator) {
 		this.operator = checkNotNull(operator);
 	}
 
@@ -69,7 +69,7 @@ public class SimpleOperatorFactory<OUT> implements StreamOperatorFactory<OUT> {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <T extends StreamOperator<OUT>> T createStreamOperator(StreamTask<?, ?> containingTask,
+	public T createStreamOperator(StreamTask<?, ?> containingTask,
 			StreamConfig config, Output<StreamRecord<OUT>> output) {
 		if (operator instanceof SetupableStreamOperator) {
 			((SetupableStreamOperator) operator).setup(containingTask, config, output);
@@ -114,7 +114,7 @@ public class SimpleOperatorFactory<OUT> implements StreamOperatorFactory<OUT> {
 	}
 
 	@Override
-	public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
-		return operator.getClass();
+	public Class<T> getStreamOperatorClass(ClassLoader classLoader) {
+		return (Class<T>) operator.getClass();
 	}
 }
