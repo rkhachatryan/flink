@@ -61,7 +61,7 @@ abstract class BatchAggTestBase extends AggTestBase(isBatchMode = true) {
   }
 
   def testOperator(
-      args: (CodeGenOperatorFactory[BaseRow], RowType, RowType),
+      args: (CodeGenOperatorFactory[BaseRow, _], RowType, RowType),
       input: Array[BaseRow], expectedOutput: Array[GenericRow]): Unit = {
     val testHarness = new OneInputStreamTaskTestHarness[BaseRow, BaseRow](
       new function.Function[Environment, OneInputStreamTask[BaseRow, BaseRow]] {

@@ -26,6 +26,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamSink;
 
@@ -44,7 +45,7 @@ public class SinkTransformation<T> extends PhysicalTransformation<Object> {
 
 	private final Transformation<T> input;
 
-	private final StreamOperatorFactory<Object> operatorFactory;
+	private final StreamOperatorFactory<Object, StreamOperator<Object>> operatorFactory;
 
 	// We need this because sinks can also have state that is partitioned by key
 	private KeySelector<T, ?> stateKeySelector;
@@ -70,7 +71,7 @@ public class SinkTransformation<T> extends PhysicalTransformation<Object> {
 	public SinkTransformation(
 			Transformation<T> input,
 			String name,
-			StreamOperatorFactory<Object> operatorFactory,
+			StreamOperatorFactory<Object, StreamOperator<Object>> operatorFactory,
 			int parallelism) {
 		super(name, TypeExtractor.getForClass(Object.class), parallelism);
 		this.input = input;
@@ -92,7 +93,7 @@ public class SinkTransformation<T> extends PhysicalTransformation<Object> {
 	/**
 	 * Returns the {@link StreamOperatorFactory} of this {@code SinkTransformation}.
 	 */
-	public StreamOperatorFactory<Object> getOperatorFactory() {
+	public StreamOperatorFactory<Object, StreamOperator<Object>> getOperatorFactory() {
 		return operatorFactory;
 	}
 

@@ -39,7 +39,7 @@ import java.util.Collections;
 @Internal
 public class SourceTransformation<T> extends PhysicalTransformation<T> {
 
-	private final StreamOperatorFactory<T> operatorFactory;
+	private final StreamOperatorFactory<T, ?> operatorFactory;
 
 	/**
 	 * Creates a new {@code SourceTransformation} from the given operator.
@@ -59,7 +59,7 @@ public class SourceTransformation<T> extends PhysicalTransformation<T> {
 
 	public SourceTransformation(
 			String name,
-			StreamOperatorFactory<T> operatorFactory,
+			StreamOperatorFactory<T, ?> operatorFactory,
 			TypeInformation<T> outputType,
 			int parallelism) {
 		super(name, outputType, parallelism);
@@ -74,7 +74,7 @@ public class SourceTransformation<T> extends PhysicalTransformation<T> {
 	/**
 	 * Returns the {@code StreamOperatorFactory} of this {@code SourceTransformation}.
 	 */
-	public StreamOperatorFactory<T> getOperatorFactory() {
+	public StreamOperatorFactory<T, ?> getOperatorFactory() {
 		return operatorFactory;
 	}
 

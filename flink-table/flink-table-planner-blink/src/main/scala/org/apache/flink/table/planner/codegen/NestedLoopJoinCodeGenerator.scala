@@ -26,10 +26,10 @@ import org.apache.flink.table.runtime.operators.join.FlinkJoinType
 import org.apache.flink.table.runtime.typeutils.AbstractRowSerializer
 import org.apache.flink.table.runtime.util.ResettableExternalBuffer
 import org.apache.flink.table.types.logical.RowType
-
 import org.apache.calcite.rex.RexNode
-
 import java.util
+
+import org.apache.flink.streaming.api.operators.TwoInputStreamOperator
 
 /**
   * Code gen for nested loop join.
@@ -54,7 +54,7 @@ class NestedLoopJoinCodeGenerator(
     }
   }
 
-  def gen(): CodeGenOperatorFactory[BaseRow] = {
+  def gen(): CodeGenOperatorFactory[BaseRow, TwoInputStreamOperator[BaseRow, BaseRow, BaseRow]] = {
     val config = ctx.tableConfig
 
     val exprGenerator = new ExprCodeGenerator(ctx, joinType.isOuter)
@@ -141,7 +141,7 @@ class NestedLoopJoinCodeGenerator(
          """.stripMargin),
       endInputCode1 = Some(endInputCode1),
       endInputCode2 = Some(endInputCode2))
-    new CodeGenOperatorFactory[BaseRow](genOp)
+    new CodeGenOperatorFactory(genOp)
   }
 
   /**

@@ -142,7 +142,7 @@ public class RMQSourceTest {
 		source.autoAck = false;
 
 		StreamSource<String, RMQSource<String>> src = new StreamSource<>(source);
-		AbstractStreamOperatorTestHarness<String> testHarness =
+		AbstractStreamOperatorTestHarness<String, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(src, 1, 1, 0);
 		testHarness.open();
 
@@ -174,7 +174,7 @@ public class RMQSourceTest {
 
 			RMQTestSource sourceCopy = new RMQTestSource();
 			StreamSource<String, RMQTestSource> srcCopy = new StreamSource<>(sourceCopy);
-			AbstractStreamOperatorTestHarness<String> testHarnessCopy =
+			AbstractStreamOperatorTestHarness<String, ?> testHarnessCopy =
 				new AbstractStreamOperatorTestHarness<>(srcCopy, 1, 1, 0);
 
 			testHarnessCopy.setup();

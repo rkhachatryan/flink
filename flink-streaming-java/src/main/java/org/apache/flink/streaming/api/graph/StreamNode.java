@@ -63,7 +63,7 @@ public class StreamNode implements Serializable {
 	private KeySelector<?, ?> statePartitioner2;
 	private TypeSerializer<?> stateKeySerializer;
 
-	private transient StreamOperatorFactory<?> operatorFactory;
+	private transient StreamOperatorFactory<?, ?> operatorFactory;
 	private List<OutputSelector<?>> outputSelectors;
 	private TypeSerializer<?> typeSerializerIn1;
 	private TypeSerializer<?> typeSerializerIn2;
@@ -97,7 +97,7 @@ public class StreamNode implements Serializable {
 		Integer id,
 		@Nullable String slotSharingGroup,
 		@Nullable String coLocationGroup,
-		StreamOperatorFactory<?> operatorFactory,
+		StreamOperatorFactory<?, ?> operatorFactory,
 		String operatorName,
 		List<OutputSelector<?>> outputSelector,
 		Class<? extends AbstractInvokable> jobVertexClass) {
@@ -219,7 +219,7 @@ public class StreamNode implements Serializable {
 		return (StreamOperator<?>) ((SimpleOperatorFactory) operatorFactory).getOperator();
 	}
 
-	public StreamOperatorFactory<?> getOperatorFactory() {
+	public StreamOperatorFactory<?, ?> getOperatorFactory() {
 		return operatorFactory;
 	}
 

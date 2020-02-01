@@ -30,18 +30,17 @@ import org.apache.flink.table.runtime.generated.GeneratedClass;
 /**
  * Stream operator factory for code gen operator.
  */
-public class CodeGenOperatorFactory<OUT> implements StreamOperatorFactory<OUT, StreamOperator<OUT>> {
+public class CodeGenOperatorFactory<OUT, OP extends StreamOperator<OUT>> implements StreamOperatorFactory<OUT, OP> {
 
-	private final GeneratedClass<? extends StreamOperator<OUT>> generatedClass;
+	private final GeneratedClass<OP> generatedClass;
 	private ChainingStrategy strategy = ChainingStrategy.ALWAYS;
 
-	public CodeGenOperatorFactory(GeneratedClass<? extends StreamOperator<OUT>> generatedClass) {
+	public CodeGenOperatorFactory(GeneratedClass<OP> generatedClass) {
 		this.generatedClass = generatedClass;
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
-	public StreamOperator<OUT> createStreamOperator(StreamTask<?, ?> containingTask,
+	public OP createStreamOperator(StreamTask<?, ?> containingTask,
 			StreamConfig config, Output<StreamRecord<OUT>> output) {
 		return generatedClass.newInstance(containingTask.getUserCodeClassLoader(),
 				generatedClass.getReferences(), containingTask, config, output);
@@ -58,8 +57,8 @@ public class CodeGenOperatorFactory<OUT> implements StreamOperatorFactory<OUT, S
 	}
 
 	@Override
-	public Class<StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
-		return (Class<StreamOperator>) generatedClass.getClass(classLoader);
+	public Class<OP> getStreamOperatorClass(ClassLoader classLoader) {
+		return generatedClass.getClass(classLoader);
 	}
 
 	public GeneratedClass<? extends StreamOperator<OUT>> getGeneratedClass() {

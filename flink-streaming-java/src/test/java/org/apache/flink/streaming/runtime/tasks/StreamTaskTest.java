@@ -1779,9 +1779,9 @@ public class StreamTaskTest extends TestLogger {
 		}
 	}
 
-	private static class UnusedOperatorFactory implements StreamOperatorFactory<String> {
+	private static class UnusedOperatorFactory implements StreamOperatorFactory<String, StreamOperator<String>> {
 		@Override
-		public <T extends StreamOperator<String>> T createStreamOperator(
+		public StreamOperator<String> createStreamOperator(
 				StreamTask<?, ?> containingTask,
 				StreamConfig config,
 				Output<StreamRecord<String>> output) {
@@ -1798,7 +1798,7 @@ public class StreamTaskTest extends TestLogger {
 		}
 
 		@Override
-		public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+		public Class<StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
 			throw new UnsupportedOperationException();
 		}
 	}

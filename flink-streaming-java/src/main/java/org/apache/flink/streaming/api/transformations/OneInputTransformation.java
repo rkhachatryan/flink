@@ -46,7 +46,7 @@ public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT>
 
 	private final Transformation<IN> input;
 
-	private final StreamOperatorFactory<OUT> operatorFactory;
+	private final StreamOperatorFactory<OUT, ?> operatorFactory;
 
 	private KeySelector<IN, ?> stateKeySelector;
 
@@ -73,7 +73,7 @@ public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT>
 	public OneInputTransformation(
 			Transformation<IN> input,
 			String name,
-			StreamOperatorFactory<OUT> operatorFactory,
+			StreamOperatorFactory<OUT, ?> operatorFactory,
 			TypeInformation<OUT> outputType,
 			int parallelism) {
 		super(name, outputType, parallelism);
@@ -103,7 +103,7 @@ public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT>
 	/**
 	 * Returns the {@code StreamOperatorFactory} of this Transformation.
 	 */
-	public StreamOperatorFactory<OUT> getOperatorFactory() {
+	public StreamOperatorFactory<OUT, ?> getOperatorFactory() {
 		return operatorFactory;
 	}
 

@@ -26,9 +26,9 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 /**
  * Base class for broadcast stream operator test harnesses.
  */
-public abstract class AbstractBroadcastStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractStreamOperatorTestHarness<OUT>{
+public abstract class AbstractBroadcastStreamOperatorTestHarness<IN1, IN2, OUT, OP extends StreamOperator<OUT>> extends AbstractStreamOperatorTestHarness<OUT, OP>{
 
-	public AbstractBroadcastStreamOperatorTestHarness(StreamOperator<OUT> operator, int maxParallelism, int parallelism, int subtaskIndex) throws Exception {
+	public AbstractBroadcastStreamOperatorTestHarness(OP operator, int maxParallelism, int parallelism, int subtaskIndex) throws Exception {
 		super(operator, maxParallelism, parallelism, subtaskIndex);
 	}
 

@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.codegen
 
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.metrics.Gauge
+import org.apache.flink.streaming.api.operators.TwoInputStreamOperator
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.dataformat.{BaseRow, JoinedRow, SqlTimestamp}
 import org.apache.flink.table.planner.codegen.CodeGenUtils.{BASE_ROW, BINARY_ROW, baseRowFieldReadAccess, className, newName}
@@ -113,7 +114,7 @@ object LongHashJoinGenerator {
       buildRowSize: Int,
       buildRowCount: Long,
       reverseJoinFunction: Boolean,
-      condFunc: GeneratedJoinCondition): CodeGenOperatorFactory[BaseRow] = {
+      condFunc: GeneratedJoinCondition): CodeGenOperatorFactory[BaseRow, TwoInputStreamOperator[BaseRow, BaseRow, BaseRow]] = {
 
     val buildSer = new BinaryRowSerializer(buildType.getFieldCount)
     val probeSer = new BinaryRowSerializer(probeType.getFieldCount)
@@ -361,6 +362,6 @@ object LongHashJoinGenerator {
            |LOG.info("Finish rebuild phase.");
          """.stripMargin))
 
-    new CodeGenOperatorFactory[BaseRow](genOp)
+    new CodeGenOperatorFactory[BaseRow, TwoInputStreamOperator[BaseRow, BaseRow, BaseRow]](genOp)
   }
 }

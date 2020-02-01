@@ -55,19 +55,19 @@ public class ListCheckpointedTest {
 
 	private static void testUDF(TestUserFunction userFunction) throws Exception {
 		OperatorSubtaskState snapshot;
-		try (AbstractStreamOperatorTestHarness<Integer> testHarness = createTestHarness(userFunction)) {
+		try (AbstractStreamOperatorTestHarness<Integer, ?> testHarness = createTestHarness(userFunction)) {
 			testHarness.open();
 			snapshot = testHarness.snapshot(0L, 0L);
 			assertFalse(userFunction.isRestored());
 		}
-		try (AbstractStreamOperatorTestHarness<Integer> testHarness = createTestHarness(userFunction)) {
+		try (AbstractStreamOperatorTestHarness<Integer, ?> testHarness = createTestHarness(userFunction)) {
 			testHarness.initializeState(snapshot);
 			testHarness.open();
 			assertTrue(userFunction.isRestored());
 		}
 	}
 
-	private static AbstractStreamOperatorTestHarness<Integer> createTestHarness(TestUserFunction userFunction) throws Exception {
+	private static AbstractStreamOperatorTestHarness<Integer, ?> createTestHarness(TestUserFunction userFunction) throws Exception {
 		return new AbstractStreamOperatorTestHarness<>(
 			new StreamMap<>(userFunction),
 			1,

@@ -40,7 +40,7 @@ public class AbstractStreamOperatorTestHarnessTest extends TestLogger {
 		expectedException.expect(IllegalStateException.class);
 		expectedException.expectMessage(containsString("TestHarness has already been initialized."));
 
-		AbstractStreamOperatorTestHarness<Integer> result;
+		AbstractStreamOperatorTestHarness<Integer, AbstractStreamOperator<Integer>> result;
 		result =
 			new AbstractStreamOperatorTestHarness<>(
 				new AbstractStreamOperator<Integer>() {

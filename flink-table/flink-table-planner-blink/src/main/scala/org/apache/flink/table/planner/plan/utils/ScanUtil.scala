@@ -33,10 +33,10 @@ import org.apache.flink.table.sources.TableSource
 import org.apache.flink.table.types.DataType
 import org.apache.flink.table.types.logical.RowType
 import org.apache.flink.table.typeutils.TimeIndicatorTypeInfo
-
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rex.RexNode
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator
 
 import scala.collection.JavaConversions._
 
@@ -117,7 +117,7 @@ object ScanUtil {
       outputRowType,
       converter = inputTermConverter)
 
-    val substituteStreamOperator = new CodeGenOperatorFactory[BaseRow](generatedOperator)
+    val substituteStreamOperator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[Any, BaseRow]](generatedOperator)
 
     ExecNode.createOneInputTransformation(
       input.asInstanceOf[Transformation[BaseRow]],

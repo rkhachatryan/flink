@@ -41,8 +41,9 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.Util
 import org.apache.flink.configuration.MemorySize
-
 import java.util
+
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator
 
 import scala.collection.JavaConversions._
 
@@ -139,7 +140,7 @@ abstract class BatchExecHashAggregateBase(
         ctx, relBuilder, aggInfos, inputType, outputType, grouping, auxGrouping, isMerge, isFinal
       ).genWithKeys()
     }
-    val operator = new CodeGenOperatorFactory[BaseRow](generatedOperator)
+    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

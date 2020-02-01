@@ -20,15 +20,13 @@ package org.apache.flink.table.planner.plan.nodes.exec
 
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.dag.Transformation
-import org.apache.flink.streaming.api.operators.StreamOperatorFactory
+import org.apache.flink.streaming.api.operators.{StreamOperatorFactory, TwoInputStreamOperator}
 import org.apache.flink.streaming.api.transformations.{OneInputTransformation, TwoInputTransformation}
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.delegation.Planner
 import org.apache.flink.table.planner.plan.nodes.physical.FlinkPhysicalRel
-
 import org.apache.calcite.rel.RelDistribution
 import org.apache.calcite.rel.core.Exchange
-
 import java.util
 
 import scala.collection.JavaConversions._
@@ -130,7 +128,7 @@ object ExecNode {
   def createOneInputTransformation[T](
       input: Transformation[T],
       name: String,
-      operatorFactory: StreamOperatorFactory[T],
+      operatorFactory: StreamOperatorFactory[T, _],
       outputType: TypeInformation[T],
       parallelism: Int,
       memoryBytes: Long = 0): OneInputTransformation[T, T] = {
@@ -147,7 +145,7 @@ object ExecNode {
       input1: Transformation[T],
       input2: Transformation[T],
       name: String,
-      operatorFactory: StreamOperatorFactory[T],
+      operatorFactory: StreamOperatorFactory[T, _ <: TwoInputStreamOperator[T, T, T]],
       outputType: TypeInformation[T],
       parallelism: Int,
       memoryBytes: Long = 0): TwoInputTransformation[T, T, T] = {

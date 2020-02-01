@@ -82,7 +82,7 @@ public class StreamConfigChainer {
 
 	public <T> StreamConfigChainer chain(
 			OperatorID operatorID,
-			OneInputStreamOperatorFactory<T, T> operatorFactory,
+			OneInputStreamOperatorFactory<T, T, ?> operatorFactory,
 			TypeSerializer<T> typeSerializer) {
 		return chain(operatorID, operatorFactory, typeSerializer, typeSerializer, false);
 	}
@@ -103,7 +103,7 @@ public class StreamConfigChainer {
 
 	public <IN, OUT> StreamConfigChainer chain(
 			OperatorID operatorID,
-			StreamOperatorFactory<OUT> operatorFactory,
+			StreamOperatorFactory<OUT, ?> operatorFactory,
 			TypeSerializer<IN> inputSerializer,
 			TypeSerializer<OUT> outputSerializer,
 			boolean createKeyedStateBackend) {

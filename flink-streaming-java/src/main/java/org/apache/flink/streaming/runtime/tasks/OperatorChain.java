@@ -112,7 +112,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 		final ClassLoader userCodeClassloader = containingTask.getUserCodeClassLoader();
 		final StreamConfig configuration = containingTask.getConfiguration();
 
-		StreamOperatorFactory<OUT> operatorFactory = configuration.getStreamOperatorFactory(userCodeClassloader);
+		StreamOperatorFactory<OUT, OP> operatorFactory = configuration.getStreamOperatorFactory(userCodeClassloader);
 
 		// we read the chained configs, and the order of record writer registrations by output name
 		Map<Integer, StreamConfig> chainedConfigs = configuration.getTransitiveChainedTaskConfigsWithSelf(userCodeClassloader);
@@ -406,8 +406,8 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 		}
 	}
 
-	private <IN, OUT> WatermarkGaugeExposingOutput<StreamRecord<IN>> createChainedOperator(
-			StreamTask<OUT, ?> containingTask,
+	private <IN, OUT, OP extends OneInputStreamOperator<IN, OUT>> WatermarkGaugeExposingOutput<StreamRecord<IN>> createChainedOperator(
+			StreamTask<?, ?> containingTask,
 			StreamConfig operatorConfig,
 			Map<Integer, StreamConfig> chainedConfigs,
 			ClassLoader userCodeClassloader,
@@ -426,11 +426,11 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 			mailboxExecutorFactory);
 
 		// now create the operator and give it the output collector to write its output to
-		OneInputStreamOperator<IN, OUT> chainedOperator = StreamOperatorFactoryUtil.createOperator(
-				operatorConfig.getStreamOperatorFactory(userCodeClassloader),
-				containingTask,
-				operatorConfig,
-				chainedOperatorOutput);
+		OP chainedOperator = StreamOperatorFactoryUtil.createOperator(
+			operatorConfig.getStreamOperatorFactory(userCodeClassloader),
+			containingTask,
+			operatorConfig,
+			chainedOperatorOutput);
 
 		allOperators.add(chainedOperator);
 

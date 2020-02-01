@@ -39,6 +39,7 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.collector.selector.OutputSelector;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.transformations.ShuffleMode;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
@@ -244,10 +245,11 @@ public class StreamGraph implements Pipeline {
 		return !vertexIDtoLoopTimeout.isEmpty();
 	}
 
-	public <IN, OUT> void addSource(Integer vertexID,
+	public <IN, OUT, OP extends StreamOperator<OUT>> void addSource(
+		Integer vertexID,
 		@Nullable String slotSharingGroup,
 		@Nullable String coLocationGroup,
-		StreamOperatorFactory<OUT> operatorFactory,
+		StreamOperatorFactory<OUT, OP> operatorFactory,
 		TypeInformation<IN> inTypeInfo,
 		TypeInformation<OUT> outTypeInfo,
 		String operatorName) {
@@ -255,10 +257,11 @@ public class StreamGraph implements Pipeline {
 		sources.add(vertexID);
 	}
 
-	public <IN, OUT> void addSink(Integer vertexID,
+	public <IN, OUT, OP extends StreamOperator<OUT>> void addSink(
+		Integer vertexID,
 		@Nullable String slotSharingGroup,
 		@Nullable String coLocationGroup,
-		StreamOperatorFactory<OUT> operatorFactory,
+		StreamOperatorFactory<OUT, OP> operatorFactory,
 		TypeInformation<IN> inTypeInfo,
 		TypeInformation<OUT> outTypeInfo,
 		String operatorName) {
@@ -266,11 +269,11 @@ public class StreamGraph implements Pipeline {
 		sinks.add(vertexID);
 	}
 
-	public <IN, OUT> void addOperator(
+	public <IN, OUT, OP extends StreamOperator<OUT>> void addOperator(
 			Integer vertexID,
 			@Nullable String slotSharingGroup,
 			@Nullable String coLocationGroup,
-			StreamOperatorFactory<OUT> operatorFactory,
+			StreamOperatorFactory<OUT, OP> operatorFactory,
 			TypeInformation<IN> inTypeInfo,
 			TypeInformation<OUT> outTypeInfo,
 			String operatorName) {
@@ -301,11 +304,11 @@ public class StreamGraph implements Pipeline {
 		}
 	}
 
-	public <IN1, IN2, OUT> void addCoOperator(
+	public <IN1, IN2, OUT, OP extends StreamOperator<OUT>> void addCoOperator(
 			Integer vertexID,
 			String slotSharingGroup,
 			@Nullable String coLocationGroup,
-			StreamOperatorFactory<OUT> taskOperatorFactory,
+			StreamOperatorFactory<OUT, OP> taskOperatorFactory,
 			TypeInformation<IN1> in1TypeInfo,
 			TypeInformation<IN2> in2TypeInfo,
 			TypeInformation<OUT> outTypeInfo,
@@ -334,7 +337,7 @@ public class StreamGraph implements Pipeline {
 		@Nullable String slotSharingGroup,
 		@Nullable String coLocationGroup,
 		Class<? extends AbstractInvokable> vertexClass,
-		StreamOperatorFactory<?> operatorFactory,
+		StreamOperatorFactory<?, ?> operatorFactory,
 		String operatorName) {
 
 		if (streamNodes.containsKey(vertexID)) {
@@ -665,8 +668,8 @@ public class StreamGraph implements Pipeline {
 		return streamNodes.values();
 	}
 
-	public Set<Tuple2<Integer, StreamOperatorFactory<?>>> getAllOperatorFactory() {
-		Set<Tuple2<Integer, StreamOperatorFactory<?>>> operatorSet = new HashSet<>();
+	public Set<Tuple2<Integer, StreamOperatorFactory<?, ?>>> getAllOperatorFactory() {
+		Set<Tuple2<Integer, StreamOperatorFactory<?, ?>>> operatorSet = new HashSet<>();
 		for (StreamNode vertex : streamNodes.values()) {
 			operatorSet.add(new Tuple2<>(vertex.getId(), vertex.getOperatorFactory()));
 		}

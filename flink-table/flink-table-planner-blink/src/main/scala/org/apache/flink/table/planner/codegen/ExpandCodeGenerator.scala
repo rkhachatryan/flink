@@ -37,7 +37,7 @@ object ExpandCodeGenerator {
       config: TableConfig,
       projects: java.util.List[java.util.List[RexNode]],
       retainHeader: Boolean = false,
-      opName: String): CodeGenOperatorFactory[BaseRow] = {
+      opName: String): CodeGenOperatorFactory[BaseRow, _] = {
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
 
     val exprGenerator = new ExprCodeGenerator(ctx, false)

@@ -29,9 +29,7 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
  * and watermarks into the operator. {@link java.util.Deque}s containing the emitted elements
  * and watermarks can be retrieved. you are free to modify these.
  */
-public class TwoInputStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractStreamOperatorTestHarness<OUT> {
-
-	private final TwoInputStreamOperator<IN1, IN2, OUT> twoInputOperator;
+public class TwoInputStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractStreamOperatorTestHarness<OUT, TwoInputStreamOperator<IN1, IN2, OUT>> {
 
 	public TwoInputStreamOperatorTestHarness(TwoInputStreamOperator<IN1, IN2, OUT> operator) throws Exception {
 		this(operator, 1, 1, 0);
@@ -43,13 +41,11 @@ public class TwoInputStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractSt
 			int numSubtasks,
 			int subtaskIndex) throws Exception {
 		super(operator, maxParallelism, numSubtasks, subtaskIndex);
-
-		this.twoInputOperator = operator;
 	}
 
 	public void processElement1(StreamRecord<IN1> element) throws Exception {
-		twoInputOperator.setKeyContextElement1(element);
-		twoInputOperator.processElement1(element);
+		operator.setKeyContextElement1(element);
+		operator.processElement1(element);
 	}
 
 	public void processElement1(IN1 value, long timestamp) throws Exception {
@@ -57,8 +53,8 @@ public class TwoInputStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractSt
 	}
 
 	public void processElement2(StreamRecord<IN2> element) throws Exception {
-		twoInputOperator.setKeyContextElement2(element);
-		twoInputOperator.processElement2(element);
+		operator.setKeyContextElement2(element);
+		operator.processElement2(element);
 	}
 
 	public void processElement2(IN2 value, long timestamp) throws Exception {
@@ -66,15 +62,15 @@ public class TwoInputStreamOperatorTestHarness<IN1, IN2, OUT> extends AbstractSt
 	}
 
 	public void processWatermark1(Watermark mark) throws Exception {
-		twoInputOperator.processWatermark1(mark);
+		operator.processWatermark1(mark);
 	}
 
 	public void processWatermark2(Watermark mark) throws Exception {
-		twoInputOperator.processWatermark2(mark);
+		operator.processWatermark2(mark);
 	}
 
 	public void processBothWatermarks(Watermark mark) throws Exception {
-		twoInputOperator.processWatermark1(mark);
-		twoInputOperator.processWatermark2(mark);
+		operator.processWatermark1(mark);
+		operator.processWatermark2(mark);
 	}
 }

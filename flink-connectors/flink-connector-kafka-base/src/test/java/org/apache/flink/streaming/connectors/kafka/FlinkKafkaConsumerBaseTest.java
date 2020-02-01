@@ -702,7 +702,7 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 		DummyFlinkKafkaConsumer<String>[] consumers =
 			new DummyFlinkKafkaConsumer[initialParallelism];
 
-		AbstractStreamOperatorTestHarness<String>[] testHarnesses =
+		AbstractStreamOperatorTestHarness<String, ?>[] testHarnesses =
 			new AbstractStreamOperatorTestHarness[initialParallelism];
 
 		List<String> testTopics = Collections.singletonList("test-topic");
@@ -758,7 +758,7 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 		DummyFlinkKafkaConsumer<String>[] restoredConsumers =
 			new DummyFlinkKafkaConsumer[restoredParallelism];
 
-		AbstractStreamOperatorTestHarness<String>[] restoredTestHarnesses =
+		AbstractStreamOperatorTestHarness<String, ?>[] restoredTestHarnesses =
 			new AbstractStreamOperatorTestHarness[restoredParallelism];
 
 		for (int i = 0; i < restoredParallelism; i++) {
@@ -799,10 +799,10 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 
 	// ------------------------------------------------------------------------
 
-	private static <T> AbstractStreamOperatorTestHarness<T> createTestHarness(
+	private static <T> AbstractStreamOperatorTestHarness<T, ?> createTestHarness(
 		SourceFunction<T> source, int numSubtasks, int subtaskIndex) throws Exception {
 
-		AbstractStreamOperatorTestHarness<T> testHarness =
+		AbstractStreamOperatorTestHarness<T, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(
 				new StreamSource<>(source), maxParallelism, numSubtasks, subtaskIndex);
 

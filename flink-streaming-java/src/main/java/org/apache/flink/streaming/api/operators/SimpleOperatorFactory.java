@@ -43,17 +43,17 @@ public class SimpleOperatorFactory<OUT, T extends StreamOperator<OUT>> implement
 	 * Create a SimpleOperatorFactory from existed StreamOperator.
 	 */
 	@SuppressWarnings("unchecked")
-	public static <OUT, T extends StreamOperator<OUT>> SimpleOperatorFactory<OUT, ?> of(T operator) {
+	public static <OUT, T extends StreamOperator<OUT>> SimpleOperatorFactory<OUT, T> of(T operator) {
 		if (operator == null) {
 			return null;
 		} else if (operator instanceof StreamSource &&
 				((StreamSource<OUT, ?>) operator).getUserFunction() instanceof InputFormatSourceFunction) {
-			return new SimpleInputFormatOperatorFactory<>((StreamSource<OUT, InputFormatSourceFunction<OUT>>) operator);
+			return (SimpleOperatorFactory<OUT, T>) new SimpleInputFormatOperatorFactory<>((StreamSource<OUT, InputFormatSourceFunction<OUT>>) operator);
 		} else if (operator instanceof StreamSink &&
 			((StreamSink<?>) operator).getUserFunction() instanceof OutputFormatSinkFunction) {
-			return (SimpleOperatorFactory<OUT, ?>) new SimpleOutputFormatOperatorFactory<>((StreamSink<Object>) operator);
+			return (SimpleOperatorFactory<OUT, T>) new SimpleOutputFormatOperatorFactory<>((StreamSink<Object>) operator);
 		} else if (operator instanceof AbstractUdfStreamOperator) {
-			return new SimpleUdfStreamOperatorFactory<>((AbstractUdfStreamOperator<OUT, ?>) operator);
+			return (SimpleOperatorFactory<OUT, T>) new SimpleUdfStreamOperatorFactory<>((AbstractUdfStreamOperator<OUT, ?>) operator);
 		} else {
 			return new SimpleOperatorFactory<>(operator);
 		}
@@ -69,12 +69,11 @@ public class SimpleOperatorFactory<OUT, T extends StreamOperator<OUT>> implement
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public T createStreamOperator(StreamTask<?, ?> containingTask,
-			StreamConfig config, Output<StreamRecord<OUT>> output) {
+	public T createStreamOperator(StreamTask<?, ?> containingTask, StreamConfig config, Output<StreamRecord<OUT>> output) {
 		if (operator instanceof SetupableStreamOperator) {
 			((SetupableStreamOperator) operator).setup(containingTask, config, output);
 		}
-		return (T) operator;
+		return operator;
 	}
 
 	@Override

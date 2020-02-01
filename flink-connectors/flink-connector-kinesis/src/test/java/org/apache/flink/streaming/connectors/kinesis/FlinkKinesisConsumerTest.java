@@ -768,8 +768,8 @@ public class FlinkKinesisConsumerTest extends TestLogger {
 
 		// there is currently no test harness specifically for sources,
 		// so we overlay the source thread here
-		AbstractStreamOperatorTestHarness<Object> testHarness =
-			new AbstractStreamOperatorTestHarness<Object>(
+		AbstractStreamOperatorTestHarness<Object, ?> testHarness =
+			new AbstractStreamOperatorTestHarness<>(
 				new StreamSource(sourceFunc), 1, 1, 0);
 		testHarness.setTimeCharacteristic(TimeCharacteristic.EventTime);
 		testHarness.getExecutionConfig().setAutoWatermarkInterval(autoWatermarkInterval);
@@ -912,8 +912,8 @@ public class FlinkKinesisConsumerTest extends TestLogger {
 
 		// there is currently no test harness specifically for sources,
 		// so we overlay the source thread here
-		AbstractStreamOperatorTestHarness<Object> testHarness =
-			new AbstractStreamOperatorTestHarness<Object>(
+		AbstractStreamOperatorTestHarness<Object, ?> testHarness =
+			new AbstractStreamOperatorTestHarness<>(
 				new StreamSource(sourceFunc), 1, 1, 0);
 		testHarness.setTimeCharacteristic(TimeCharacteristic.EventTime);
 		testHarness.getExecutionConfig().setAutoWatermarkInterval(autoWatermarkInterval);

@@ -24,6 +24,7 @@ import org.apache.flink.api.java.tuple.{Tuple2 => JTuple2}
 import org.apache.flink.api.java.typeutils.{PojoTypeInfo, TupleTypeInfo}
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializerBase
 import org.apache.flink.api.scala.createTuple2TypeInformation
+import org.apache.flink.streaming.api.operators.StreamOperator
 import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.dataformat.util.BaseRowUtil
 import org.apache.flink.table.dataformat.{BaseRow, GenericRow}
@@ -47,7 +48,7 @@ object SinkCodeGenerator {
       inputRowType: RowType,
       sink: TableSink[_],
       withChangeFlag: Boolean,
-      operatorName: String): (CodeGenOperatorFactory[OUT], TypeInformation[OUT]) = {
+      operatorName: String): (CodeGenOperatorFactory[OUT, _ <: StreamOperator[OUT]], TypeInformation[OUT]) = {
 
     val physicalOutputType = TableSinkUtils.inferSinkPhysicalDataType(
       sink.getConsumedDataType,
@@ -142,6 +143,6 @@ object SinkCodeGenerator {
          |$retractProcessCode
          |""".stripMargin,
       inputRowType)
-    (new CodeGenOperatorFactory[OUT](generated), outputTypeInfo.asInstanceOf[TypeInformation[OUT]])
+    (new CodeGenOperatorFactory(generated), outputTypeInfo.asInstanceOf[TypeInformation[OUT]])
   }
 }

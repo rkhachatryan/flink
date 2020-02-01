@@ -147,7 +147,7 @@ public class FromElementsFunctionTest {
 
 			final FromElementsFunction<Integer> source = new FromElementsFunction<>(IntSerializer.INSTANCE, data);
 			StreamSource<Integer, FromElementsFunction<Integer>> src = new StreamSource<>(source);
-			AbstractStreamOperatorTestHarness<Integer> testHarness =
+			AbstractStreamOperatorTestHarness<Integer, ?> testHarness =
 				new AbstractStreamOperatorTestHarness<>(src, 1, 1, 0);
 			testHarness.open();
 
@@ -193,7 +193,7 @@ public class FromElementsFunctionTest {
 
 			final FromElementsFunction<Integer> sourceCopy = new FromElementsFunction<>(IntSerializer.INSTANCE, data);
 			StreamSource<Integer, FromElementsFunction<Integer>> srcCopy = new StreamSource<>(sourceCopy);
-			AbstractStreamOperatorTestHarness<Integer> testHarnessCopy =
+			AbstractStreamOperatorTestHarness<Integer, ?> testHarnessCopy =
 				new AbstractStreamOperatorTestHarness<>(srcCopy, 1, 1, 0);
 			testHarnessCopy.setup();
 			testHarnessCopy.initializeState(handles);

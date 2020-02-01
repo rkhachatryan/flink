@@ -423,7 +423,7 @@ public class StreamTaskTestHarness<OUT> {
 		return setupOperatorChain(headOperatorId, SimpleOperatorFactory.of(headOperator));
 	}
 
-	public StreamConfigChainer setupOperatorChain(OperatorID headOperatorId, StreamOperatorFactory<?> headOperatorFactory) {
+	public StreamConfigChainer setupOperatorChain(OperatorID headOperatorId, StreamOperatorFactory<?, ?> headOperatorFactory) {
 		Preconditions.checkState(!setupCalled, "This harness was already setup.");
 		setupCalled = true;
 		StreamConfig streamConfig = getStreamConfig();

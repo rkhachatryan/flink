@@ -36,14 +36,14 @@ public class StreamOperatorFactoryUtil {
 	 * @return a newly created and configured operator.
 	 */
 	public static <OUT, OP extends StreamOperator<OUT>> OP createOperator(
-			StreamOperatorFactory<OUT> operatorFactory,
-			StreamTask<OUT, ?> containingTask,
+			StreamOperatorFactory<OUT, OP> operatorFactory,
+			StreamTask<?, ?> containingTask,
 			StreamConfig configuration,
 			Output<StreamRecord<OUT>> output) {
 		MailboxExecutorFactory mailboxExecutorFactory = containingTask.getMailboxExecutorFactory();
 		if (operatorFactory instanceof YieldingOperatorFactory) {
 			MailboxExecutor mailboxExecutor = mailboxExecutorFactory.createExecutor(configuration.getChainIndex());
-			((YieldingOperatorFactory) operatorFactory).setMailboxExecutor(mailboxExecutor);
+			((YieldingOperatorFactory<OUT, OP>) operatorFactory).setMailboxExecutor(mailboxExecutor);
 		}
 		return operatorFactory.createStreamOperator(containingTask, configuration, output);
 	}

@@ -118,7 +118,7 @@ class JoinITCase(expectedJoinType: JoinType) extends BatchTestBase {
 
       transforms.map(findTwoInputTransform).foreach { transform =>
         transform.getOperatorFactory match {
-          case factory: CodeGenOperatorFactory[_] =>
+          case factory: CodeGenOperatorFactory[_, _] =>
             if (factory.getGeneratedClass.getCode.contains("LongHashJoinOperator")) {
               haveTwoOp = true
             }

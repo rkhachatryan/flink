@@ -583,7 +583,7 @@ public class StreamGraphGenerator {
 				"Source: " + source.getName());
 		if (source.getOperatorFactory() instanceof InputFormatOperatorFactory) {
 			streamGraph.setInputFormat(source.getId(),
-					((InputFormatOperatorFactory<T>) source.getOperatorFactory()).getInputFormat());
+					((InputFormatOperatorFactory<T, ?>) source.getOperatorFactory()).getInputFormat());
 		}
 		int parallelism = source.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
 			source.getParallelism() : executionConfig.getParallelism();

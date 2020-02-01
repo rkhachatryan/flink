@@ -31,9 +31,7 @@ import org.apache.flink.streaming.api.operators.co.CoBroadcastWithNonKeyedOperat
  * watermarks can be retrieved. They are safe to be modified.
  */
 public class BroadcastOperatorTestHarness<IN1, IN2, OUT>
-	extends AbstractBroadcastStreamOperatorTestHarness<IN1, IN2, OUT> {
-
-	private final CoBroadcastWithNonKeyedOperator<IN1, IN2, OUT> twoInputOperator;
+	extends AbstractBroadcastStreamOperatorTestHarness<IN1, IN2, OUT, CoBroadcastWithNonKeyedOperator<IN1, IN2, OUT>> {
 
 	public BroadcastOperatorTestHarness(
 		CoBroadcastWithNonKeyedOperator<IN1, IN2, OUT> operator,
@@ -42,17 +40,14 @@ public class BroadcastOperatorTestHarness<IN1, IN2, OUT>
 		int subtaskIndex)
 		throws Exception {
 		super(operator, maxParallelism, numSubtasks, subtaskIndex);
-
-		this.twoInputOperator = operator;
 	}
 
 	@Override
 	TwoInputStreamOperator<IN1, IN2, OUT> getOperator() {
-		return twoInputOperator;
+		return operator;
 	}
 
-	public <KS, V> BroadcastState<KS, V> getBroadcastState(MapStateDescriptor<KS, V> stateDescriptor)
-		throws Exception {
-		return twoInputOperator.getOperatorStateBackend().getBroadcastState(stateDescriptor);
+	public <KS, V> BroadcastState<KS, V> getBroadcastState(MapStateDescriptor<KS, V> stateDescriptor) throws Exception {
+		return operator.getOperatorStateBackend().getBroadcastState(stateDescriptor);
 	}
 }

@@ -92,7 +92,7 @@ class SortAggCodeGeneratorTest extends BatchAggTestBase {
   }
 
   private def getOperatorWithKey(isMerge: Boolean, isFinal: Boolean)
-    : (CodeGenOperatorFactory[BaseRow], RowType, RowType) = {
+    : (CodeGenOperatorFactory[BaseRow, _], RowType, RowType) = {
     val localOutputType = RowType.of(
       Array[LogicalType](
         new VarCharType(VarCharType.MAX_LENGTH), new VarCharType(VarCharType.MAX_LENGTH),
@@ -115,6 +115,6 @@ class SortAggCodeGeneratorTest extends BatchAggTestBase {
     val auxGrouping = if (isMerge) Array(1) else Array(4)
     val genOp = SortAggCodeGenerator.genWithKeys(
       ctx, relBuilder, aggInfoList, iType, oType, Array(0), auxGrouping, isMerge, isFinal)
-    (new CodeGenOperatorFactory[BaseRow](genOp), iType, oType)
+    (new CodeGenOperatorFactory(genOp), iType, oType)
   }
 }

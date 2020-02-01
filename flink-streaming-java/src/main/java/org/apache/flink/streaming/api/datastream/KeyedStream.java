@@ -259,7 +259,7 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 	protected <R> SingleOutputStreamOperator<R> doTransform(
 			final String operatorName,
 			final TypeInformation<R> outTypeInfo,
-			final StreamOperatorFactory<R> operatorFactory) {
+			final StreamOperatorFactory<R, ?> operatorFactory) {
 
 		SingleOutputStreamOperator<R> returnStream = super.doTransform(operatorName, outTypeInfo, operatorFactory);
 

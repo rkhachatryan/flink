@@ -71,7 +71,7 @@ class BoundedStreamTask<IN, OUT, OP extends OneInputStreamOperator<IN, OUT> & Bo
 			"BoundedStreamTask's should only run a single operator");
 
 		// re-initialize the operator with the correct collector.
-		StreamOperatorFactory<OUT> operatorFactory = configuration.getStreamOperatorFactory(getUserCodeClassLoader());
+		StreamOperatorFactory<OUT, OP> operatorFactory = configuration.getStreamOperatorFactory(getUserCodeClassLoader());
 		headOperator = StreamOperatorFactoryUtil.createOperator(
 				operatorFactory,
 				this,

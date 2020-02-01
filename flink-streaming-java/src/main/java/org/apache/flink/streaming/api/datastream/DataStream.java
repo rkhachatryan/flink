@@ -66,6 +66,7 @@ import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamFilter;
 import org.apache.flink.streaming.api.operators.StreamFlatMap;
 import org.apache.flink.streaming.api.operators.StreamMap;
+import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamSink;
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
@@ -1264,10 +1265,10 @@ public class DataStream<T> {
 	 * @return the data stream constructed.
 	 */
 	@PublicEvolving
-	public <R> SingleOutputStreamOperator<R> transform(
+	public <R, Op extends StreamOperator<R>> SingleOutputStreamOperator<R> transform(
 			String operatorName,
 			TypeInformation<R> outTypeInfo,
-			OneInputStreamOperatorFactory<T, R> operatorFactory) {
+			OneInputStreamOperatorFactory<T, R, Op> operatorFactory) {
 
 		return doTransform(operatorName, outTypeInfo, operatorFactory);
 	}
@@ -1275,7 +1276,7 @@ public class DataStream<T> {
 	protected <R> SingleOutputStreamOperator<R> doTransform(
 			String operatorName,
 			TypeInformation<R> outTypeInfo,
-			StreamOperatorFactory<R> operatorFactory) {
+			StreamOperatorFactory<R, ?> operatorFactory) {
 
 		// read the output type of the input Transform to coax out errors about MissingTypeInfo
 		transformation.getOutputType();

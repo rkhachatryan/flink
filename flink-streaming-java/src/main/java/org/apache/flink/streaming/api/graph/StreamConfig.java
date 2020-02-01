@@ -232,7 +232,7 @@ public class StreamConfig implements Serializable {
 		setStreamOperatorFactory(SimpleOperatorFactory.of(operator));
 	}
 
-	public void setStreamOperatorFactory(StreamOperatorFactory<?> factory) {
+	public void setStreamOperatorFactory(StreamOperatorFactory<?, ?> factory) {
 		if (factory != null) {
 			try {
 				InstantiationUtil.writeObjectToConfig(factory, this.config, SERIALIZEDUDF);
@@ -244,12 +244,11 @@ public class StreamConfig implements Serializable {
 	}
 
 	@VisibleForTesting
-	public <T extends StreamOperator<?>> T getStreamOperator(ClassLoader cl) {
-		SimpleOperatorFactory<?> factory = getStreamOperatorFactory(cl);
-		return (T) factory.getOperator();
+	public <Out, T extends StreamOperator<Out>> T getStreamOperator(ClassLoader cl) {
+		return (T) ((SimpleOperatorFactory<Out, T>) getStreamOperatorFactory(cl)).getOperator();
 	}
 
-	public <T extends StreamOperatorFactory<?>> T getStreamOperatorFactory(ClassLoader cl) {
+	public <Out, Op extends StreamOperator<Out>> StreamOperatorFactory<Out, Op> getStreamOperatorFactory(ClassLoader cl) {
 		try {
 			return InstantiationUtil.readObjectFromConfig(this.config, SERIALIZEDUDF, cl);
 		}

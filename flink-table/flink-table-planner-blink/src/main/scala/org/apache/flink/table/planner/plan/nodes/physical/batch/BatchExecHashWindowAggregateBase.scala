@@ -42,8 +42,9 @@ import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.tools.RelBuilder
 import org.apache.flink.configuration.MemorySize
-
 import java.util
+
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator
 
 import scala.collection.JavaConversions._
 
@@ -137,7 +138,7 @@ abstract class BatchExecHashWindowAggregateBase(
       aggInfos, inputRowType, grouping, auxGrouping, enableAssignPane, isMerge, isFinal).gen(
       inputType, outputType, groupBufferLimitSize, 0,
       windowSize, slideSize)
-    val operator = new CodeGenOperatorFactory[BaseRow](generatedOperator)
+    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
 
     val managedMemory = MemorySize.parse(config.getConfiguration.getString(
       ExecutionConfigOptions.TABLE_EXEC_RESOURCE_HASH_AGG_MEMORY)).getBytes

@@ -42,7 +42,7 @@ object CalcCodeGenerator {
       calcProgram: RexProgram,
       condition: Option[RexNode],
       retainHeader: Boolean = false,
-      opName: String): CodeGenOperatorFactory[BaseRow] = {
+      opName: String): CodeGenOperatorFactory[BaseRow, _] = {
     val inputType = inputTransform.getOutputType.asInstanceOf[BaseRowTypeInfo].toRowType
     // filter out time attributes
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM

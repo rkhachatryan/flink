@@ -29,15 +29,15 @@ import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
 import org.apache.flink.table.planner.plan.utils.AggregateUtil.transformToBatchAggregateInfoList
 import org.apache.flink.table.runtime.operators.CodeGenOperatorFactory
 import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo
-
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.tools.RelBuilder
-
 import java.util
+
+import org.apache.flink.streaming.api.operators.OneInputStreamOperator
 
 import scala.collection.JavaConversions._
 
@@ -116,7 +116,7 @@ abstract class BatchExecSortAggregateBase(
       SortAggCodeGenerator.genWithKeys(
         ctx, relBuilder, aggInfos, inputType, outputType, grouping, auxGrouping, isMerge, isFinal)
     }
-    val operator = new CodeGenOperatorFactory[BaseRow](generatedOperator)
+    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

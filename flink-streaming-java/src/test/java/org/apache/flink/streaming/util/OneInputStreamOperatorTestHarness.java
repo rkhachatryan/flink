@@ -37,7 +37,7 @@ import java.util.Collection;
  * and watermarks can be retrieved. You are free to modify these.
  */
 public class OneInputStreamOperatorTestHarness<IN, OUT>
-		extends AbstractStreamOperatorTestHarness<OUT> {
+		extends AbstractStreamOperatorTestHarness<OUT, OneInputStreamOperator<IN, OUT>> {
 
 	private long currentWatermark;
 
@@ -98,7 +98,7 @@ public class OneInputStreamOperatorTestHarness<IN, OUT>
 	}
 
 	public OneInputStreamOperatorTestHarness(
-			OneInputStreamOperatorFactory<IN, OUT> factory,
+			OneInputStreamOperatorFactory<IN, OUT, OneInputStreamOperator<IN, OUT>> factory,
 			TypeSerializer<IN> typeSerializerIn,
 			MockEnvironment environment) throws Exception {
 		this(factory, environment);
@@ -107,13 +107,13 @@ public class OneInputStreamOperatorTestHarness<IN, OUT>
 	}
 
 	public OneInputStreamOperatorTestHarness(
-			OneInputStreamOperatorFactory<IN, OUT> factory,
+			OneInputStreamOperatorFactory<IN, OUT, ? extends OneInputStreamOperator<IN, OUT>> factory,
 			MockEnvironment environment) throws Exception {
 		super(factory, environment);
 	}
 
 	public OneInputStreamOperatorTestHarness(
-			OneInputStreamOperatorFactory<IN, OUT> factory,
+			OneInputStreamOperatorFactory<IN, OUT, ? extends OneInputStreamOperator<IN, OUT>> factory,
 			TypeSerializer<IN> typeSerializerIn) throws Exception {
 		this(factory, 1, 1, 0);
 
@@ -121,7 +121,7 @@ public class OneInputStreamOperatorTestHarness<IN, OUT>
 	}
 
 	public OneInputStreamOperatorTestHarness(
-			OneInputStreamOperatorFactory<IN, OUT> factory,
+			OneInputStreamOperatorFactory<IN, OUT, ? extends OneInputStreamOperator<IN, OUT>> factory,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex) throws Exception {
@@ -129,7 +129,7 @@ public class OneInputStreamOperatorTestHarness<IN, OUT>
 	}
 
 	public OneInputStreamOperatorTestHarness(
-			OneInputStreamOperatorFactory<IN, OUT> factory,
+			OneInputStreamOperatorFactory<IN, OUT, ? extends OneInputStreamOperator<IN, OUT>> factory,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex,
@@ -138,7 +138,7 @@ public class OneInputStreamOperatorTestHarness<IN, OUT>
 	}
 
 	public OneInputStreamOperator<IN, OUT> getOneInputOperator() {
-		return (OneInputStreamOperator<IN, OUT>) this.operator;
+		return this.operator;
 	}
 
 	public void processElement(IN value, long timestamp) throws Exception {

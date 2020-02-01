@@ -61,14 +61,14 @@ public class StatefulSequenceSourceTest {
 		final StatefulSequenceSource source1 = new StatefulSequenceSource(initElement, maxElement);
 		StreamSource<Long, StatefulSequenceSource> src1 = new StreamSource<>(source1);
 
-		final AbstractStreamOperatorTestHarness<Long> testHarness1 =
+		final AbstractStreamOperatorTestHarness<Long, ?> testHarness1 =
 			new AbstractStreamOperatorTestHarness<>(src1, maxParallelsim, 2, 0);
 		testHarness1.open();
 
 		final StatefulSequenceSource source2 = new StatefulSequenceSource(initElement, maxElement);
 		StreamSource<Long, StatefulSequenceSource> src2 = new StreamSource<>(source2);
 
-		final AbstractStreamOperatorTestHarness<Long> testHarness2 =
+		final AbstractStreamOperatorTestHarness<Long, ?> testHarness2 =
 			new AbstractStreamOperatorTestHarness<>(src2, maxParallelsim, 2, 1);
 		testHarness2.open();
 
@@ -124,7 +124,7 @@ public class StatefulSequenceSourceTest {
 		final OperatorSubtaskState initState = AbstractStreamOperatorTestHarness.repartitionOperatorState(
 			snapshot, maxParallelsim, 2, 1, 0);
 
-		final AbstractStreamOperatorTestHarness<Long> testHarness3 =
+		final AbstractStreamOperatorTestHarness<Long, ?> testHarness3 =
 			new AbstractStreamOperatorTestHarness<>(src3, maxParallelsim, 1, 0);
 		testHarness3.setup();
 		testHarness3.initializeState(initState);

@@ -22,7 +22,6 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.Output;
-import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.table.dataformat.BaseRow;
 import org.apache.flink.table.runtime.generated.GeneratedWatermarkGenerator;
@@ -31,7 +30,7 @@ import org.apache.flink.table.runtime.generated.WatermarkGenerator;
 /**
  * The factory of {@link WatermarkAssignerOperator}.
  */
-public class WatermarkAssignerOperatorFactory implements OneInputStreamOperatorFactory<BaseRow, BaseRow> {
+public class WatermarkAssignerOperatorFactory implements OneInputStreamOperatorFactory<BaseRow, BaseRow, WatermarkAssignerOperator> {
 	private static final long serialVersionUID = 1L;
 
 	private final int rowtimeFieldIndex;
@@ -53,7 +52,7 @@ public class WatermarkAssignerOperatorFactory implements OneInputStreamOperatorF
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public StreamOperator createStreamOperator(StreamTask containingTask, StreamConfig config, Output output) {
+	public WatermarkAssignerOperator createStreamOperator(StreamTask containingTask, StreamConfig config, Output output) {
 		WatermarkGenerator watermarkGenerator = generatedWatermarkGenerator.newInstance(containingTask.getUserCodeClassLoader());
 		WatermarkAssignerOperator operator = new WatermarkAssignerOperator(rowtimeFieldIndex, watermarkGenerator, idleTimeout);
 		operator.setup(containingTask, config, output);
@@ -71,7 +70,7 @@ public class WatermarkAssignerOperatorFactory implements OneInputStreamOperatorF
 	}
 
 	@Override
-	public Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader) {
+	public Class<WatermarkAssignerOperator> getStreamOperatorClass(ClassLoader classLoader) {
 		return WatermarkAssignerOperator.class;
 	}
 }

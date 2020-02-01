@@ -88,7 +88,7 @@ class AggWithoutKeysTest extends BatchAggTestBase {
   }
 
   private def getOperatorWithoutKey(isMerge: Boolean, isFinal: Boolean)
-    : (CodeGenOperatorFactory[BaseRow], RowType, RowType) = {
+    : (CodeGenOperatorFactory[BaseRow, _], RowType, RowType) = {
     val (iType, oType) = if (isMerge && isFinal) {
       (localOutputType, globalOutputType)
     } else if (!isMerge && isFinal) {
@@ -98,6 +98,6 @@ class AggWithoutKeysTest extends BatchAggTestBase {
     }
     val genOp = AggWithoutKeysCodeGenerator.genWithoutKeys(
       ctx, relBuilder, aggInfoList, iType, oType, isMerge, isFinal, "Without")
-    (new CodeGenOperatorFactory[BaseRow](genOp), iType, oType)
+    (new CodeGenOperatorFactory(genOp), iType, oType)
   }
 }

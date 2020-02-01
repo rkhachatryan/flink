@@ -30,11 +30,8 @@ import org.apache.flink.streaming.api.functions.source.InputFormatSourceFunction
 @Internal
 public class SimpleInputFormatOperatorFactory<OUT, T extends StreamSource<OUT, InputFormatSourceFunction<OUT>>> extends SimpleOperatorFactory<OUT, T> implements InputFormatOperatorFactory<OUT, T> {
 
-	private final T operator;
-
 	public SimpleInputFormatOperatorFactory(T operator) {
 		super(operator);
-		this.operator = operator;
 	}
 
 	@Override

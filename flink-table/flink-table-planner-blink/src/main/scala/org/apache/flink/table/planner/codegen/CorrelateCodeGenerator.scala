@@ -159,7 +159,7 @@ object CorrelateCodeGenerator {
       ruleDescription: String,
       functionClass: Class[T],
       udtfCollector: GeneratedCollector[TableFunctionCollector[_]],
-      retainHeader: Boolean = true): CodeGenOperatorFactory[BaseRow] = {
+      retainHeader: Boolean = true): CodeGenOperatorFactory[BaseRow, _] = {
     ctx.references ++= collectorCtx.references
     val exprGenerator = new ExprCodeGenerator(ctx, false)
       .bindInput(inputType)

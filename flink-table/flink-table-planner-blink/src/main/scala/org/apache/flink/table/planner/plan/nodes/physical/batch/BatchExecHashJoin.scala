@@ -35,14 +35,12 @@ import org.apache.flink.table.planner.plan.utils.{FlinkRelMdUtil, JoinUtil}
 import org.apache.flink.table.runtime.operators.join.{HashJoinOperator, HashJoinType}
 import org.apache.flink.table.runtime.typeutils.{BaseRowTypeInfo, BinaryRowSerializer}
 import org.apache.flink.table.types.logical.RowType
-
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.core._
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter}
 import org.apache.calcite.rex.RexNode
 import org.apache.calcite.util.Util
-
 import java.util
 
 import scala.collection.JavaConversions._
@@ -237,7 +235,7 @@ class BatchExecHashJoin(
         reverseJoin,
         condFunc)
     } else {
-      SimpleOperatorFactory.of(HashJoinOperator.newHashJoinOperator(
+      SimpleOperatorFactory.of[BaseRow, HashJoinOperator](HashJoinOperator.newHashJoinOperator(
         hashJoinType,
         condFunc,
         reverseJoin,
@@ -254,7 +252,7 @@ class BatchExecHashJoin(
 
     val managedMemory = MemorySize.parse(config.getConfiguration.getString(
       ExecutionConfigOptions.TABLE_EXEC_RESOURCE_HASH_JOIN_MEMORY)).getBytes
-    ExecNode.createTwoInputTransformation(
+    ExecNode.createTwoInputTransformation[BaseRow](
       build,
       probe,
       getRelDetailedDescription,

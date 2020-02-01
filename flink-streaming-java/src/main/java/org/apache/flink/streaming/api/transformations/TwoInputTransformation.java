@@ -48,7 +48,7 @@ public class TwoInputTransformation<IN1, IN2, OUT> extends PhysicalTransformatio
 	private final Transformation<IN1> input1;
 	private final Transformation<IN2> input2;
 
-	private final StreamOperatorFactory<OUT> operatorFactory;
+	private final StreamOperatorFactory<OUT, ? extends TwoInputStreamOperator<IN1, IN2, OUT>> operatorFactory;
 
 	private KeySelector<IN1, ?> stateKeySelector1;
 
@@ -59,28 +59,34 @@ public class TwoInputTransformation<IN1, IN2, OUT> extends PhysicalTransformatio
 	/**
 	 * Creates a new {@code TwoInputTransformation} from the given inputs and operator.
 	 *
-	 * @param input1 The first input {@code Transformation}
-	 * @param input2 The second input {@code Transformation}
-	 * @param name The name of the {@code Transformation}, this will be shown in Visualizations and the Log
-	 * @param operator The {@code TwoInputStreamOperator}
-	 * @param outputType The type of the elements produced by this Transformation
+	 * @param input1      The first input {@code Transformation}
+	 * @param input2      The second input {@code Transformation}
+	 * @param name        The name of the {@code Transformation}, this will be shown in Visualizations and the Log
+	 * @param operator    The {@code TwoInputStreamOperator}
+	 * @param outputType  The type of the elements produced by this Transformation
 	 * @param parallelism The parallelism of this Transformation
 	 */
 	public TwoInputTransformation(
-			Transformation<IN1> input1,
-			Transformation<IN2> input2,
-			String name,
-			TwoInputStreamOperator<IN1, IN2, OUT> operator,
-			TypeInformation<OUT> outputType,
-			int parallelism) {
-		this(input1, input2, name, SimpleOperatorFactory.of(operator), outputType, parallelism);
+		Transformation<IN1> input1,
+		Transformation<IN2> input2,
+		String name,
+		TwoInputStreamOperator<IN1, IN2, OUT> operator,
+		TypeInformation<OUT> outputType,
+		int parallelism) {
+		this(
+			input1,
+			input2,
+			name,
+			SimpleOperatorFactory.of(operator),
+			outputType,
+			parallelism);
 	}
 
 	public TwoInputTransformation(
 			Transformation<IN1> input1,
 			Transformation<IN2> input2,
 			String name,
-			StreamOperatorFactory<OUT> operatorFactory,
+			StreamOperatorFactory<OUT, ? extends TwoInputStreamOperator<IN1, IN2, OUT>> operatorFactory,
 			TypeInformation<OUT> outputType,
 			int parallelism) {
 		super(name, outputType, parallelism);
@@ -125,7 +131,7 @@ public class TwoInputTransformation<IN1, IN2, OUT> extends PhysicalTransformatio
 	/**
 	 * Returns the {@code StreamOperatorFactory} of this Transformation.
 	 */
-	public StreamOperatorFactory<OUT> getOperatorFactory() {
+	public StreamOperatorFactory<OUT, ?> getOperatorFactory() {
 		return operatorFactory;
 	}
 

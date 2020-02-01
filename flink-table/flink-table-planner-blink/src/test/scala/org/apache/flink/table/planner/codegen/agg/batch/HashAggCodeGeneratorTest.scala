@@ -111,7 +111,7 @@ class HashAggCodeGeneratorTest extends BatchAggTestBase {
   }
 
   private def getOperatorWithKey(isMerge: Boolean, isFinal: Boolean)
-    : (CodeGenOperatorFactory[BaseRow], RowType, RowType) = {
+    : (CodeGenOperatorFactory[BaseRow, _], RowType, RowType) = {
     val (iType, oType) = if (isMerge && isFinal) {
       (localOutputType, globalOutputType)
     } else if (!isMerge && isFinal) {
@@ -123,7 +123,7 @@ class HashAggCodeGeneratorTest extends BatchAggTestBase {
     val generator = new HashAggCodeGenerator(
       ctx, relBuilder, aggInfoList, iType, oType, Array(0), auxGrouping, isMerge, isFinal)
     val genOp = generator.genWithKeys()
-    (new CodeGenOperatorFactory[BaseRow](genOp), iType, oType)
+    (new CodeGenOperatorFactory(genOp), iType, oType)
   }
 
 

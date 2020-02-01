@@ -148,7 +148,7 @@ public class FlinkKinesisConsumerMigrationTest {
 
 		StreamSource<String, DummyFlinkKinesisConsumer<String>> consumerOperator = new StreamSource<>(consumerFunction);
 
-		final AbstractStreamOperatorTestHarness<String> testHarness =
+		final AbstractStreamOperatorTestHarness<String, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(consumerOperator, 1, 1, 0);
 
 		testHarness.setup();
@@ -204,7 +204,7 @@ public class FlinkKinesisConsumerMigrationTest {
 		StreamSource<String, DummyFlinkKinesisConsumer<String>> consumerOperator =
 			new StreamSource<>(consumerFunction);
 
-		final AbstractStreamOperatorTestHarness<String> testHarness =
+		final AbstractStreamOperatorTestHarness<String, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(consumerOperator, 1, 1, 0);
 
 		testHarness.setup();
@@ -285,7 +285,7 @@ public class FlinkKinesisConsumerMigrationTest {
 		StreamSource<String, DummyFlinkKinesisConsumer<String>> consumerOperator =
 			new StreamSource<>(consumerFunction);
 
-		final AbstractStreamOperatorTestHarness<String> testHarness =
+		final AbstractStreamOperatorTestHarness<String, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(consumerOperator, 1, 1, 0);
 
 		testHarness.setup();
@@ -358,7 +358,7 @@ public class FlinkKinesisConsumerMigrationTest {
 
 		StreamSource<String, DummyFlinkKinesisConsumer<String>> consumerOperator = new StreamSource<>(consumer);
 
-		final AbstractStreamOperatorTestHarness<String> testHarness =
+		final AbstractStreamOperatorTestHarness<String, ?> testHarness =
 				new AbstractStreamOperatorTestHarness<>(consumerOperator, 1, 1, 0);
 
 		testHarness.setTimeCharacteristic(TimeCharacteristic.ProcessingTime);

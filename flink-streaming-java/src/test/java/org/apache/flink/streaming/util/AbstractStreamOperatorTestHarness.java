@@ -87,11 +87,11 @@ import static org.apache.flink.util.Preconditions.checkState;
 /**
  * Base class for {@code AbstractStreamOperator} test harnesses.
  */
-public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
+public class AbstractStreamOperatorTestHarness<OUT, OP extends StreamOperator<OUT>> implements AutoCloseable {
 
-	protected StreamOperator<OUT> operator;
+	protected OP operator;
 
-	protected final StreamOperatorFactory<OUT> factory;
+	protected final StreamOperatorFactory<OUT, ? extends OP> factory;
 
 	protected final ConcurrentLinkedQueue<Object> outputList;
 
@@ -103,7 +103,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 
 	protected final TestProcessingTimeService processingTimeService;
 
-	protected final MockStreamTask<OUT, ?> mockTask;
+	protected final MockStreamTask<OUT, OP> mockTask;
 
 	protected final TestTaskStateManager taskStateManager;
 
@@ -133,7 +133,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	private volatile boolean wasFailedExternally = false;
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
+			OP operator,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex) throws Exception {
@@ -146,7 +146,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
+			OP operator,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex,
@@ -168,13 +168,13 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperatorFactory<OUT> factory,
+			StreamOperatorFactory<OUT, ? extends OP> factory,
 			MockEnvironment env) throws Exception {
 		this(null, factory, env, false, new OperatorID());
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperatorFactory<OUT> factory,
+			StreamOperatorFactory<OUT, ? extends OP> factory,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex) throws Exception {
@@ -187,7 +187,7 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperatorFactory<OUT> factory,
+			StreamOperatorFactory<OUT, ? extends OP> factory,
 			int maxParallelism,
 			int parallelism,
 			int subtaskIndex,
@@ -209,14 +209,14 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 	}
 
 	public AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
+			OP operator,
 			MockEnvironment env) throws Exception {
 		this(operator, SimpleOperatorFactory.of(operator), env, false, new OperatorID());
 	}
 
 	private AbstractStreamOperatorTestHarness(
-			StreamOperator<OUT> operator,
-			StreamOperatorFactory<OUT> factory,
+			OP operator,
+			StreamOperatorFactory<OUT, ? extends OP> factory,
 			MockEnvironment env,
 			boolean environmentIsInternal,
 			OperatorID operatorID) throws Exception {
