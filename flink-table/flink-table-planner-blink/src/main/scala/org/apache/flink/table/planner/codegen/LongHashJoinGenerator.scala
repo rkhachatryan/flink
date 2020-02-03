@@ -114,7 +114,10 @@ object LongHashJoinGenerator {
       buildRowSize: Int,
       buildRowCount: Long,
       reverseJoinFunction: Boolean,
-      condFunc: GeneratedJoinCondition): CodeGenOperatorFactory[BaseRow, TwoInputStreamOperator[BaseRow, BaseRow, BaseRow]] = {
+      condFunc: GeneratedJoinCondition):
+  CodeGenOperatorFactory[
+    BaseRow,
+    TwoInputStreamOperator[BaseRow, BaseRow, BaseRow]] = {
 
     val buildSer = new BinaryRowSerializer(buildType.getFieldCount)
     val probeSer = new BinaryRowSerializer(probeType.getFieldCount)

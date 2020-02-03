@@ -116,7 +116,10 @@ abstract class BatchExecSortAggregateBase(
       SortAggCodeGenerator.genWithKeys(
         ctx, relBuilder, aggInfos, inputType, outputType, grouping, auxGrouping, isMerge, isFinal)
     }
-    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
+    val operator =
+      new CodeGenOperatorFactory[
+        BaseRow,
+        OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

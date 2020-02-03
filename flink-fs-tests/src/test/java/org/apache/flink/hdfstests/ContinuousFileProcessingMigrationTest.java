@@ -235,7 +235,7 @@ public class ContinuousFileProcessingMigrationTest {
 		StreamSource<TimestampedFileInputSplit, ContinuousFileMonitoringFunction<String>> src =
 			new StreamSource<>(monitoringFunction);
 
-		final AbstractStreamOperatorTestHarness<TimestampedFileInputSplit> testHarness =
+		final AbstractStreamOperatorTestHarness<TimestampedFileInputSplit, ?> testHarness =
 				new AbstractStreamOperatorTestHarness<>(src, 1, 1, 0);
 
 		testHarness.open();
@@ -301,7 +301,7 @@ public class ContinuousFileProcessingMigrationTest {
 		StreamSource<TimestampedFileInputSplit, ContinuousFileMonitoringFunction<String>> src =
 			new StreamSource<>(monitoringFunction);
 
-		final AbstractStreamOperatorTestHarness<TimestampedFileInputSplit> testHarness =
+		final AbstractStreamOperatorTestHarness<TimestampedFileInputSplit, ?> testHarness =
 			new AbstractStreamOperatorTestHarness<>(src, 1, 1, 0);
 
 		testHarness.setup();

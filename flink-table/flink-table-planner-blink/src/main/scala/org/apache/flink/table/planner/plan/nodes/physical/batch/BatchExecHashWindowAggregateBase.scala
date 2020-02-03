@@ -138,7 +138,10 @@ abstract class BatchExecHashWindowAggregateBase(
       aggInfos, inputRowType, grouping, auxGrouping, enableAssignPane, isMerge, isFinal).gen(
       inputType, outputType, groupBufferLimitSize, 0,
       windowSize, slideSize)
-    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
+    val operator =
+      new CodeGenOperatorFactory[
+        BaseRow,
+        OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
 
     val managedMemory = MemorySize.parse(config.getConfiguration.getString(
       ExecutionConfigOptions.TABLE_EXEC_RESOURCE_HASH_AGG_MEMORY)).getBytes

@@ -131,7 +131,10 @@ abstract class BatchExecSortWindowAggregateBase(
     } else {
       generator.genWithKeys()
     }
-    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
+    val operator =
+      new CodeGenOperatorFactory[
+        BaseRow,
+        OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

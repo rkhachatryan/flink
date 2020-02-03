@@ -117,7 +117,10 @@ object ScanUtil {
       outputRowType,
       converter = inputTermConverter)
 
-    val substituteStreamOperator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[Any, BaseRow]](generatedOperator)
+    val substituteStreamOperator =
+      new CodeGenOperatorFactory[
+        BaseRow,
+        OneInputStreamOperator[Any, BaseRow]](generatedOperator)
 
     ExecNode.createOneInputTransformation(
       input.asInstanceOf[Transformation[BaseRow]],

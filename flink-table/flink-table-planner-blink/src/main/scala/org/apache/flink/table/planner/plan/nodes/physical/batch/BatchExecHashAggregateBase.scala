@@ -140,7 +140,10 @@ abstract class BatchExecHashAggregateBase(
         ctx, relBuilder, aggInfos, inputType, outputType, grouping, auxGrouping, isMerge, isFinal
       ).genWithKeys()
     }
-    val operator = new CodeGenOperatorFactory[BaseRow, OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
+    val operator =
+      new CodeGenOperatorFactory[
+        BaseRow,
+        OneInputStreamOperator[BaseRow, BaseRow]](generatedOperator)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

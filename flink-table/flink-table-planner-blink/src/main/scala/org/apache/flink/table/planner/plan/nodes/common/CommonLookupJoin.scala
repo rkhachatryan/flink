@@ -389,7 +389,8 @@ abstract class CommonLookupJoin(
           leftOuterJoin,
           rightRowType.getFieldCount)
       }
-      SimpleOperatorFactory.of[BaseRow, ProcessOperator[BaseRow, BaseRow]](new ProcessOperator(processFunc))
+      SimpleOperatorFactory
+        .of[BaseRow, ProcessOperator[BaseRow, BaseRow]](new ProcessOperator(processFunc))
     }
 
     ExecNode.createOneInputTransformation(

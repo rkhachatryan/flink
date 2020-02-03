@@ -48,7 +48,8 @@ object SinkCodeGenerator {
       inputRowType: RowType,
       sink: TableSink[_],
       withChangeFlag: Boolean,
-      operatorName: String): (CodeGenOperatorFactory[OUT, _ <: StreamOperator[OUT]], TypeInformation[OUT]) = {
+      operatorName: String):
+  (CodeGenOperatorFactory[OUT, _ <: StreamOperator[OUT]], TypeInformation[OUT]) = {
 
     val physicalOutputType = TableSinkUtils.inferSinkPhysicalDataType(
       sink.getConsumedDataType,
