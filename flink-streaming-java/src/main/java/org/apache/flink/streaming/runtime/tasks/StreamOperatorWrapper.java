@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -50,9 +51,12 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 
 	private StreamOperatorWrapper<?, ?> next;
 
-	StreamOperatorWrapper(OP wrapped, MailboxExecutor mailboxExecutor) {
+	private final Optional<ProcessingTimeService> pts;
+
+	StreamOperatorWrapper(OP wrapped, Optional<ProcessingTimeService> pts, MailboxExecutor mailboxExecutor) {
 		this.wrapped = checkNotNull(wrapped);
 		this.mailboxExecutor = checkNotNull(mailboxExecutor);
+		this.pts = pts;
 	}
 
 	/**
@@ -156,13 +160,7 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
 	}
 
 	private CompletableFuture<Void> quiesceProcessingTimeService() {
-		if (wrapped instanceof ProcessingTimeServiceAware) {
-			ProcessingTimeService processingTimeService = ((ProcessingTimeServiceAware) wrapped).getProcessingTimeService();
-			if (processingTimeService != null) {
-				return processingTimeService.quiesce();
-			}
-		}
-		return CompletableFuture.completedFuture(null);
+		return pts.map(ProcessingTimeService::quiesce).orElse(CompletableFuture.completedFuture(null));
 	}
 
 	private void sendClosedMail(CompletableFuture<Void> closedFuture) {

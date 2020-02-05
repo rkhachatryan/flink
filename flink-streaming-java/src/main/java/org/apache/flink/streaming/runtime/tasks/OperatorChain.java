@@ -66,6 +66,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -153,14 +154,15 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 			if (operatorFactory != null) {
 				WatermarkGaugeExposingOutput<StreamRecord<OUT>> output = getChainEntryPoint();
 
-				OP headOperator = StreamOperatorFactoryUtil.createOperator(
-						operatorFactory,
-						containingTask,
-						configuration,
-						output);
+				Tuple2<OP, Optional<ProcessingTimeService>> headOperatorTuple = StreamOperatorFactoryUtil.createOperator(
+					operatorFactory,
+					containingTask,
+					configuration,
+					output);
 
+				OP headOperator = headOperatorTuple.f0;
 				headOperator.getMetricGroup().gauge(MetricNames.IO_CURRENT_OUTPUT_WATERMARK, output.getWatermarkGauge());
-				this.headOperatorWrapper = createOperatorWrapper(headOperator, containingTask, configuration);
+				this.headOperatorWrapper = createOperatorWrapper(headOperator, containingTask, configuration, headOperatorTuple.f1);
 
 				// add head operator to end of chain
 				allOpWrappers.add(headOperatorWrapper);
@@ -447,17 +449,18 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 			mailboxExecutorFactory);
 
 		// now create the operator and give it the output collector to write its output to
-		OneInputStreamOperator<IN, OUT> chainedOperator = StreamOperatorFactoryUtil.createOperator(
+		Tuple2<OneInputStreamOperator<IN, OUT>, Optional<ProcessingTimeService>> chainedOperatorTuple = StreamOperatorFactoryUtil.createOperator(
 				operatorConfig.getStreamOperatorFactory(userCodeClassloader),
 				containingTask,
 				operatorConfig,
 				chainedOperatorOutput);
 
-		allOperatorWrappers.add(createOperatorWrapper(chainedOperator, containingTask, operatorConfig));
+		OneInputStreamOperator<IN, OUT> chainedOperator = chainedOperatorTuple.f0;
+		allOperatorWrappers.add(createOperatorWrapper(chainedOperator, containingTask, operatorConfig, chainedOperatorTuple.f1));
 
 		WatermarkGaugeExposingOutput<StreamRecord<IN>> currentOperatorOutput;
 		if (containingTask.getExecutionConfig().isObjectReuseEnabled()) {
-			currentOperatorOutput = new ChainingOutput<>(chainedOperator, this, outputTag);
+			currentOperatorOutput = new ChainingOutput<>(chainedOperatorTuple.f0, this, outputTag);
 		}
 		else {
 			TypeSerializer<IN> inSerializer = operatorConfig.getTypeSerializerIn1(userCodeClassloader);
@@ -511,10 +514,11 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>> implements Strea
 	private <T, P extends StreamOperator<T>> StreamOperatorWrapper<T, P> createOperatorWrapper(
 		P operator,
 		StreamTask<?, ?> containingTask,
-		StreamConfig operatorConfig) {
+		StreamConfig operatorConfig, Optional<ProcessingTimeService> pts) {
 
 		return new StreamOperatorWrapper<>(
 			operator,
+			pts,
 			containingTask.getMailboxExecutorFactory().createExecutor(operatorConfig.getChainIndex()));
 	}
 

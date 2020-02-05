@@ -100,7 +100,7 @@ public class OperatorChainTest {
 					((SetupableStreamOperator) op).setup(containingTask, cfg, lastWriter);
 				}
 				lastWriter = new ChainingOutput<>(op, statusProvider, null);
-				operatorWrappers.add(new StreamOperatorWrapper<>(op, containingTask.getMailboxExecutorFactory().createExecutor(i)));
+				operatorWrappers.add(new StreamOperatorWrapper<>(op, containingTask.getMailboxExecutorFactory().createExecutor(i), pts));
 			}
 
 			@SuppressWarnings("unchecked")
