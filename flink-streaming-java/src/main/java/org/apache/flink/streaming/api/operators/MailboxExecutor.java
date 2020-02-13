@@ -26,6 +26,7 @@ import org.apache.flink.util.function.RunnableWithException;
 
 import javax.annotation.Nonnull;
 
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
@@ -189,6 +190,8 @@ public interface MailboxExecutor {
 		execute(future, description, EMPTY_ARGS);
 		return future;
 	}
+
+	void submitRepeatable(@Nonnull Callable<Optional<Mail>> command, String descriptionFormat, Object... descriptionArgs);
 
 	/**
 	 * This methods starts running the command at the head of the mailbox and is intended to be used by the mailbox

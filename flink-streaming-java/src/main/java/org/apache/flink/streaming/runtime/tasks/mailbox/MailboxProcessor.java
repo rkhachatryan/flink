@@ -164,7 +164,7 @@ public class MailboxProcessor implements Closeable {
 	 */
 	public void drain() throws Exception {
 		for (final Mail mail : mailbox.drain()) {
-			mail.run();
+			mail.run().ifPresent(newMail -> LOG.warn("skipping repeating action: {}", newMail));
 		}
 	}
 
@@ -249,19 +249,39 @@ public class MailboxProcessor implements Closeable {
 			return true;
 		}
 
-		// Take mails in a non-blockingly and execute them.
-		Optional<Mail> maybeMail;
-		while (isMailboxLoopRunning() && (maybeMail = mailbox.tryTakeFromBatch()).isPresent()) {
-			maybeMail.get().run();
-		}
+		processBatch(mailbox);
 
 		// If the default action is currently not available, we can run a blocking mailbox execution until the default
 		// action becomes available again.
+		Optional<Mail> fromPreviousRun = Optional.empty();
 		while (isDefaultActionUnavailable() && isMailboxLoopRunning()) {
-			mailbox.take(MIN_PRIORITY).run();
+			if (mailbox.hasMail()) {
+				stash(fromPreviousRun, mailbox);
+				fromPreviousRun = mailbox.take(MIN_PRIORITY).run();
+			} else if (fromPreviousRun.isPresent()) {
+				fromPreviousRun = fromPreviousRun.get().run();
+			}
+		}
+		if (!isDefaultActionUnavailable()) {
+			stash(fromPreviousRun, mailbox);
 		}
 
 		return isMailboxLoopRunning();
+	}
+
+	private void processBatch(TaskMailbox mailbox) throws Exception {
+		Optional<Mail> fromBatch, fromPreviousRun = Optional.empty();
+		while (isMailboxLoopRunning() && ((fromBatch = mailbox.tryTakeFromBatch()).isPresent() || fromPreviousRun.isPresent())) {
+			final Mail toRun = fromBatch.isPresent() ? fromBatch.get() : fromPreviousRun.get();
+			if (fromBatch.isPresent()) {
+				stash(fromPreviousRun, mailbox);
+			}
+			fromPreviousRun = toRun.run();
+			if (!isDefaultActionUnavailable()) {
+				stash(fromPreviousRun, mailbox);
+				fromPreviousRun = Optional.empty();
+			}
+		}
 	}
 
 	/**
@@ -297,6 +317,10 @@ public class MailboxProcessor implements Closeable {
 		if (!mailbox.hasMail()) {
 			sendControlMail(() -> {}, "signal check");
 		}
+	}
+
+	private void stash(Optional<Mail> optionalMail, TaskMailbox mailbox) {
+		optionalMail.ifPresent(mailbox::put);
 	}
 
 	/**

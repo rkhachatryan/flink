@@ -27,6 +27,7 @@ import org.apache.flink.util.function.RunnableWithException;
 import javax.annotation.Nonnull;
 
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
@@ -54,6 +55,15 @@ public final class MailboxExecutorImpl implements MailboxExecutor {
 		@Nonnull final RunnableWithException command,
 		final String descriptionFormat,
 		final Object... descriptionArgs) {
+		Preconditions.checkNotNull(command);
+		submitRepeatable(() -> {
+			command.run(); // todo: override cancel?
+			return Optional.empty();
+		}, descriptionFormat, descriptionArgs);
+	}
+
+	@Override
+	public void submitRepeatable(@Nonnull Callable<Optional<Mail>> command, String descriptionFormat, Object... descriptionArgs) {
 		try {
 			mailbox.put(new Mail(command, priority, actionExecutor, descriptionFormat, descriptionArgs));
 		} catch (IllegalStateException mbex) {
@@ -65,7 +75,7 @@ public final class MailboxExecutorImpl implements MailboxExecutor {
 	public void yield() throws InterruptedException {
 		Mail mail = mailbox.take(priority);
 		try {
-			mail.run();
+			mail.run().ifPresent(mailbox::put);
 		} catch (Exception ex) {
 			throw WrappingRuntimeException.wrapIfNecessary(ex);
 		}
@@ -76,7 +86,7 @@ public final class MailboxExecutorImpl implements MailboxExecutor {
 		Optional<Mail> optionalMail = mailbox.tryTake(priority);
 		if (optionalMail.isPresent()) {
 			try {
-				optionalMail.get().run();
+				optionalMail.get().run().ifPresent(mailbox::put);
 			} catch (Exception ex) {
 				throw WrappingRuntimeException.wrapIfNecessary(ex);
 			}

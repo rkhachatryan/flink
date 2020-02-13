@@ -22,6 +22,8 @@ import org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.RunnableWithException;
 
+import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
 /**
@@ -32,7 +34,7 @@ public class Mail {
 	/**
 	 * The action to execute.
 	 */
-	private final RunnableWithException runnable;
+	private Callable<Optional<Mail>> callable;
 	/**
 	 * The priority of the mail. The priority does not determine the order, but helps to hide upstream mails from
 	 * downstream processors to avoid live/deadlocks.
@@ -52,9 +54,17 @@ public class Mail {
 	}
 
 	public Mail(RunnableWithException runnable, int priority, StreamTaskActionExecutor actionExecutor, String descriptionFormat, Object... descriptionArgs) {
-		this.runnable = Preconditions.checkNotNull(runnable);
+		this(() -> { // todo: check if tryCancel still works
+			runnable.run();
+			return Optional.empty();
+		}, priority, actionExecutor, descriptionFormat, descriptionArgs);
+		Preconditions.checkNotNull(runnable);
+	}
+
+	public Mail(Callable<Optional<Mail>> callable, int priority, StreamTaskActionExecutor actionExecutor, String descriptionFormat, Object... descriptionArgs) {
+		this.callable = Preconditions.checkNotNull(callable);
 		this.priority = priority;
-		this.descriptionFormat = descriptionFormat == null ? runnable.toString() : descriptionFormat;
+		this.descriptionFormat = descriptionFormat == null ? callable.toString() : descriptionFormat;
 		this.descriptionArgs = Preconditions.checkNotNull(descriptionArgs);
 		this.actionExecutor = actionExecutor;
 	}
@@ -64,8 +74,8 @@ public class Mail {
 	}
 
 	public void tryCancel(boolean mayInterruptIfRunning) {
-		if (runnable instanceof Future) {
-			((Future<?>) runnable).cancel(mayInterruptIfRunning);
+		if (callable instanceof Future) {
+			((Future<?>) callable).cancel(mayInterruptIfRunning);
 		}
 	}
 
@@ -74,7 +84,7 @@ public class Mail {
 		return String.format(descriptionFormat, descriptionArgs);
 	}
 
-	public void run() throws Exception {
-		actionExecutor.run(runnable);
+	public Optional<Mail> run() throws Exception {
+		return actionExecutor.call(callable);
 	}
 }
