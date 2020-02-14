@@ -146,13 +146,8 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 				op.switchState(CLOSED);
 			}
 		},
-		CLOSED {
-			@Override
-			public boolean prepareToProcessRecord(ContinuousFileReaderOperator<?> op) {
-				LOG.warn("not processing any records while closed");
-				return false;
-			}
-		};
+		CLOSED,
+		DISPOSED;
 
 		private static final Set<ReaderState> ACCEPT_SPLITS = EnumSet.of(IDLE, OPENING, READING);
 		/**
@@ -161,11 +156,11 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 		private static final Map<ReaderState, Set<ReaderState>> TRANSITIONS;
 		static {
 			Map<ReaderState, Set<ReaderState>> tmpTransitions = new HashMap<>();
-			tmpTransitions.put(IDLE, EnumSet.of(OPENING, CLOSED));
-			tmpTransitions.put(OPENING, EnumSet.of(READING, CLOSING));
-			tmpTransitions.put(READING, EnumSet.of(IDLE, OPENING, CLOSING));
-			tmpTransitions.put(CLOSING, EnumSet.of(CLOSED));
-			tmpTransitions.put(CLOSED, EnumSet.noneOf(ReaderState.class));
+			tmpTransitions.put(IDLE, EnumSet.of(OPENING, CLOSED, DISPOSED));
+			tmpTransitions.put(OPENING, EnumSet.of(READING, CLOSING, DISPOSED));
+			tmpTransitions.put(READING, EnumSet.of(IDLE, OPENING, CLOSING, DISPOSED));
+			tmpTransitions.put(CLOSING, EnumSet.of(CLOSED, DISPOSED));
+			tmpTransitions.put(CLOSED, EnumSet.of(DISPOSED));
 			TRANSITIONS = new EnumMap<>(tmpTransitions);
 		}
 
@@ -174,7 +169,7 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 		}
 
 		public final boolean isTerminal() {
-			return this == CLOSED;
+			return this == CLOSED || this == DISPOSED;
 		}
 
 		public boolean canSwitchTo(ReaderState next) {
@@ -187,7 +182,10 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 		 * Prepare to process new record OR split.
 		 * @return true if should read the record
 		 */
-		public abstract boolean prepareToProcessRecord(ContinuousFileReaderOperator<?> op) throws IOException;
+		public boolean prepareToProcessRecord(ContinuousFileReaderOperator<?> op) throws IOException {
+			LOG.warn("not processing any records while closed");
+			return false;
+		}
 
 		public void onNoMoreData(ContinuousFileReaderOperator<?> op) {
 		}
@@ -254,12 +252,12 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 
 	@Override
 	public void open() throws Exception {
+		checkState(state == ReaderState.IDLE, "wrong state to open operator: ", state);
 		super.open();
 
 		checkState(this.serializer != null, "The serializer has not been set. " +
 			"Probably the setOutputType() was not called. Please report it.");
 
-		this.state = ReaderState.IDLE;
 		this.format.setRuntimeContext(getRuntimeContext());
 		this.format.configure(new Configuration());
 
@@ -365,7 +363,7 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 
 	private void switchState(ReaderState newState) {
 		if (state != newState) {
-			Preconditions.checkState(state.canSwitchTo(newState), "can't switch state from terminal state %s to %s", state, newState);
+			Preconditions.checkState(state.canSwitchTo(newState), "can't switch state from %s to %s", state, newState);
 			LOG.debug("switch state: {} -> {}", state, newState);
 			state = newState;
 		}
@@ -378,6 +376,7 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 
 	@Override
 	public void dispose() throws Exception {
+		checkState(state != ReaderState.DISPOSED, "already disposed");
 		Exception e = null;
 		if (state != ReaderState.CLOSED) {
 			try {
@@ -402,6 +401,7 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 		} catch (Exception ex) {
 			e = ExceptionUtils.firstOrSuppressed(ex, e);
 		}
+		switchState(ReaderState.DISPOSED);
 		if (e != null) {
 			throw e;
 		}
@@ -412,18 +412,13 @@ public class ContinuousFileReaderOperator<OUT> extends AbstractStreamOperator<OU
 		LOG.debug("closing");
 		super.close();
 
-		switch (state) {
-			case IDLE:
-				switchState(ReaderState.CLOSED);
-				break;
-			case CLOSED:
-				LOG.warn("operator is already closed, doing nothing");
-				return;
-			default:
-				switchState(ReaderState.CLOSING);
-				while (!state.isTerminal()) {
-					executor.yield();
-				}
+		if (state == ReaderState.IDLE) {
+			switchState(ReaderState.CLOSED);
+		} else {
+			switchState(ReaderState.CLOSING);
+			while (!state.isTerminal()) {
+				executor.yield();
+			}
 		}
 
 		try {
