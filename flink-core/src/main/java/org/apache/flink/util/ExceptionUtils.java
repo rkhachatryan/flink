@@ -164,16 +164,20 @@ public final class ExceptionUtils {
 	 * }
 	 * }</pre>
 	 *
-	 * @param newException The newly occurred exception
+	 * @param newException The newly occurred exception, possibly null.
 	 * @param previous     The previously occurred exception, possibly null.
 	 *
 	 * @return The new exception, if no previous exception exists, or the previous exception with the
 	 *         new exception in the list of suppressed exceptions.
 	 */
-	public static <T extends Throwable> T firstOrSuppressed(T newException, @Nullable T previous) {
-		checkNotNull(newException, "newException");
-
-		if (previous == null) {
+	@SuppressWarnings("ConstantConditions")
+	public static <T extends Throwable> T firstOrSuppressed(@Nullable T newException, @Nullable T previous) {
+		assert newException != null;
+		if (newException == null && previous == null) {
+			return null;
+		} else if (newException == null) {
+			return previous;
+		} else if (previous == null) {
 			return newException;
 		} else {
 			previous.addSuppressed(newException);
