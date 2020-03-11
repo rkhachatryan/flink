@@ -228,8 +228,7 @@ public class InterruptSensitiveRestoreTest {
 		JobVertexID jobVertexID = new JobVertexID();
 		OperatorID operatorID = OperatorID.fromJobVertexID(jobVertexID);
 		streamConfig.setOperatorID(operatorID);
-		TaskStateSnapshot stateSnapshot = new TaskStateSnapshot();
-		stateSnapshot.putSubtaskStateByOperatorID(operatorID, operatorSubtaskState);
+		TaskStateSnapshot stateSnapshot = new TaskStateSnapshot(operatorID, operatorSubtaskState);
 
 		JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(1L, stateSnapshot);
 

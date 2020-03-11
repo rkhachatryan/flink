@@ -172,7 +172,7 @@ public class RocksDBAsyncSnapshotTest extends TestLogger {
 				}
 
 				boolean hasManagedKeyedState = false;
-				for (Map.Entry<OperatorID, OperatorSubtaskState> entry : subtaskState.getSubtaskStateMappings()) {
+				for (Map.Entry<OperatorID, OperatorSubtaskState> entry : subtaskState.getSubtaskStateMappings().entrySet()) {
 					OperatorSubtaskState state = entry.getValue();
 					if (state != null) {
 						hasManagedKeyedState |= state.getManagedKeyedState() != null;

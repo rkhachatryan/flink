@@ -813,16 +813,12 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			OperatorID opID2 = OperatorID.fromJobVertexID(ackVertex2.getJobvertexId());
 			OperatorID opID3 = OperatorID.fromJobVertexID(ackVertex3.getJobvertexId());
 
-			TaskStateSnapshot taskOperatorSubtaskStates11 = spy(new TaskStateSnapshot());
-			TaskStateSnapshot taskOperatorSubtaskStates12 = spy(new TaskStateSnapshot());
-			TaskStateSnapshot taskOperatorSubtaskStates13 = spy(new TaskStateSnapshot());
-
 			OperatorSubtaskState subtaskState11 = mock(OperatorSubtaskState.class);
 			OperatorSubtaskState subtaskState12 = mock(OperatorSubtaskState.class);
 			OperatorSubtaskState subtaskState13 = mock(OperatorSubtaskState.class);
-			taskOperatorSubtaskStates11.putSubtaskStateByOperatorID(opID1, subtaskState11);
-			taskOperatorSubtaskStates12.putSubtaskStateByOperatorID(opID2, subtaskState12);
-			taskOperatorSubtaskStates13.putSubtaskStateByOperatorID(opID3, subtaskState13);
+			TaskStateSnapshot taskOperatorSubtaskStates11 = spy(new TaskStateSnapshot(opID1, subtaskState11));
+			TaskStateSnapshot taskOperatorSubtaskStates12 = spy(new TaskStateSnapshot(opID2, subtaskState12));
+			TaskStateSnapshot taskOperatorSubtaskStates13 = spy(new TaskStateSnapshot(opID3, subtaskState13));
 
 			// acknowledge one of the three tasks
 			coord.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jid, ackAttemptID2, checkpointId1, new CheckpointMetrics(), taskOperatorSubtaskStates12), TASK_MANAGER_LOCATION_INFO);
@@ -846,17 +842,13 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			}
 			long checkpointId2 = pending2.getCheckpointId();
 
-			TaskStateSnapshot taskOperatorSubtaskStates21 = spy(new TaskStateSnapshot());
-			TaskStateSnapshot taskOperatorSubtaskStates22 = spy(new TaskStateSnapshot());
-			TaskStateSnapshot taskOperatorSubtaskStates23 = spy(new TaskStateSnapshot());
-
 			OperatorSubtaskState subtaskState21 = mock(OperatorSubtaskState.class);
 			OperatorSubtaskState subtaskState22 = mock(OperatorSubtaskState.class);
 			OperatorSubtaskState subtaskState23 = mock(OperatorSubtaskState.class);
 
-			taskOperatorSubtaskStates21.putSubtaskStateByOperatorID(opID1, subtaskState21);
-			taskOperatorSubtaskStates22.putSubtaskStateByOperatorID(opID2, subtaskState22);
-			taskOperatorSubtaskStates23.putSubtaskStateByOperatorID(opID3, subtaskState23);
+			TaskStateSnapshot taskOperatorSubtaskStates21 = spy(new TaskStateSnapshot(opID1, subtaskState21));
+			TaskStateSnapshot taskOperatorSubtaskStates22 = spy(new TaskStateSnapshot(opID2, subtaskState22));
+			TaskStateSnapshot taskOperatorSubtaskStates23 = spy(new TaskStateSnapshot(opID3, subtaskState23));
 
 			// trigger messages should have been sent
 			verify(triggerVertex1.getCurrentExecutionAttempt(), times(1)).triggerCheckpoint(eq(checkpointId2), eq(timestamp2), any(CheckpointOptions.class));
@@ -965,9 +957,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 			OperatorID opID1 = OperatorID.fromJobVertexID(ackVertex1.getJobvertexId());
 
-			TaskStateSnapshot taskOperatorSubtaskStates1 = spy(new TaskStateSnapshot());
 			OperatorSubtaskState subtaskState1 = mock(OperatorSubtaskState.class);
-			taskOperatorSubtaskStates1.putSubtaskStateByOperatorID(opID1, subtaskState1);
+			TaskStateSnapshot taskOperatorSubtaskStates1 = spy(new TaskStateSnapshot(opID1, subtaskState1));
 
 			coord.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jid, ackAttemptID1, checkpoint.getCheckpointId(), new CheckpointMetrics(), taskOperatorSubtaskStates1), TASK_MANAGER_LOCATION_INFO);
 
@@ -1097,9 +1088,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 		OperatorID opIDtrigger = OperatorID.fromJobVertexID(triggerVertex.getJobvertexId());
 
-		TaskStateSnapshot taskOperatorSubtaskStatesTrigger = spy(new TaskStateSnapshot());
 		OperatorSubtaskState subtaskStateTrigger = mock(OperatorSubtaskState.class);
-		taskOperatorSubtaskStatesTrigger.putSubtaskStateByOperatorID(opIDtrigger, subtaskStateTrigger);
+		TaskStateSnapshot taskOperatorSubtaskStatesTrigger = spy(new TaskStateSnapshot(opIDtrigger, subtaskStateTrigger));
 
 		// acknowledge the first trigger vertex
 		coord.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jobId, triggerAttemptId, checkpointId, new CheckpointMetrics(), taskOperatorSubtaskStatesTrigger), TASK_MANAGER_LOCATION_INFO);

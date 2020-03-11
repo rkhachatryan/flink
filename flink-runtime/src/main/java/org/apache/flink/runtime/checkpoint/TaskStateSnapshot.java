@@ -24,12 +24,11 @@ import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.util.Preconditions;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * This class encapsulates state handles to the snapshots of all operator instances executed within one task. A task
@@ -48,6 +47,8 @@ import java.util.Set;
  */
 public class TaskStateSnapshot implements CompositeStateHandle {
 
+	public static final TaskStateSnapshot EMPTY = new TaskStateSnapshot(Collections.emptyMap());
+
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -55,16 +56,13 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 	 */
 	private final Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID;
 
-	public TaskStateSnapshot() {
-		this(10);
-	}
-
-	public TaskStateSnapshot(int size) {
-		this(new HashMap<>(size));
+	public TaskStateSnapshot(OperatorID id, OperatorSubtaskState state) {
+		this(Collections.singletonMap(id, state));
 	}
 
 	public TaskStateSnapshot(Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID) {
-		this.subtaskStatesByOperatorID = Preconditions.checkNotNull(subtaskStatesByOperatorID);
+		subtaskStatesByOperatorID.values().forEach(Preconditions::checkNotNull);
+		this.subtaskStatesByOperatorID = Preconditions.checkNotNull(Collections.unmodifiableMap(new HashMap<>(subtaskStatesByOperatorID)));
 	}
 
 	/**
@@ -76,21 +74,10 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 	}
 
 	/**
-	 * Maps the given operator id to the given subtask state. Returns the subtask state of a previous mapping, if such
-	 * a mapping existed or null otherwise.
-	 */
-	public OperatorSubtaskState putSubtaskStateByOperatorID(
-		@Nonnull OperatorID operatorID,
-		@Nonnull OperatorSubtaskState state) {
-
-		return subtaskStatesByOperatorID.put(operatorID, Preconditions.checkNotNull(state));
-	}
-
-	/**
 	 * Returns the set of all mappings from operator id to the corresponding subtask state.
 	 */
-	public Set<Map.Entry<OperatorID, OperatorSubtaskState>> getSubtaskStateMappings() {
-		return subtaskStatesByOperatorID.entrySet();
+	public Map<OperatorID, OperatorSubtaskState> getSubtaskStateMappings() {
+		return subtaskStatesByOperatorID;
 	}
 
 	/**

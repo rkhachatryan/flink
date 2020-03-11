@@ -186,9 +186,8 @@ public class TaskLocalStateStoreImplTest {
 		List<TaskStateSnapshot> taskStateSnapshots = new ArrayList<>(count);
 		for (int i = 0; i < count; ++i) {
 			OperatorID operatorID = new OperatorID();
-			TaskStateSnapshot taskStateSnapshot = spy(new TaskStateSnapshot());
 			OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState();
-			taskStateSnapshot.putSubtaskStateByOperatorID(operatorID, operatorSubtaskState);
+			TaskStateSnapshot taskStateSnapshot = spy(new TaskStateSnapshot(operatorID, operatorSubtaskState));
 			taskLocalStateStore.storeLocalState(i, taskStateSnapshot);
 			taskStateSnapshots.add(taskStateSnapshot);
 		}

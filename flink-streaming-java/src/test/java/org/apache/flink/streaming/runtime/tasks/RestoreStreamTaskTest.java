@@ -47,6 +47,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -157,26 +158,23 @@ public class RestoreStreamTaskTest extends TestLogger {
 			new CounterOperator(),
 			Optional.empty());
 
-		TaskStateSnapshot stateHandles = restore.getTaskStateSnapshot();
-
-		assertEquals(2, stateHandles.getSubtaskStateMappings().size());
-
+		TaskStateSnapshot snapshot = restore.getTaskStateSnapshot();
+		assertEquals(2, snapshot.getSubtaskStateMappings().size());
 		// test empty state in case of scale up
-		OperatorSubtaskState emptyHeadOperatorState = StateAssignmentOperation.operatorSubtaskStateFrom(
+		TaskStateSnapshot taskStateSnapshot = withState(snapshot, headOperatorID, StateAssignmentOperation.operatorSubtaskStateFrom(
 			new OperatorInstanceID(0, headOperatorID),
 			Collections.emptyMap(),
 			Collections.emptyMap(),
 			Collections.emptyMap(),
-			Collections.emptyMap());
-
-		stateHandles.putSubtaskStateByOperatorID(headOperatorID, emptyHeadOperatorState);
+			Collections.emptyMap()));
+		JobManagerTaskRestore updatedRestore = new JobManagerTaskRestore(restore.getRestoreCheckpointId(), taskStateSnapshot);
 
 		createRunAndCheckpointOperatorChain(
 			headOperatorID,
 			new CounterOperator(),
 			tailOperatorID,
 			new CounterOperator(),
-			Optional.of(restore));
+			Optional.of(updatedRestore));
 
 		assertEquals(new HashSet<>(Arrays.asList(headOperatorID, tailOperatorID)), RESTORED_OPERATORS);
 	}
@@ -355,5 +353,11 @@ public class RestoreStreamTaskTest extends TestLogger {
 		@Override
 		public void snapshotState(StateSnapshotContext context) throws Exception {
 		}
+	}
+
+	private static TaskStateSnapshot withState(TaskStateSnapshot snapshot, OperatorID headOperatorID, OperatorSubtaskState state) {
+		HashMap<OperatorID, OperatorSubtaskState> newMap = new HashMap<>(snapshot.getSubtaskStateMappings());
+		newMap.put(headOperatorID, state);
+		return new TaskStateSnapshot(newMap);
 	}
 }

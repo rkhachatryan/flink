@@ -287,9 +287,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 			List<SerializableObject> testStates = Collections.singletonList(new SerializableObject());
 			KeyedStateHandle serializedKeyGroupStates = generateKeyGroupState(keyGroupRange, testStates);
 
-			TaskStateSnapshot subtaskStatesForCheckpoint = new TaskStateSnapshot();
-
-			subtaskStatesForCheckpoint.putSubtaskStateByOperatorID(
+			TaskStateSnapshot subtaskStatesForCheckpoint = new TaskStateSnapshot(
 				OperatorID.fromJobVertexID(statefulId),
 				new OperatorSubtaskState(
 					StateObjectCollection.empty(),
@@ -312,9 +310,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 			List<SerializableObject> testStatesForSavepoint = Collections.singletonList(new SerializableObject());
 			KeyedStateHandle serializedKeyGroupStatesForSavepoint = generateKeyGroupState(keyGroupRangeForSavepoint, testStatesForSavepoint);
 
-			TaskStateSnapshot subtaskStatesForSavepoint = new TaskStateSnapshot();
-
-			subtaskStatesForSavepoint.putSubtaskStateByOperatorID(
+			TaskStateSnapshot subtaskStatesForSavepoint = new TaskStateSnapshot(
 				OperatorID.fromJobVertexID(statefulId),
 				new OperatorSubtaskState(
 					StateObjectCollection.empty(),
@@ -431,8 +427,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 			KeyGroupsStateHandle keyedStateBackend = generateKeyGroupState(jobVertexID1, keyGroupPartitions1.get(index), false);
 			KeyGroupsStateHandle keyedStateRaw = generateKeyGroupState(jobVertexID1, keyGroupPartitions1.get(index), true);
 			OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(opStateBackend, null, keyedStateBackend, keyedStateRaw);
-			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot();
-			taskOperatorSubtaskStates.putSubtaskStateByOperatorID(OperatorID.fromJobVertexID(jobVertexID1), operatorSubtaskState);
+			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot(OperatorID.fromJobVertexID(jobVertexID1), operatorSubtaskState);
 
 			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 				jid,
@@ -456,8 +451,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 			expectedOpStatesRaw.add(new ChainedStateHandle<>(Collections.singletonList(opStateRaw)));
 
 			OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(opStateBackend, opStateRaw, keyedStateBackend, keyedStateRaw);
-			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot();
-			taskOperatorSubtaskStates.putSubtaskStateByOperatorID(OperatorID.fromJobVertexID(jobVertexID2), operatorSubtaskState);
+			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot(OperatorID.fromJobVertexID(jobVertexID2), operatorSubtaskState);
 
 			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 				jid,
@@ -589,8 +583,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 		for (int index = 0; index < jobVertex1.getParallelism(); index++) {
 			KeyGroupsStateHandle keyGroupState = generateKeyGroupState(jobVertexID1, keyGroupPartitions1.get(index), false);
 			OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(null, null, keyGroupState, null);
-			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot();
-			taskOperatorSubtaskStates.putSubtaskStateByOperatorID(OperatorID.fromJobVertexID(jobVertexID1), operatorSubtaskState);
+			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot(OperatorID.fromJobVertexID(jobVertexID1), operatorSubtaskState);
 			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 				jid,
 				jobVertex1.getTaskVertices()[index].getCurrentExecutionAttempt().getAttemptId(),
@@ -604,8 +597,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 		for (int index = 0; index < jobVertex2.getParallelism(); index++) {
 			KeyGroupsStateHandle keyGroupState = generateKeyGroupState(jobVertexID2, keyGroupPartitions2.get(index), false);
 			OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(null, null, keyGroupState, null);
-			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot();
-			taskOperatorSubtaskStates.putSubtaskStateByOperatorID(OperatorID.fromJobVertexID(jobVertexID2), operatorSubtaskState);
+			TaskStateSnapshot taskOperatorSubtaskStates = new TaskStateSnapshot(OperatorID.fromJobVertexID(jobVertexID2), operatorSubtaskState);
 			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 				jid,
 				jobVertex2.getTaskVertices()[index].getCurrentExecutionAttempt().getAttemptId(),

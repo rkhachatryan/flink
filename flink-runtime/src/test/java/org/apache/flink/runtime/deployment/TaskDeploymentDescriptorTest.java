@@ -73,7 +73,7 @@ public class TaskDeploymentDescriptorTest extends TestLogger {
 	private static final List<PermanentBlobKey> requiredJars = new ArrayList<>(0);
 	private static final List<URL> requiredClasspaths = new ArrayList<>(0);
 	private static final int targetSlotNumber = 47;
-	private static final TaskStateSnapshot taskStateHandles = new TaskStateSnapshot();
+	private static final TaskStateSnapshot taskStateHandles = TaskStateSnapshot.EMPTY;
 	private static final JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(1L, taskStateHandles);
 
 	private final SerializedValue<ExecutionConfig> executionConfig = new SerializedValue<>(new ExecutionConfig());

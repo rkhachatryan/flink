@@ -164,7 +164,6 @@ public class StreamTaskStateInitializerImplTest {
 		});
 
 		OperatorID operatorID = new OperatorID(47L, 11L);
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
 
 		Random random = new Random(0x42);
 
@@ -186,8 +185,7 @@ public class StreamTaskStateInitializerImplTest {
 			CheckpointTestUtils.createDummyKeyGroupStateHandle(random),
 			CheckpointTestUtils.createDummyKeyGroupStateHandle(random));
 
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID, operatorSubtaskState);
-
+		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot(operatorID, operatorSubtaskState);
 		JobManagerTaskRestore jobManagerTaskRestore = new JobManagerTaskRestore(0L, taskStateSnapshot);
 
 		StreamTaskStateInitializer streamTaskStateManager =

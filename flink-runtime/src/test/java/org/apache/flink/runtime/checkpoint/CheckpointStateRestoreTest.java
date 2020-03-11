@@ -118,9 +118,7 @@ public class CheckpointStateRestoreTest {
 			PendingCheckpoint pending = coord.getPendingCheckpoints().values().iterator().next();
 			final long checkpointId = pending.getCheckpointId();
 
-			final TaskStateSnapshot subtaskStates = new TaskStateSnapshot();
-
-			subtaskStates.putSubtaskStateByOperatorID(
+			final TaskStateSnapshot subtaskStates = new TaskStateSnapshot(
 				OperatorID.fromJobVertexID(statefulId),
 				new OperatorSubtaskState(
 					StateObjectCollection.empty(),

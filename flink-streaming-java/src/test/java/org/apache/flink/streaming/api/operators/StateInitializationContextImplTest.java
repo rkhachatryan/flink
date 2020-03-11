@@ -148,8 +148,7 @@ public class StateInitializationContextImplTest {
 			new StateObjectCollection<>(keyedStateHandles));
 
 		OperatorID operatorID = new OperatorID();
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID, operatorSubtaskState);
+		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot(operatorID, operatorSubtaskState);
 
 		JobManagerTaskRestore jobManagerTaskRestore = new JobManagerTaskRestore(0L, taskStateSnapshot);
 
