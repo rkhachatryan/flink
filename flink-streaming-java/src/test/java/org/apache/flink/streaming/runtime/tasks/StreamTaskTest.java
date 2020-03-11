@@ -687,7 +687,7 @@ public class StreamTaskTest extends TestLogger {
 				subtaskStateCaptor.capture());
 
 			TaskStateSnapshot subtaskStates = subtaskStateCaptor.getValue();
-			OperatorSubtaskState subtaskState = subtaskStates.getSubtaskStateMappings().iterator().next().getValue();
+			OperatorSubtaskState subtaskState = subtaskStates.getSubtaskStateMappings().entrySet().iterator().next().getValue();
 
 			// check that the subtask state contains the expected state handles
 			assertEquals(StateObjectCollection.singleton(managedKeyedStateHandle), subtaskState.getManagedKeyedState());

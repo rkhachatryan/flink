@@ -144,8 +144,8 @@ public class LocalStateForwardingTest extends TestLogger {
 		final int subtaskIdx = 42;
 		JobVertexID jobVertexID = new JobVertexID();
 
-		TaskStateSnapshot jmSnapshot = new TaskStateSnapshot();
-		TaskStateSnapshot tmSnapshot = new TaskStateSnapshot();
+		TaskStateSnapshot jmSnapshot = TaskStateSnapshot.EMPTY;
+		TaskStateSnapshot tmSnapshot = TaskStateSnapshot.EMPTY;
 
 		final AtomicBoolean jmReported = new AtomicBoolean(false);
 		final AtomicBoolean tmReported = new AtomicBoolean(false);

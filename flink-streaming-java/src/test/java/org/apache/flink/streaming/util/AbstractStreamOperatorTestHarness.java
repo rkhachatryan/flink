@@ -84,6 +84,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.singletonMap;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -480,18 +481,13 @@ public class AbstractStreamOperatorTestHarness<OUT> implements AutoCloseable {
 
 		if (jmOperatorStateHandles != null) {
 
-			TaskStateSnapshot jmTaskStateSnapshot = new TaskStateSnapshot();
-			jmTaskStateSnapshot.putSubtaskStateByOperatorID(operator.getOperatorID(), jmOperatorStateHandles);
-
 			taskStateManager.setReportedCheckpointId(0);
 			taskStateManager.setJobManagerTaskStateSnapshotsByCheckpointId(
-				Collections.singletonMap(0L, jmTaskStateSnapshot));
+				singletonMap(0L, new TaskStateSnapshot(operator.getOperatorID(), jmOperatorStateHandles)));
 
 			if (tmOperatorStateHandles != null) {
-				TaskStateSnapshot tmTaskStateSnapshot = new TaskStateSnapshot();
-				tmTaskStateSnapshot.putSubtaskStateByOperatorID(operator.getOperatorID(), tmOperatorStateHandles);
 				taskStateManager.setTaskManagerTaskStateSnapshotsByCheckpointId(
-					Collections.singletonMap(0L, tmTaskStateSnapshot));
+					singletonMap(0L, new TaskStateSnapshot(operator.getOperatorID(), tmOperatorStateHandles)));
 			}
 		}
 

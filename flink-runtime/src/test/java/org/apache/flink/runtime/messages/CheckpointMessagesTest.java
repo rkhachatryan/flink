@@ -55,8 +55,7 @@ public class CheckpointMessagesTest {
 
 			KeyGroupRange keyGroupRange = KeyGroupRange.of(42, 42);
 
-			TaskStateSnapshot checkpointStateHandles = new TaskStateSnapshot();
-			checkpointStateHandles.putSubtaskStateByOperatorID(
+			TaskStateSnapshot checkpointStateHandles = new TaskStateSnapshot(
 				new OperatorID(),
 				new OperatorSubtaskState(
 					CheckpointCoordinatorTestingUtils.generatePartitionableStateHandle(new JobVertexID(), 0, 2, 8, false),

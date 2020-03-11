@@ -22,6 +22,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystemSafetyNet;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
+import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -31,6 +32,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Closeable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -85,26 +87,21 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		try {
 			closeableRegistry.registerCloseable(this);
 
-			TaskStateSnapshot jobManagerTaskOperatorSubtaskStates = new TaskStateSnapshot(operatorSnapshotsInProgress.size());
-			TaskStateSnapshot localTaskOperatorSubtaskStates = new TaskStateSnapshot(operatorSnapshotsInProgress.size());
-
+			final Map<OperatorID, OperatorSubtaskState> jmMap = new HashMap<>();
+			final Map<OperatorID, OperatorSubtaskState> localMap = new HashMap<>();
 			for (Map.Entry<OperatorID, OperatorSnapshotFutures> entry : operatorSnapshotsInProgress.entrySet()) {
 
 				OperatorID operatorID = entry.getKey();
 				OperatorSnapshotFutures snapshotInProgress = entry.getValue();
 
 				// finalize the async part of all by executing all snapshot runnables
-				OperatorSnapshotFinalizer finalizedSnapshots =
-					new OperatorSnapshotFinalizer(snapshotInProgress);
+				OperatorSnapshotFinalizer finalizedSnapshots = new OperatorSnapshotFinalizer(snapshotInProgress);
 
-				jobManagerTaskOperatorSubtaskStates.putSubtaskStateByOperatorID(
-					operatorID,
-					finalizedSnapshots.getJobManagerOwnedState());
-
-				localTaskOperatorSubtaskStates.putSubtaskStateByOperatorID(
-					operatorID,
-					finalizedSnapshots.getTaskLocalState());
+				jmMap.put(operatorID, finalizedSnapshots.getJobManagerOwnedState());
+				localMap.put(operatorID, finalizedSnapshots.getTaskLocalState());
 			}
+			TaskStateSnapshot jobManagerTaskOperatorSubtaskStates = new TaskStateSnapshot(jmMap);
+			TaskStateSnapshot localTaskOperatorSubtaskStates = new TaskStateSnapshot(localMap);
 
 			final long asyncEndNanos = System.nanoTime();
 			final long asyncDurationMillis = (asyncEndNanos - asyncStartNanos) / 1_000_000L;

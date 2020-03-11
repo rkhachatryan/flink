@@ -24,6 +24,7 @@ import org.apache.flink.util.TestLogger;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.Random;
 
 import static org.mockito.Mockito.mock;
@@ -32,36 +33,16 @@ import static org.mockito.Mockito.verify;
 public class TaskStateSnapshotTest extends TestLogger {
 
 	@Test
-	public void putGetSubtaskStateByOperatorID() {
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
-
-		OperatorID operatorID_1 = new OperatorID();
-		OperatorID operatorID_2 = new OperatorID();
-		OperatorSubtaskState operatorSubtaskState_1 = new OperatorSubtaskState();
-		OperatorSubtaskState operatorSubtaskState_2 = new OperatorSubtaskState();
-		OperatorSubtaskState operatorSubtaskState_1_replace = new OperatorSubtaskState();
-
-		Assert.assertNull(taskStateSnapshot.getSubtaskStateByOperatorID(operatorID_1));
-		Assert.assertNull(taskStateSnapshot.getSubtaskStateByOperatorID(operatorID_2));
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID_1, operatorSubtaskState_1);
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID_2, operatorSubtaskState_2);
-		Assert.assertEquals(operatorSubtaskState_1, taskStateSnapshot.getSubtaskStateByOperatorID(operatorID_1));
-		Assert.assertEquals(operatorSubtaskState_2, taskStateSnapshot.getSubtaskStateByOperatorID(operatorID_2));
-		Assert.assertEquals(operatorSubtaskState_1, taskStateSnapshot.putSubtaskStateByOperatorID(operatorID_1, operatorSubtaskState_1_replace));
-		Assert.assertEquals(operatorSubtaskState_1_replace, taskStateSnapshot.getSubtaskStateByOperatorID(operatorID_1));
+	public void hasNoState() {
+		Assert.assertFalse(TaskStateSnapshot.EMPTY.hasState());
+		OperatorSubtaskState emptyOperatorSubtaskState = new OperatorSubtaskState();
+		Assert.assertFalse(emptyOperatorSubtaskState.hasState());
+		Assert.assertFalse(new TaskStateSnapshot(new OperatorID(), emptyOperatorSubtaskState).hasState());
 	}
 
 	@Test
 	public void hasState() {
 		Random random = new Random(0x42);
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
-		Assert.assertFalse(taskStateSnapshot.hasState());
-
-		OperatorSubtaskState emptyOperatorSubtaskState = new OperatorSubtaskState();
-		Assert.assertFalse(emptyOperatorSubtaskState.hasState());
-		taskStateSnapshot.putSubtaskStateByOperatorID(new OperatorID(), emptyOperatorSubtaskState);
-		Assert.assertFalse(taskStateSnapshot.hasState());
-
 		OperatorStateHandle stateHandle = StateHandleDummyUtil.createNewOperatorStateHandle(2, random);
 		OperatorSubtaskState nonEmptyOperatorSubtaskState = new OperatorSubtaskState(
 			stateHandle,
@@ -71,23 +52,19 @@ public class TaskStateSnapshotTest extends TestLogger {
 		);
 
 		Assert.assertTrue(nonEmptyOperatorSubtaskState.hasState());
-		taskStateSnapshot.putSubtaskStateByOperatorID(new OperatorID(), nonEmptyOperatorSubtaskState);
-		Assert.assertTrue(taskStateSnapshot.hasState());
+		Assert.assertTrue(new TaskStateSnapshot(new OperatorID(), nonEmptyOperatorSubtaskState).hasState());
 	}
 
 	@Test
 	public void discardState() throws Exception {
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
 		OperatorID operatorID_1 = new OperatorID();
 		OperatorID operatorID_2 = new OperatorID();
 
 		OperatorSubtaskState operatorSubtaskState_1 = mock(OperatorSubtaskState.class);
 		OperatorSubtaskState operatorSubtaskState_2 = mock(OperatorSubtaskState.class);
 
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID_1, operatorSubtaskState_1);
-		taskStateSnapshot.putSubtaskStateByOperatorID(operatorID_2, operatorSubtaskState_2);
+		new TaskStateSnapshot(snapshot(operatorSubtaskState_1, operatorSubtaskState_2)).discardState();
 
-		taskStateSnapshot.discardState();
 		verify(operatorSubtaskState_1).discardState();
 		verify(operatorSubtaskState_2).discardState();
 	}
@@ -95,13 +72,11 @@ public class TaskStateSnapshotTest extends TestLogger {
 	@Test
 	public void getStateSize() {
 		Random random = new Random(0x42);
-		TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot();
-		Assert.assertEquals(0, taskStateSnapshot.getStateSize());
+		Assert.assertEquals(0, TaskStateSnapshot.EMPTY.getStateSize());
 
 		OperatorSubtaskState emptyOperatorSubtaskState = new OperatorSubtaskState();
 		Assert.assertFalse(emptyOperatorSubtaskState.hasState());
-		taskStateSnapshot.putSubtaskStateByOperatorID(new OperatorID(), emptyOperatorSubtaskState);
-		Assert.assertEquals(0, taskStateSnapshot.getStateSize());
+		Assert.assertEquals(0, new TaskStateSnapshot(new OperatorID(), emptyOperatorSubtaskState).getStateSize());
 
 
 		OperatorStateHandle stateHandle_1 = StateHandleDummyUtil.createNewOperatorStateHandle(2, random);
@@ -120,10 +95,17 @@ public class TaskStateSnapshotTest extends TestLogger {
 			null
 		);
 
-		taskStateSnapshot.putSubtaskStateByOperatorID(new OperatorID(), nonEmptyOperatorSubtaskState_1);
-		taskStateSnapshot.putSubtaskStateByOperatorID(new OperatorID(), nonEmptyOperatorSubtaskState_2);
+		TaskStateSnapshot taskStateSnapshot = snapshot(nonEmptyOperatorSubtaskState_1, nonEmptyOperatorSubtaskState_2);
 
 		long totalSize = stateHandle_1.getStateSize() + stateHandle_2.getStateSize();
 		Assert.assertEquals(totalSize, taskStateSnapshot.getStateSize());
+	}
+
+	private TaskStateSnapshot snapshot(OperatorSubtaskState... states) {
+		HashMap<OperatorID, OperatorSubtaskState> map = new HashMap<>();
+		for (OperatorSubtaskState state: states) {
+			map.put(new OperatorID(), state);
+		}
+		return new TaskStateSnapshot(map);
 	}
 }

@@ -202,9 +202,9 @@ public class StateAssignmentOperation {
 			Execution currentExecutionAttempt = executionJobVertex.getTaskVertices()[subTaskIndex]
 				.getCurrentExecutionAttempt();
 
-			TaskStateSnapshot taskState = new TaskStateSnapshot(operatorIDs.size());
 			boolean statelessTask = true;
 
+			final Map<OperatorID, OperatorSubtaskState> stateMap = new HashMap<>();
 			for (OperatorID operatorID : operatorIDs) {
 				OperatorInstanceID instanceID = OperatorInstanceID.of(subTaskIndex, operatorID);
 
@@ -218,8 +218,9 @@ public class StateAssignmentOperation {
 				if (operatorSubtaskState.hasState()) {
 					statelessTask = false;
 				}
-				taskState.putSubtaskStateByOperatorID(operatorID, operatorSubtaskState);
+				stateMap.put(operatorID, operatorSubtaskState);
 			}
+			TaskStateSnapshot taskState = new TaskStateSnapshot(stateMap);
 
 			if (!statelessTask) {
 				JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(restoreCheckpointId, taskState);

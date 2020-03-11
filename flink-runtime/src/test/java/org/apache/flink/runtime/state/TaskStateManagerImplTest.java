@@ -41,6 +41,7 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.Executor;
 
@@ -69,7 +70,6 @@ public class TaskStateManagerImplTest extends TestLogger {
 
 		CheckpointMetaData checkpointMetaData = new CheckpointMetaData(74L, 11L);
 		CheckpointMetrics checkpointMetrics = new CheckpointMetrics();
-		TaskStateSnapshot jmTaskStateSnapshot = new TaskStateSnapshot();
 
 		OperatorID operatorID_1 = new OperatorID(1L, 1L);
 		OperatorID operatorID_2 = new OperatorID(2L, 2L);
@@ -87,16 +87,16 @@ public class TaskStateManagerImplTest extends TestLogger {
 		OperatorSubtaskState jmOperatorSubtaskState_2 =
 			new OperatorSubtaskState(null, null, null, StateHandleDummyUtil.createNewKeyedStateHandle(keyGroupRange));
 
-		jmTaskStateSnapshot.putSubtaskStateByOperatorID(operatorID_1, jmOperatorSubtaskState_1);
-		jmTaskStateSnapshot.putSubtaskStateByOperatorID(operatorID_2, jmOperatorSubtaskState_2);
-
-		TaskStateSnapshot tmTaskStateSnapshot = new TaskStateSnapshot();
+		HashMap<OperatorID, OperatorSubtaskState> states = new HashMap<>();
+		states.put(operatorID_1, jmOperatorSubtaskState_1);
+		states.put(operatorID_2, jmOperatorSubtaskState_2);
+		TaskStateSnapshot jmTaskStateSnapshot = new TaskStateSnapshot(states);
 
 		// Only operator 1 has a local alternative for the managed keyed state.
 		OperatorSubtaskState tmOperatorSubtaskState_1 =
 			new OperatorSubtaskState(null, null, StateHandleDummyUtil.createNewKeyedStateHandle(keyGroupRange), null);
 
-		tmTaskStateSnapshot.putSubtaskStateByOperatorID(operatorID_1, tmOperatorSubtaskState_1);
+		TaskStateSnapshot tmTaskStateSnapshot = new TaskStateSnapshot(operatorID_1, tmOperatorSubtaskState_1);
 
 		taskStateManager.reportTaskStateSnapshots(
 			checkpointMetaData,

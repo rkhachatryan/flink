@@ -97,8 +97,7 @@ public class CheckpointCoordinatorFailureTest extends TestLogger {
 			managedKeyedHandle,
 			rawKeyedHandle));
 
-		TaskStateSnapshot subtaskState = spy(new TaskStateSnapshot());
-		subtaskState.putSubtaskStateByOperatorID(new OperatorID(), operatorSubtaskState);
+		TaskStateSnapshot subtaskState = spy(new TaskStateSnapshot(new OperatorID(), operatorSubtaskState));
 
 		when(subtaskState.getSubtaskStateByOperatorID(OperatorID.fromJobVertexID(vertex.getJobvertexId()))).thenReturn(operatorSubtaskState);
 

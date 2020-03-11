@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.LongPredicate;
 
@@ -57,10 +56,6 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 
 	/** Logger for this class. */
 	private static final Logger LOG = LoggerFactory.getLogger(TaskLocalStateStoreImpl.class);
-
-	/** Dummy value to use instead of null to satisfy {@link ConcurrentHashMap}. */
-	@VisibleForTesting
-	static final TaskStateSnapshot NULL_DUMMY = new TaskStateSnapshot(0);
 
 	/** JobID from the owning subtask. */
 	@Nonnull
@@ -146,7 +141,7 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 		@Nullable TaskStateSnapshot localState) {
 
 		if (localState == null) {
-			localState = NULL_DUMMY;
+			localState = TaskStateSnapshot.EMPTY;
 		}
 
 		if (LOG.isTraceEnabled()) {
@@ -203,7 +198,7 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
 				checkpointID, jobID, jobVertexID, subtaskIndex);
 		}
 
-		return (snapshot != NULL_DUMMY) ? snapshot : null;
+		return (snapshot != TaskStateSnapshot.EMPTY) ? snapshot : null;
 	}
 
 	@Override
