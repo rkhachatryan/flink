@@ -83,6 +83,7 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 	public void run() {
 		FileSystemSafetyNet.initializeSafetyNetForThread();
 		try {
+			closeableRegistry.registerCloseable(this);
 
 			TaskStateSnapshot jobManagerTaskOperatorSubtaskStates = new TaskStateSnapshot(operatorSnapshotsInProgress.size());
 			TaskStateSnapshot localTaskOperatorSubtaskStates = new TaskStateSnapshot(operatorSnapshotsInProgress.size());

@@ -74,7 +74,7 @@ final class CheckpointingOperation {
 			checkpointMetrics.setSyncDurationMillis((startAsyncPartNano - startSyncPartNano) / 1_000_000);
 
 			// we are transferring ownership over snapshotInProgressList for cleanup to the thread, active on submit
-			AsyncCheckpointRunnable asyncCheckpointRunnable = new AsyncCheckpointRunnable(
+			threadPool.execute(new AsyncCheckpointRunnable(
 				operatorSnapshotsInProgress,
 				checkpointMetaData,
 				checkpointMetrics,
@@ -82,10 +82,7 @@ final class CheckpointingOperation {
 				taskName,
 				closeableRegistry,
 				environment,
-				asyncExceptionHandler);
-
-			closeableRegistry.registerCloseable(asyncCheckpointRunnable);
-			threadPool.execute(asyncCheckpointRunnable);
+				asyncExceptionHandler));
 
 			if (StreamTask.LOG.isDebugEnabled()) {
 				StreamTask.LOG.debug("{} - finished synchronous part of checkpoint {}. " +
