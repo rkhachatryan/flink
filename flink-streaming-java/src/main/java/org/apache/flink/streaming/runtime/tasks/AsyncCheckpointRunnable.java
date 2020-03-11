@@ -18,12 +18,13 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystemSafetyNet;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
+import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFinalizer;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.util.ExceptionUtils;
@@ -33,11 +34,17 @@ import java.io.Closeable;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * This runnable executes the asynchronous parts of all involved backend snapshots for the subtask.
  */
 @VisibleForTesting
 final class AsyncCheckpointRunnable implements Runnable, Closeable {
+
+	private final String taskName;
+	private final CloseableRegistry closeableRegistry;
+	private final Environment taskEnvironment;
 
 	private enum AsyncCheckpointState {
 		RUNNING,
@@ -45,7 +52,7 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		COMPLETED
 	}
 
-	private final StreamTask<?, ?> task;
+	private final AsyncExceptionHandler asyncExceptionHandler;
 	private final Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress;
 	private final CheckpointMetaData checkpointMetaData;
 	private final CheckpointMetrics checkpointMetrics;
@@ -53,17 +60,23 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 	private final AtomicReference<AsyncCheckpointState> asyncCheckpointState = new AtomicReference<>(AsyncCheckpointState.RUNNING);
 
 	AsyncCheckpointRunnable(
-		StreamTask<?, ?> task,
-		Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress,
-		CheckpointMetaData checkpointMetaData,
-		CheckpointMetrics checkpointMetrics,
-		long asyncStartNanos) {
+			Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress,
+			CheckpointMetaData checkpointMetaData,
+			CheckpointMetrics checkpointMetrics,
+			long asyncStartNanos,
+			String taskName,
+			CloseableRegistry closeableRegistry,
+			Environment taskEnvironment,
+			AsyncExceptionHandler asyncExceptionHandler) {
 
-		this.task = Preconditions.checkNotNull(task);
-		this.operatorSnapshotsInProgress = Preconditions.checkNotNull(operatorSnapshotsInProgress);
-		this.checkpointMetaData = Preconditions.checkNotNull(checkpointMetaData);
-		this.checkpointMetrics = Preconditions.checkNotNull(checkpointMetrics);
+		this.operatorSnapshotsInProgress = checkNotNull(operatorSnapshotsInProgress);
+		this.checkpointMetaData = checkNotNull(checkpointMetaData);
+		this.checkpointMetrics = checkNotNull(checkpointMetrics);
 		this.asyncStartNanos = asyncStartNanos;
+		this.taskName = checkNotNull(taskName);
+		this.closeableRegistry = checkNotNull(closeableRegistry);
+		this.taskEnvironment = checkNotNull(taskEnvironment);
+		this.asyncExceptionHandler = checkNotNull(asyncExceptionHandler);
 	}
 
 	@Override
@@ -106,19 +119,19 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 
 			} else {
 				StreamTask.LOG.debug("{} - asynchronous part of checkpoint {} could not be completed because it was closed before.",
-					task.getName(),
+					taskName,
 					checkpointMetaData.getCheckpointId());
 			}
 		} catch (Exception e) {
 			if (StreamTask.LOG.isDebugEnabled()) {
 				StreamTask.LOG.debug("{} - asynchronous part of checkpoint {} could not be completed.",
-					task.getName(),
+					taskName,
 					checkpointMetaData.getCheckpointId(),
 					e);
 			}
 			handleExecutionException(e);
 		} finally {
-			task.getCancelables().unregisterCloseable(this);
+			closeableRegistry.unregisterCloseable(this);
 			FileSystemSafetyNet.closeSafetyNetAndGuardedResourcesForThread();
 		}
 	}
@@ -127,8 +140,6 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		TaskStateSnapshot acknowledgedTaskStateSnapshot,
 		TaskStateSnapshot localTaskStateSnapshot,
 		long asyncDurationMillis) {
-
-		TaskStateManager taskStateManager = task.getEnvironment().getTaskStateManager();
 
 		boolean hasAckState = acknowledgedTaskStateSnapshot.hasState();
 		boolean hasLocalState = localTaskStateSnapshot.hasState();
@@ -140,17 +151,17 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		// we signal stateless tasks by reporting null, so that there are no attempts to assign empty state
 		// to stateless tasks on restore. This enables simple job modifications that only concern
 		// stateless without the need to assign them uids to match their (always empty) states.
-		taskStateManager.reportTaskStateSnapshots(
+		this.taskEnvironment.getTaskStateManager().reportTaskStateSnapshots(
 			checkpointMetaData,
 			checkpointMetrics,
 			hasAckState ? acknowledgedTaskStateSnapshot : null,
 			hasLocalState ? localTaskStateSnapshot : null);
 
 		StreamTask.LOG.debug("{} - finished asynchronous part of checkpoint {}. Asynchronous duration: {} ms",
-			task.getName(), checkpointMetaData.getCheckpointId(), asyncDurationMillis);
+			taskName, checkpointMetaData.getCheckpointId(), asyncDurationMillis);
 
 		StreamTask.LOG.trace("{} - reported the following states in snapshot for checkpoint {}: {}.",
-			task.getName(), checkpointMetaData.getCheckpointId(), acknowledgedTaskStateSnapshot);
+			taskName, checkpointMetaData.getCheckpointId(), acknowledgedTaskStateSnapshot);
 	}
 
 	private void handleExecutionException(Exception e) {
@@ -172,16 +183,16 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 
 				Exception checkpointException = new Exception(
 					"Could not materialize checkpoint " + checkpointMetaData.getCheckpointId() + " for operator " +
-						task.getName() + '.',
+						taskName + '.',
 					e);
 
 				// We only report the exception for the original cause of fail and cleanup.
 				// Otherwise this followup exception could race the original exception in failing the task.
 				try {
-					task.getEnvironment().declineCheckpoint(checkpointMetaData.getCheckpointId(), checkpointException);
+					taskEnvironment.declineCheckpoint(checkpointMetaData.getCheckpointId(), checkpointException);
 				} catch (Exception unhandled) {
 					AsynchronousException asyncException = new AsynchronousException(unhandled);
-					task.handleAsyncException("Failure in asynchronous checkpoint materialization", asyncException);
+					asyncExceptionHandler.handleAsyncException("Failure in asynchronous checkpoint materialization", asyncException);
 				}
 
 				currentState = AsyncCheckpointState.DISCARDED;
@@ -213,7 +224,7 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		StreamTask.LOG.debug(
 			"Cleanup AsyncCheckpointRunnable for checkpoint {} of {}.",
 			checkpointMetaData.getCheckpointId(),
-			task.getName());
+			taskName);
 
 		Exception exception = null;
 
@@ -236,7 +247,7 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 	private void logFailedCleanupAttempt() {
 		StreamTask.LOG.debug("{} - asynchronous checkpointing operation for checkpoint {} has " +
 				"already been completed. Thus, the state handles are not cleaned up.",
-			task.getName(),
+			taskName,
 			checkpointMetaData.getCheckpointId());
 	}
 }

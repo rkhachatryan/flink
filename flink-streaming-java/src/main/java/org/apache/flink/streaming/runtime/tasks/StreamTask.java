@@ -919,7 +919,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				checkpointMetaData.getCheckpointId(),
 				checkpointOptions.getTargetLocation());
 
-		CheckpointingOperation.execute(checkpointMetaData, checkpointOptions, checkpointMetrics, storage, this);
+		CheckpointingOperation.execute(checkpointMetaData,
+			checkpointOptions,
+			checkpointMetrics,
+			storage,
+			operatorChain,
+			getName(),
+			getCancelables(),
+			getAsyncOperationsThreadPool(),
+			getEnvironment(),
+			this);
 	}
 
 	// ------------------------------------------------------------------------

@@ -17,9 +17,11 @@
 
 package org.apache.flink.streaming.runtime.tasks;
 
+import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
@@ -27,6 +29,7 @@ import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.util.Preconditions;
 
 import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
 
 final class CheckpointingOperation {
 
@@ -35,9 +38,13 @@ final class CheckpointingOperation {
 			CheckpointOptions checkpointOptions,
 			CheckpointMetrics checkpointMetrics,
 			CheckpointStreamFactory storageLocation,
-			StreamTask<?, ?> task) throws Exception {
+			OperatorChain<?, ?> operatorChain,
+			String taskName,
+			CloseableRegistry closeableRegistry,
+			ExecutorService threadPool,
+			Environment environment,
+			AsyncExceptionHandler asyncExceptionHandler) throws Exception {
 
-		Preconditions.checkNotNull(task);
 		Preconditions.checkNotNull(checkpointMetaData);
 		Preconditions.checkNotNull(checkpointOptions);
 		Preconditions.checkNotNull(checkpointMetrics);
@@ -45,9 +52,9 @@ final class CheckpointingOperation {
 
 		long startSyncPartNano = System.nanoTime();
 
-		HashMap<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress = new HashMap<>(task.operatorChain.getNumberOfOperators());
+		HashMap<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress = new HashMap<>(operatorChain.getNumberOfOperators());
 		try {
-			for (StreamOperatorWrapper<?, ?> operatorWrapper : task.operatorChain.getAllOperators(true)) {
+			for (StreamOperatorWrapper<?, ?> operatorWrapper : operatorChain.getAllOperators(true)) {
 				StreamOperator<?> op = operatorWrapper.getStreamOperator();
 				OperatorSnapshotFutures snapshotInProgress = op.snapshotState(
 					checkpointMetaData.getCheckpointId(),
@@ -59,7 +66,7 @@ final class CheckpointingOperation {
 
 			if (StreamTask.LOG.isDebugEnabled()) {
 				StreamTask.LOG.debug("Finished synchronous checkpoints for checkpoint {} on task {}",
-					checkpointMetaData.getCheckpointId(), task.getName());
+					checkpointMetaData.getCheckpointId(), taskName);
 			}
 
 			long startAsyncPartNano = System.nanoTime();
@@ -68,19 +75,22 @@ final class CheckpointingOperation {
 
 			// we are transferring ownership over snapshotInProgressList for cleanup to the thread, active on submit
 			AsyncCheckpointRunnable asyncCheckpointRunnable = new AsyncCheckpointRunnable(
-				task,
 				operatorSnapshotsInProgress,
 				checkpointMetaData,
 				checkpointMetrics,
-				startAsyncPartNano);
+				startAsyncPartNano,
+				taskName,
+				closeableRegistry,
+				environment,
+				asyncExceptionHandler);
 
-			task.getCancelables().registerCloseable(asyncCheckpointRunnable);
-			task.getAsyncOperationsThreadPool().execute(asyncCheckpointRunnable);
+			closeableRegistry.registerCloseable(asyncCheckpointRunnable);
+			threadPool.execute(asyncCheckpointRunnable);
 
 			if (StreamTask.LOG.isDebugEnabled()) {
 				StreamTask.LOG.debug("{} - finished synchronous part of checkpoint {}. " +
 						"Alignment duration: {} ms, snapshot duration {} ms",
-					task.getName(), checkpointMetaData.getCheckpointId(),
+					taskName, checkpointMetaData.getCheckpointId(),
 					checkpointMetrics.getAlignmentDurationNanos() / 1_000_000,
 					checkpointMetrics.getSyncDurationMillis());
 			}
@@ -99,7 +109,7 @@ final class CheckpointingOperation {
 			if (StreamTask.LOG.isDebugEnabled()) {
 				StreamTask.LOG.debug("{} - did NOT finish synchronous part of checkpoint {}. " +
 						"Alignment duration: {} ms, snapshot duration {} ms",
-					task.getName(), checkpointMetaData.getCheckpointId(),
+					taskName, checkpointMetaData.getCheckpointId(),
 					checkpointMetrics.getAlignmentDurationNanos() / 1_000_000,
 					checkpointMetrics.getSyncDurationMillis());
 			}
@@ -111,7 +121,7 @@ final class CheckpointingOperation {
 				// operation, and without the failure, the task would go back to normal execution.
 				throw ex;
 			} else {
-				task.getEnvironment().declineCheckpoint(checkpointMetaData.getCheckpointId(), ex);
+				environment.declineCheckpoint(checkpointMetaData.getCheckpointId(), ex);
 			}
 		}
 	}
