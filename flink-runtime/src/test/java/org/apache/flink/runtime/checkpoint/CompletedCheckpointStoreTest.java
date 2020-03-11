@@ -23,13 +23,14 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -105,8 +106,6 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 		assertEquals(1, checkpoints.getNumberOfRetainedCheckpoints());
 
 		for (int i = 1; i < expected.length; i++) {
-			Collection<OperatorState> taskStates = expected[i - 1].getOperatorStates().values();
-
 			checkpoints.addCheckpoint(expected[i]);
 
 			// The ZooKeeper implementation discards asynchronously
@@ -218,23 +217,29 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 		return new TestCompletedCheckpoint(new JobID(), id, 0, operatorGroupState, props);
 	}
 
-	protected void verifyCheckpointRegistered(Collection<OperatorState> operatorStates, SharedStateRegistry registry) {
-		for (OperatorState operatorState : operatorStates) {
+	protected void verifyCheckpointRegistered(CompletedCheckpoint checkpoint) {
+		for (OperatorState operatorState : checkpoint.getOperatorStates().values()) {
 			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
-				Assert.assertTrue(((TestOperatorSubtaskState)subtaskState).registered);
+				Assert.assertTrue(((TestOperatorSubtaskState) subtaskState).registered);
+			}
+		}
+		for (TaskChannelsState taskChannelsState : checkpoint.getChannelsStates().values()) {
+			for (SubtaskChannelsState subtaskChannelsState : taskChannelsState.getSubtaskChannelsStates().values()) {
+				Assert.assertTrue(((TestChannelStateSubtask) subtaskChannelsState).registered);
 			}
 		}
 	}
 
-	public static void verifyCheckpointDiscarded(TestCompletedCheckpoint completedCheckpoint) {
+	static void verifyCheckpointDiscarded(TestCompletedCheckpoint completedCheckpoint) {
 		assertTrue(completedCheckpoint.isDiscarded());
-		verifyCheckpointDiscarded(completedCheckpoint.getOperatorStates().values());
-	}
-
-	protected static void verifyCheckpointDiscarded(Collection<OperatorState> operatorStates) {
-		for (OperatorState operatorState : operatorStates) {
+		for (OperatorState operatorState : completedCheckpoint.getOperatorStates().values()) {
 			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
-				Assert.assertTrue(((TestOperatorSubtaskState)subtaskState).discarded);
+				Assert.assertTrue(((TestOperatorSubtaskState) subtaskState).discarded);
+			}
+		}
+		for (TaskChannelsState taskChannelsState : completedCheckpoint.getChannelsStates().values()) {
+			for (SubtaskChannelsState subtaskChannelsState : taskChannelsState.getSubtaskChannelsStates().values()) {
+				Assert.assertTrue(((TestChannelStateSubtask) subtaskChannelsState).discarded);
 			}
 		}
 	}
@@ -330,6 +335,31 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
 		@Override
 		public int hashCode() {
 			return getJobId().hashCode() + (int) getCheckpointID();
+		}
+	}
+
+	public static class TestChannelStateSubtask extends SubtaskChannelsState {
+		private static final long serialVersionUID = 1L;
+		boolean registered;
+		boolean discarded;
+
+		public TestChannelStateSubtask() {
+			super(Collections.emptyList());
+		}
+
+		@Override
+		public void registerSharedStates(SharedStateRegistry stateRegistry) {
+			super.registerSharedStates(stateRegistry);
+			Preconditions.checkState(!discarded);
+			registered = true;
+		}
+
+		@Override
+		public void discardState() throws Exception {
+			super.discardState();
+			Preconditions.checkState(!discarded);
+			discarded = true;
+			registered = false;
 		}
 	}
 

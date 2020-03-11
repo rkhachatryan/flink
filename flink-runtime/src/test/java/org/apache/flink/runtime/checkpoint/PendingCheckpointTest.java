@@ -322,6 +322,7 @@ public class PendingCheckpointTest {
 				CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 		pending.acknowledgeTask(ATTEMPT_ID, null, mock(CheckpointMetrics.class));
 		Assert.assertTrue(pending.getOperatorStates().isEmpty());
+		Assert.assertTrue(pending.getChannelsStates().isEmpty());
 	}
 
 	/**
@@ -334,8 +335,11 @@ public class PendingCheckpointTest {
 	public void testNonNullSubtaskStateLeadsToStatefulTask() throws Exception {
 		PendingCheckpoint pending = createPendingCheckpoint(
 				CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
-		pending.acknowledgeTask(ATTEMPT_ID, mock(TaskStateSnapshot.class), mock(CheckpointMetrics.class));
+		TaskStateSnapshot taskStateSnapshot = mock(TaskStateSnapshot.class);
+		when(taskStateSnapshot.getSubtaskChannelsState()).thenReturn(SubtaskChannelsState.EMPTY);
+		pending.acknowledgeTask(ATTEMPT_ID, taskStateSnapshot, mock(CheckpointMetrics.class));
 		Assert.assertFalse(pending.getOperatorStates().isEmpty());
+		Assert.assertFalse(pending.getChannelsStates().isEmpty());
 	}
 
 	@Test

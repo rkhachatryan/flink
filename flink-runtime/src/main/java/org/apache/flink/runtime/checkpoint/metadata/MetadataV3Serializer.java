@@ -21,11 +21,13 @@ package org.apache.flink.runtime.checkpoint.metadata;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.TaskChannelsState;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -46,8 +48,11 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 	/** The singleton instance of the serializer. */
 	public static final MetadataV3Serializer INSTANCE = new MetadataV3Serializer();
 
+	private static final ChannelsStateSerializer channelsStateSerializer = new ChannelsStateSerializer();
+
 	/** Singleton, not meant to be instantiated. */
-	private MetadataV3Serializer() {}
+	private MetadataV3Serializer() {
+	}
 
 	@Override
 	public int getVersion() {
@@ -114,5 +119,15 @@ public class MetadataV3Serializer extends MetadataV2V3SerializerBase implements 
 		}
 
 		return operatorState;
+	}
+
+	@Override
+	protected void serializeChannelsState(CheckpointMetadata checkpointMetadata, DataOutputStream dos) throws IOException {
+		channelsStateSerializer.serializeChannelsState(checkpointMetadata, dos);
+	}
+
+	@Override
+	protected List<TaskChannelsState> deserializeChannelsState(DataInputStream dis) throws IOException {
+		return channelsStateSerializer.deserializeTaskChannelsStates(dis);
 	}
 }

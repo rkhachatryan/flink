@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.PrioritizedOperatorSubtaskState;
@@ -69,4 +70,6 @@ public interface TaskStateManager extends CheckpointListener {
 	 */
 	@Nonnull
 	LocalRecoveryConfig createLocalRecoveryConfig();
+
+	SubtaskChannelsState getChannelStates();
 }

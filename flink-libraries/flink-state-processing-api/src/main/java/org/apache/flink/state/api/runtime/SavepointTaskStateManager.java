@@ -21,6 +21,7 @@ package org.apache.flink.state.api.runtime;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.PrioritizedOperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
@@ -64,6 +65,11 @@ final class SavepointTaskStateManager implements TaskStateManager {
 	public LocalRecoveryConfig createLocalRecoveryConfig() {
 		LocalRecoveryDirectoryProvider provider = new SavepointLocalRecoveryProvider();
 		return new LocalRecoveryConfig(false, provider);
+	}
+
+	@Override
+	public SubtaskChannelsState getChannelStates() {
+		return SubtaskChannelsState.EMPTY;
 	}
 
 	@Override

@@ -21,6 +21,8 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.CheckpointType;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -32,11 +34,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.flink.runtime.checkpoint.SubtaskChannelsState.EMPTY;
 
 final class CheckpointingOperation {
 
 	public static final Logger LOG = LoggerFactory.getLogger(CheckpointingOperation.class);
+
+	private static final CompletableFuture<SubtaskChannelsState> EMPTY_CHANNELS_STATE = completedFuture(EMPTY);
 
 	static void execute(
 			CheckpointMetaData checkpointMetaData,
@@ -92,11 +101,12 @@ final class CheckpointingOperation {
 				taskName,
 				closeableRegistry,
 				environment,
-				asyncExceptionHandler));
+				asyncExceptionHandler,
+				getJmChannelsStateFuture(checkpointOptions),
+				getTmChannelsStateFuture(checkpointOptions)));
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug("{} - finished synchronous part of checkpoint {}. " +
-						"Alignment duration: {} ms, snapshot duration {} ms",
+				LOG.debug("{} - finished synchronous part of checkpoint {}. " + "Alignment duration: {} ms, snapshot duration {} ms",
 					taskName, checkpointMetaData.getCheckpointId(),
 					checkpointMetrics.getAlignmentDurationNanos() / 1_000_000,
 					checkpointMetrics.getSyncDurationMillis());
@@ -114,8 +124,7 @@ final class CheckpointingOperation {
 			}
 
 			if (LOG.isDebugEnabled()) {
-				LOG.debug("{} - did NOT finish synchronous part of checkpoint {}. " +
-						"Alignment duration: {} ms, snapshot duration {} ms",
+				LOG.debug("{} - did NOT finish synchronous part of checkpoint {}. " + "Alignment duration: {} ms, snapshot duration {} ms",
 					taskName, checkpointMetaData.getCheckpointId(),
 					checkpointMetrics.getAlignmentDurationNanos() / 1_000_000,
 					checkpointMetrics.getSyncDurationMillis());
@@ -131,6 +140,17 @@ final class CheckpointingOperation {
 				environment.declineCheckpoint(checkpointMetaData.getCheckpointId(), ex);
 			}
 		}
+	}
+
+	private static Future<SubtaskChannelsState> getJmChannelsStateFuture(CheckpointOptions checkpointOptions) {
+		if (checkpointOptions.getCheckpointType() == CheckpointType.CHECKPOINT) {
+			return EMPTY_CHANNELS_STATE;
+		}
+		return completedFuture(EMPTY); // todo: implement
+	}
+
+	private static Future<SubtaskChannelsState> getTmChannelsStateFuture(CheckpointOptions checkpointOptions) {
+		return EMPTY_CHANNELS_STATE;
 	}
 
 }

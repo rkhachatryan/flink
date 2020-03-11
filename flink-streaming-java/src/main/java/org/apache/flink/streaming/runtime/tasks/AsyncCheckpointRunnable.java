@@ -22,6 +22,7 @@ import org.apache.flink.core.fs.FileSystemSafetyNet;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -44,11 +46,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * This runnable executes the asynchronous parts of all involved backend snapshots for the subtask.
  */
 final class AsyncCheckpointRunnable implements Runnable, Closeable {
-
-	public static final Logger LOG = LoggerFactory.getLogger(AsyncCheckpointRunnable.class);
-	private final String taskName;
-	private final CloseableRegistry closeableRegistry;
-	private final Environment taskEnvironment;
+	private static final Logger LOG = LoggerFactory.getLogger(AsyncCheckpointRunnable.class);
 
 	private enum AsyncCheckpointState {
 		RUNNING,
@@ -57,11 +55,16 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 	}
 
 	private final AsyncExceptionHandler asyncExceptionHandler;
-	private final Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress;
+	private final AtomicReference<AsyncCheckpointState> asyncCheckpointState = new AtomicReference<>(AsyncCheckpointState.RUNNING);
 	private final CheckpointMetaData checkpointMetaData;
 	private final CheckpointMetrics checkpointMetrics;
+	private final CloseableRegistry closeableRegistry;
+	private final Environment taskEnvironment;
+	private final Future<SubtaskChannelsState> jmChannelsStateFuture;
+	private final Future<SubtaskChannelsState> localChannelsStateFuture;
+	private final Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress;
+	private final String taskName;
 	private final long asyncStartNanos;
-	private final AtomicReference<AsyncCheckpointState> asyncCheckpointState = new AtomicReference<>(AsyncCheckpointState.RUNNING);
 
 	AsyncCheckpointRunnable(
 			Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress,
@@ -71,7 +74,9 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 			String taskName,
 			CloseableRegistry closeableRegistry,
 			Environment taskEnvironment,
-			AsyncExceptionHandler asyncExceptionHandler) {
+			AsyncExceptionHandler asyncExceptionHandler,
+			Future<SubtaskChannelsState> jmChannelsStateFuture,
+			Future<SubtaskChannelsState> localChannelsStateFuture) {
 
 		this.operatorSnapshotsInProgress = checkNotNull(operatorSnapshotsInProgress);
 		this.checkpointMetaData = checkNotNull(checkpointMetaData);
@@ -81,6 +86,8 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 		this.closeableRegistry = checkNotNull(closeableRegistry);
 		this.taskEnvironment = checkNotNull(taskEnvironment);
 		this.asyncExceptionHandler = checkNotNull(asyncExceptionHandler);
+		this.jmChannelsStateFuture = jmChannelsStateFuture;
+		this.localChannelsStateFuture = localChannelsStateFuture;
 	}
 
 	@Override
@@ -102,8 +109,8 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
 				jmMap.put(operatorID, finalizedSnapshots.getJobManagerOwnedState());
 				localMap.put(operatorID, finalizedSnapshots.getTaskLocalState());
 			}
-			TaskStateSnapshot jobManagerTaskOperatorSubtaskStates = new TaskStateSnapshot(jmMap);
-			TaskStateSnapshot localTaskOperatorSubtaskStates = new TaskStateSnapshot(localMap);
+			TaskStateSnapshot jobManagerTaskOperatorSubtaskStates = new TaskStateSnapshot(jmMap, jmChannelsStateFuture.get());
+			TaskStateSnapshot localTaskOperatorSubtaskStates = new TaskStateSnapshot(localMap, localChannelsStateFuture.get());
 
 			final long asyncEndNanos = System.nanoTime();
 			final long asyncDurationMillis = (asyncEndNanos - asyncStartNanos) / 1_000_000L;

@@ -314,11 +314,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			assertEquals(checkpointId, checkpoint.getCheckpointId());
 			assertEquals(timestamp, checkpoint.getCheckpointTimestamp());
 			assertEquals(jid, checkpoint.getJobId());
-			assertEquals(2, checkpoint.getNumberOfNonAcknowledgedTasks());
-			assertEquals(0, checkpoint.getNumberOfAcknowledgedTasks());
-			assertEquals(0, checkpoint.getOperatorStates().size());
-			assertFalse(checkpoint.isDiscarded());
-			assertFalse(checkpoint.areTasksFullyAcknowledged());
+			assertDiscarded(checkpoint, 0, 2);
 
 			// check that the vertices received the trigger checkpoint message
 			verify(vertex1.getCurrentExecutionAttempt()).triggerCheckpoint(checkpointId, timestamp, CheckpointOptions.forCheckpointWithDefaultLocation());
@@ -412,21 +408,14 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			assertEquals(checkpoint1Id, checkpoint1.getCheckpointId());
 			assertEquals(timestamp, checkpoint1.getCheckpointTimestamp());
 			assertEquals(jid, checkpoint1.getJobId());
-			assertEquals(2, checkpoint1.getNumberOfNonAcknowledgedTasks());
-			assertEquals(0, checkpoint1.getNumberOfAcknowledgedTasks());
-			assertEquals(0, checkpoint1.getOperatorStates().size());
-			assertFalse(checkpoint1.isDiscarded());
-			assertFalse(checkpoint1.areTasksFullyAcknowledged());
+
+			assertDiscarded(checkpoint1, 0, 2);
 
 			assertNotNull(checkpoint2);
 			assertEquals(checkpoint2Id, checkpoint2.getCheckpointId());
 			assertEquals(timestamp + 2, checkpoint2.getCheckpointTimestamp());
 			assertEquals(jid, checkpoint2.getJobId());
-			assertEquals(2, checkpoint2.getNumberOfNonAcknowledgedTasks());
-			assertEquals(0, checkpoint2.getNumberOfAcknowledgedTasks());
-			assertEquals(0, checkpoint2.getOperatorStates().size());
-			assertFalse(checkpoint2.isDiscarded());
-			assertFalse(checkpoint2.areTasksFullyAcknowledged());
+			assertDiscarded(checkpoint2, 0, 2);
 
 			// check that the vertices received the trigger checkpoint message
 			{
@@ -457,11 +446,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			assertNotNull(checkpointNew);
 			assertEquals(checkpointIdNew, checkpointNew.getCheckpointId());
 			assertEquals(jid, checkpointNew.getJobId());
-			assertEquals(2, checkpointNew.getNumberOfNonAcknowledgedTasks());
-			assertEquals(0, checkpointNew.getNumberOfAcknowledgedTasks());
-			assertEquals(0, checkpointNew.getOperatorStates().size());
-			assertFalse(checkpointNew.isDiscarded());
-			assertFalse(checkpointNew.areTasksFullyAcknowledged());
+			assertDiscarded(checkpointNew, 0, 2);
 			assertNotEquals(checkpoint1.getCheckpointId(), checkpointNew.getCheckpointId());
 
 			// decline again, nothing should happen
@@ -515,11 +500,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			assertEquals(checkpointId, checkpoint.getCheckpointId());
 			assertEquals(timestamp, checkpoint.getCheckpointTimestamp());
 			assertEquals(jid, checkpoint.getJobId());
-			assertEquals(2, checkpoint.getNumberOfNonAcknowledgedTasks());
-			assertEquals(0, checkpoint.getNumberOfAcknowledgedTasks());
-			assertEquals(0, checkpoint.getOperatorStates().size());
-			assertFalse(checkpoint.isDiscarded());
-			assertFalse(checkpoint.areTasksFullyAcknowledged());
+			assertDiscarded(checkpoint, 0, 2);
 
 			// check that the vertices received the trigger checkpoint message
 			{
@@ -535,6 +516,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			OperatorSubtaskState subtaskState2 = mock(OperatorSubtaskState.class);
 			when(taskOperatorSubtaskStates1.getSubtaskStateByOperatorID(opID1)).thenReturn(subtaskState1);
 			when(taskOperatorSubtaskStates2.getSubtaskStateByOperatorID(opID2)).thenReturn(subtaskState2);
+			when(taskOperatorSubtaskStates1.getSubtaskChannelsState()).thenReturn(SubtaskChannelsState.EMPTY);
+			when(taskOperatorSubtaskStates2.getSubtaskChannelsState()).thenReturn(SubtaskChannelsState.EMPTY);
 
 			// acknowledge from one of the tasks
 			AcknowledgeCheckpoint acknowledgeCheckpoint1 = new AcknowledgeCheckpoint(jid, attemptID2, checkpointId, new CheckpointMetrics(), taskOperatorSubtaskStates2);
@@ -1201,11 +1184,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		assertEquals(checkpointId, pending.getCheckpointId());
 		assertEquals(timestamp, pending.getCheckpointTimestamp());
 		assertEquals(jid, pending.getJobId());
-		assertEquals(2, pending.getNumberOfNonAcknowledgedTasks());
-		assertEquals(0, pending.getNumberOfAcknowledgedTasks());
-		assertEquals(0, pending.getOperatorStates().size());
-		assertFalse(pending.isDiscarded());
-		assertFalse(pending.areTasksFullyAcknowledged());
+		assertDiscarded(pending, 0, 2);
 		assertFalse(pending.canBeSubsumed());
 
 		OperatorID opID1 = OperatorID.fromJobVertexID(vertex1.getJobvertexId());
@@ -1216,6 +1195,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		OperatorSubtaskState subtaskState2 = mock(OperatorSubtaskState.class);
 		when(taskOperatorSubtaskStates1.getSubtaskStateByOperatorID(opID1)).thenReturn(subtaskState1);
 		when(taskOperatorSubtaskStates2.getSubtaskStateByOperatorID(opID2)).thenReturn(subtaskState2);
+		when(taskOperatorSubtaskStates1.getSubtaskChannelsState()).thenReturn(SubtaskChannelsState.EMPTY);
+		when(taskOperatorSubtaskStates2.getSubtaskChannelsState()).thenReturn(SubtaskChannelsState.EMPTY);
 
 		// acknowledge from one of the tasks
 		AcknowledgeCheckpoint acknowledgeCheckpoint2 = new AcknowledgeCheckpoint(jid, attemptID2, checkpointId, new CheckpointMetrics(), taskOperatorSubtaskStates2);
@@ -1233,7 +1214,13 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		assertFalse(savepointFuture.isDone());
 
 		// acknowledge the other task.
-		coord.receiveAcknowledgeMessage(new AcknowledgeCheckpoint(jid, attemptID1, checkpointId, new CheckpointMetrics(), taskOperatorSubtaskStates1), TASK_MANAGER_LOCATION_INFO);
+		coord.receiveAcknowledgeMessage(
+				new AcknowledgeCheckpoint(jid,
+						attemptID1,
+						checkpointId,
+						new CheckpointMetrics(),
+						taskOperatorSubtaskStates1),
+				TASK_MANAGER_LOCATION_INFO);
 
 		// the checkpoint is internally converted to a successful checkpoint and the
 		// pending checkpoint object is disposed
@@ -2232,6 +2219,15 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		}
 	}
 
+	private void assertDiscarded(PendingCheckpoint pendingCheckpoint, int ackTasks, int nonAckTasks) {
+		assertFalse(pendingCheckpoint.isDiscarded());
+		assertFalse(pendingCheckpoint.areTasksFullyAcknowledged());
+		assertEquals(ackTasks, pendingCheckpoint.getNumberOfAcknowledgedTasks());
+		assertEquals(nonAckTasks, pendingCheckpoint.getNumberOfNonAcknowledgedTasks());
+		assertTrue(pendingCheckpoint.getOperatorStates().isEmpty());
+		assertTrue(pendingCheckpoint.getChannelsStates().isEmpty());
+	}
+
 	private CheckpointCoordinator getCheckpointCoordinator(
 		JobID jobId,
 		ExecutionVertex vertex1,
@@ -2355,7 +2351,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 			opStates.put(jobVertex1.getOperatorIDs().get(0), operatorSubtaskState);
 
-			TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot(opStates);
+			TaskStateSnapshot taskStateSnapshot = new TaskStateSnapshot(opStates, SubtaskChannelsState.EMPTY);
 
 			AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 				jid,

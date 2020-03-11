@@ -75,6 +75,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
+import static java.util.Collections.singletonMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -469,10 +470,11 @@ public class CheckpointCoordinatorTestingUtils {
 		KeyGroupsStateHandle partitionedKeyGroupState = generateKeyGroupState(jobVertexID, keyGroupRange, false);
 
 		OperatorSubtaskState subtaskState = spy(new OperatorSubtaskState(
-			partitionableState, null, partitionedKeyGroupState, null)
+				partitionableState, null, partitionedKeyGroupState, null)
 		);
+		SubtaskChannelsState subtaskChannelsState = spy(SubtaskChannelsState.EMPTY);
 
-		return spy(new TaskStateSnapshot(OperatorID.fromJobVertexID(jobVertexID), subtaskState));
+		return spy(new TaskStateSnapshot(singletonMap(OperatorID.fromJobVertexID(jobVertexID), subtaskState), subtaskChannelsState));
 	}
 
 	public static KeyGroupsStateHandle generateKeyGroupState(

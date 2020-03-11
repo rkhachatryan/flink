@@ -25,7 +25,6 @@ import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -58,16 +57,14 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
 		SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
 		CompletedCheckpointStore store = createCompletedCheckpoints(1);
 		TestCompletedCheckpoint checkpoint = createCheckpoint(0, sharedStateRegistry);
-		Collection<OperatorState> operatorStates = checkpoint.getOperatorStates().values();
 
 		store.addCheckpoint(checkpoint);
 		assertEquals(1, store.getNumberOfRetainedCheckpoints());
-		verifyCheckpointRegistered(operatorStates, sharedStateRegistry);
+		verifyCheckpointRegistered(checkpoint);
 
 		store.shutdown(JobStatus.FINISHED);
 		assertEquals(0, store.getNumberOfRetainedCheckpoints());
-		assertTrue(checkpoint.isDiscarded());
-		verifyCheckpointDiscarded(operatorStates);
+		verifyCheckpointDiscarded(checkpoint);
 	}
 
 	/**
@@ -79,16 +76,14 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
 		SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
 		CompletedCheckpointStore store = createCompletedCheckpoints(1);
 		TestCompletedCheckpoint checkpoint = createCheckpoint(0, sharedStateRegistry);
-		Collection<OperatorState> taskStates = checkpoint.getOperatorStates().values();
 
 		store.addCheckpoint(checkpoint);
 		assertEquals(1, store.getNumberOfRetainedCheckpoints());
-		verifyCheckpointRegistered(taskStates, sharedStateRegistry);
+		verifyCheckpointRegistered(checkpoint);
 
 		store.shutdown(JobStatus.SUSPENDED);
 		assertEquals(0, store.getNumberOfRetainedCheckpoints());
-		assertTrue(checkpoint.isDiscarded());
-		verifyCheckpointDiscarded(taskStates);
+		verifyCheckpointDiscarded(checkpoint);
 	}
 
 	/**
@@ -105,6 +100,7 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
 			CompletedCheckpoint checkpointToAdd = mock(CompletedCheckpoint.class);
 			doReturn(i).when(checkpointToAdd).getCheckpointID();
 			doReturn(Collections.emptyMap()).when(checkpointToAdd).getOperatorStates();
+			doReturn(Collections.emptyMap()).when(checkpointToAdd).getChannelsStates();
 			doThrow(new IOException()).when(checkpointToAdd).discardOnSubsume();
 
 			try {

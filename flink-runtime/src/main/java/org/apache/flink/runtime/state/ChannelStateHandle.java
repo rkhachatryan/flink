@@ -16,11 +16,8 @@ package org.apache.flink.runtime.state;
  * limitations under the License.
  */
 
-import org.apache.flink.runtime.checkpoint.channel.ResultSubpartitionInfo;
-
 /**
- * {@link StateObject Handle} to a {@link org.apache.flink.runtime.io.network.partition.ResultSubpartition ResultSubpartition} state.
+ * {@link StateObject Handle} to the state of an upstream or downstream part of channel.
  */
-public interface ResultSubpartitionStateHandle extends ChannelStateHandle {
-	ResultSubpartitionInfo getResultSubpartitionInfo();
+public interface ChannelStateHandle extends CompositeStateHandle {
 }

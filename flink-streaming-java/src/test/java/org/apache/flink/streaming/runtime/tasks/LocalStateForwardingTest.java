@@ -25,6 +25,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.concurrent.Executors;
@@ -57,6 +58,7 @@ import javax.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RunnableFuture;
@@ -82,13 +84,13 @@ public class LocalStateForwardingTest extends TestLogger {
 		TestTaskStateManager taskStateManager = new TestTaskStateManager();
 
 		StreamMockEnvironment streamMockEnvironment = new StreamMockEnvironment(
-			new Configuration(),
-			new Configuration(),
-			new ExecutionConfig(),
-			1024 * 1024,
-			new MockInputSplitProvider(),
-			0,
-			taskStateManager);
+				new Configuration(),
+				new Configuration(),
+				new ExecutionConfig(),
+				1024 * 1024,
+				new MockInputSplitProvider(),
+				0,
+				taskStateManager);
 
 		StreamTask testStreamTask = new StreamTaskTest.NoOpStreamTask(streamMockEnvironment);
 		CheckpointMetaData checkpointMetaData = new CheckpointMetaData(0L, 0L);
@@ -105,15 +107,18 @@ public class LocalStateForwardingTest extends TestLogger {
 		OperatorID operatorID = new OperatorID();
 		snapshots.put(operatorID, osFuture);
 
-		AsyncCheckpointRunnable checkpointRunnable = new AsyncCheckpointRunnable(
-			snapshots,
-			checkpointMetaData,
-			checkpointMetrics,
-			0L,
-			testStreamTask.getName(),
-			testStreamTask.getCancelables(),
-			testStreamTask.getEnvironment(),
-			testStreamTask);
+		AsyncCheckpointRunnable checkpointRunnable =
+				new AsyncCheckpointRunnable(
+						snapshots,
+						checkpointMetaData,
+						checkpointMetrics,
+						0L,
+						testStreamTask.getName(),
+						testStreamTask.getCancelables(),
+						testStreamTask.getEnvironment(),
+						testStreamTask,
+						CompletableFuture.completedFuture(SubtaskChannelsState.EMPTY),
+						CompletableFuture.completedFuture(SubtaskChannelsState.EMPTY));
 
 		checkpointRunnable.run();
 
@@ -121,10 +126,10 @@ public class LocalStateForwardingTest extends TestLogger {
 		TaskStateSnapshot lastTaskManagerTaskStateSnapshot = taskStateManager.getLastTaskManagerTaskStateSnapshot();
 
 		OperatorSubtaskState jmState =
-			lastJobManagerTaskStateSnapshot.getSubtaskStateByOperatorID(operatorID);
+				lastJobManagerTaskStateSnapshot.getSubtaskStateByOperatorID(operatorID);
 
 		OperatorSubtaskState tmState =
-			lastTaskManagerTaskStateSnapshot.getSubtaskStateByOperatorID(operatorID);
+				lastTaskManagerTaskStateSnapshot.getSubtaskStateByOperatorID(operatorID);
 
 		performCheck(osFuture.getKeyedStateManagedFuture(), jmState.getManagedKeyedState(), tmState.getManagedKeyedState());
 		performCheck(osFuture.getKeyedStateRawFuture(), jmState.getRawKeyedState(), tmState.getRawKeyedState());
@@ -157,11 +162,11 @@ public class LocalStateForwardingTest extends TestLogger {
 
 			@Override
 			public void acknowledgeCheckpoint(
-				JobID lJobID,
-				ExecutionAttemptID lExecutionAttemptID,
-				long lCheckpointId,
-				CheckpointMetrics lCheckpointMetrics,
-				TaskStateSnapshot lSubtaskState) {
+					JobID lJobID,
+					ExecutionAttemptID lExecutionAttemptID,
+					long lCheckpointId,
+					CheckpointMetrics lCheckpointMetrics,
+					TaskStateSnapshot lSubtaskState) {
 
 				Assert.assertEquals(jobID, lJobID);
 				Assert.assertEquals(executionAttemptID, lExecutionAttemptID);
@@ -174,47 +179,47 @@ public class LocalStateForwardingTest extends TestLogger {
 		Executor executor = Executors.directExecutor();
 
 		LocalRecoveryDirectoryProviderImpl directoryProvider = new LocalRecoveryDirectoryProviderImpl(
-			temporaryFolder.newFolder(),
-			jobID,
-			jobVertexID,
-			subtaskIdx);
+				temporaryFolder.newFolder(),
+				jobID,
+				jobVertexID,
+				subtaskIdx);
 
 		LocalRecoveryConfig localRecoveryConfig = new LocalRecoveryConfig(true, directoryProvider);
 
 		TaskLocalStateStore taskLocalStateStore =
-			new TaskLocalStateStoreImpl(jobID, allocationID, jobVertexID, subtaskIdx, localRecoveryConfig, executor) {
-				@Override
-				public void storeLocalState(
-					@Nonnegative long checkpointId,
-					@Nullable TaskStateSnapshot localState) {
+				new TaskLocalStateStoreImpl(jobID, allocationID, jobVertexID, subtaskIdx, localRecoveryConfig, executor) {
+					@Override
+					public void storeLocalState(
+							@Nonnegative long checkpointId,
+							@Nullable TaskStateSnapshot localState) {
 
-					Assert.assertEquals(tmSnapshot, localState);
-					tmReported.set(true);
-				}
-			};
+						Assert.assertEquals(tmSnapshot, localState);
+						tmReported.set(true);
+					}
+				};
 
 		TaskStateManagerImpl taskStateManager =
-			new TaskStateManagerImpl(
-				jobID,
-				executionAttemptID,
-				taskLocalStateStore,
-				null,
-				checkpointResponder);
+				new TaskStateManagerImpl(
+						jobID,
+						executionAttemptID,
+						taskLocalStateStore,
+						null,
+						checkpointResponder);
 
 		taskStateManager.reportTaskStateSnapshots(
-			checkpointMetaData,
-			checkpointMetrics,
-			jmSnapshot,
-			tmSnapshot);
+				checkpointMetaData,
+				checkpointMetrics,
+				jmSnapshot,
+				tmSnapshot);
 
 		Assert.assertTrue("Reporting for JM state was not called.", jmReported.get());
 		Assert.assertTrue("Reporting for TM state was not called.", tmReported.get());
 	}
 
 	private static <T extends StateObject> void performCheck(
-		Future<SnapshotResult<T>> resultFuture,
-		StateObjectCollection<T> jmState,
-		StateObjectCollection<T> tmState) {
+			Future<SnapshotResult<T>> resultFuture,
+			StateObjectCollection<T> jmState,
+			StateObjectCollection<T> tmState) {
 
 		SnapshotResult<T> snapshotResult;
 		try {
@@ -224,12 +229,12 @@ public class LocalStateForwardingTest extends TestLogger {
 		}
 
 		Assert.assertEquals(
-			snapshotResult.getJobManagerOwnedSnapshot(),
-			jmState.iterator().next());
+				snapshotResult.getJobManagerOwnedSnapshot(),
+				jmState.iterator().next());
 
 		Assert.assertEquals(
-			snapshotResult.getTaskLocalSnapshot(),
-			tmState.iterator().next());
+				snapshotResult.getTaskLocalSnapshot(),
+				tmState.iterator().next());
 	}
 
 	private static <T extends StateObject> RunnableFuture<SnapshotResult<T>> createSnapshotResult(Class<T> clazz) {

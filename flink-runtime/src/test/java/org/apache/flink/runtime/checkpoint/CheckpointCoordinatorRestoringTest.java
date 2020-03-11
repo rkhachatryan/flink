@@ -208,6 +208,11 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 					verify(subtaskState, times(2)).registerSharedStates(any(SharedStateRegistry.class));
 				}
 			}
+			for (TaskChannelsState taskChannelsState : completedCheckpoint.getChannelsStates().values()) {
+				for (SubtaskChannelsState subtaskChannelsState : taskChannelsState.getSubtaskChannelsStates().values()) {
+					verify(subtaskChannelsState, times(2)).registerSharedStates(any(SharedStateRegistry.class));
+				}
+			}
 		}
 
 		// verify the restored state

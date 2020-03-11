@@ -22,7 +22,11 @@ import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.TaskChannelsState;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.ChannelStateHandle;
+import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.state.api.runtime.OperatorIDGenerator;
 import org.apache.flink.state.api.runtime.SavepointLoader;
 import org.apache.flink.streaming.util.MockStreamingRuntimeContext;
@@ -64,29 +68,41 @@ public class SavepointOutputFormatTest {
 		CheckpointMetadata metadataOnDisk = SavepointLoader.loadSavepointMetadata(path.getPath());
 
 		Assert.assertEquals(
-			"Incorrect checkpoint id",
-			metadata.getCheckpointId(),
-			metadataOnDisk.getCheckpointId());
+				"Incorrect checkpoint id",
+				metadata.getCheckpointId(),
+				metadataOnDisk.getCheckpointId());
 
 		Assert.assertEquals(
-			"Incorrect number of operator states in savepoint",
-			metadata.getOperatorStates().size(),
-			metadataOnDisk.getOperatorStates().size());
+				"Incorrect number of operator states in savepoint",
+				metadata.getOperatorStates().size(),
+				metadataOnDisk.getOperatorStates().size());
 
 		Assert.assertEquals(
-			"Incorrect operator state in savepoint",
-			metadata.getOperatorStates().iterator().next(),
-			metadataOnDisk.getOperatorStates().iterator().next());
+				"Incorrect operator state in savepoint",
+				metadata.getOperatorStates().iterator().next(),
+				metadataOnDisk.getOperatorStates().iterator().next());
+
+		Assert.assertEquals(
+				"Incorrect number of channels states in savepoint",
+				metadata.getChannelsStates().size(),
+				metadataOnDisk.getChannelsStates().size());
+
+		Assert.assertEquals(
+				"Incorrect channel state in savepoint",
+				metadata.getChannelsStates().iterator().next(),
+				metadataOnDisk.getChannelsStates().iterator().next());
+
 	}
 
 	private CheckpointMetadata createSavepoint() {
-		OperatorState operatorState = new OperatorState(OperatorIDGenerator.fromUid("uid"), 1, 128);
-
+		OperatorID operatorID = OperatorIDGenerator.fromUid("uid");
+		OperatorState operatorState = new OperatorState(operatorID, 1, 128);
+		final TaskChannelsState subtaskChannelsState = new TaskChannelsState(operatorID);
 		operatorState.putState(0, new OperatorSubtaskState());
-		return new CheckpointMetadata(0, Collections.singleton(operatorState), Collections.emptyList());
+		return new CheckpointMetadata(0, Collections.singleton(operatorState), Collections.singleton(subtaskChannelsState), Collections.emptyList());
 	}
 
-	private SavepointOutputFormat createSavepointOutputFormat(Path path) throws Exception {
+	private SavepointOutputFormat createSavepointOutputFormat(Path path) {
 		RuntimeContext ctx = new MockStreamingRuntimeContext(false, 1, 0);
 
 		SavepointOutputFormat format = new SavepointOutputFormat(path);
@@ -94,5 +110,25 @@ public class SavepointOutputFormatTest {
 
 		return format;
 	}
-}
 
+	private static final ChannelStateHandle TEST_CHANNEL_STATE_HANDLE = new ChannelStateHandle() {
+		// todo: equals; existing class; serialization
+		@Override
+		public void registerSharedStates(SharedStateRegistry stateRegistry) {
+		}
+
+		@Override
+		public void discardState() {
+		}
+
+		@Override
+		public long getStateSize() {
+			return 0;
+		}
+
+		@Override
+		public String toString() {
+			return "TEST_CHANNEL_STATE_HANDLE";
+		}
+	};
+}

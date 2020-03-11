@@ -44,7 +44,8 @@ public class MetadataV2Serializer extends MetadataV2V3SerializerBase implements 
 	public static final MetadataV2Serializer INSTANCE = new MetadataV2Serializer();
 
 	/** Singleton, not meant to be instantiated. */
-	private MetadataV2Serializer() {}
+	private MetadataV2Serializer() {
+	}
 
 	@Override
 	public int getVersion() {
@@ -140,4 +141,5 @@ public class MetadataV2Serializer extends MetadataV2V3SerializerBase implements 
 
 		return super.deserializeSubtaskState(dis);
 	}
+
 }

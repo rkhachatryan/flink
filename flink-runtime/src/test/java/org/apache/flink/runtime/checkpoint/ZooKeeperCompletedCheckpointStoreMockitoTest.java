@@ -352,6 +352,7 @@ public class ZooKeeperCompletedCheckpointStoreMockitoTest extends TestLogger {
 			CompletedCheckpoint checkpointToAdd = mock(CompletedCheckpoint.class);
 			doReturn(i).when(checkpointToAdd).getCheckpointID();
 			doReturn(Collections.emptyMap()).when(checkpointToAdd).getOperatorStates();
+			doReturn(Collections.emptyMap()).when(checkpointToAdd).getChannelsStates();
 
 			try {
 				zooKeeperCompletedCheckpointStore.addCheckpoint(checkpointToAdd);

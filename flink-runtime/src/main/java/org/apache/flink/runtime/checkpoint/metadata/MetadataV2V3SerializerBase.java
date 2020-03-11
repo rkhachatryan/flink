@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.MasterState;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.checkpoint.TaskChannelsState;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
@@ -105,6 +106,11 @@ public abstract class MetadataV2V3SerializerBase {
 		for (OperatorState operatorState : operatorStates) {
 			serializeOperatorState(operatorState, dos);
 		}
+
+		serializeChannelsState(checkpointMetadata, dos);
+	}
+
+	protected void serializeChannelsState(CheckpointMetadata checkpointMetadata, DataOutputStream dos) throws IOException {
 	}
 
 	protected CheckpointMetadata deserializeMetadata(DataInputStream dis) throws IOException {
@@ -139,7 +145,11 @@ public abstract class MetadataV2V3SerializerBase {
 			operatorStates.add(deserializeOperatorState(dis));
 		}
 
-		return new CheckpointMetadata(checkpointId, operatorStates, masterStates);
+		return new CheckpointMetadata(checkpointId, operatorStates, deserializeChannelsState(dis), masterStates);
+	}
+
+	protected List<TaskChannelsState> deserializeChannelsState(DataInputStream dis) throws IOException {
+		return Collections.emptyList();
 	}
 
 	// ------------------------------------------------------------------------

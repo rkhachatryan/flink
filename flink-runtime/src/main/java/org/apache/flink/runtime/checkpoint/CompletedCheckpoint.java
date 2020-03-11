@@ -89,6 +89,9 @@ public class CompletedCheckpoint implements Serializable {
 	/** States of the different operator groups belonging to this checkpoint. */
 	private final Map<OperatorID, OperatorState> operatorStates;
 
+	/** States of channels of tasks. */
+	private final Map<OperatorID, TaskChannelsState> channelsStates; // task.chain.tail -> task.channels.state
+
 	/** Properties for this checkpoint. */
 	private final CheckpointProperties props;
 
@@ -111,11 +114,33 @@ public class CompletedCheckpoint implements Serializable {
 	// ------------------------------------------------------------------------
 
 	public CompletedCheckpoint(
+		JobID job,
+		long checkpointID,
+		long timestamp,
+		long completionTimestamp,
+		Map<OperatorID, OperatorState> operatorStates,
+		@Nullable Collection<MasterState> masterHookStates,
+		CheckpointProperties props,
+		CompletedCheckpointStorageLocation storageLocation) {
+		this(
+			job,
+			checkpointID,
+			timestamp,
+			completionTimestamp,
+			operatorStates,
+			Collections.emptyMap(),
+			masterHookStates,
+			props,
+			storageLocation);
+	}
+
+	public CompletedCheckpoint(
 			JobID job,
 			long checkpointID,
 			long timestamp,
 			long completionTimestamp,
 			Map<OperatorID, OperatorState> operatorStates,
+			Map<OperatorID, TaskChannelsState> channelsStates,
 			@Nullable Collection<MasterState> masterHookStates,
 			CheckpointProperties props,
 			CompletedCheckpointStorageLocation storageLocation) {
@@ -132,6 +157,7 @@ public class CompletedCheckpoint implements Serializable {
 		// we create copies here, to make sure we have no shared mutable
 		// data structure with the "outside world"
 		this.operatorStates = new HashMap<>(checkNotNull(operatorStates));
+		this.channelsStates = new HashMap<>(checkNotNull(channelsStates));
 		this.masterHookStates = masterHookStates == null || masterHookStates.isEmpty() ?
 				Collections.emptyList() :
 				new ArrayList<>(masterHookStates);
@@ -167,7 +193,11 @@ public class CompletedCheckpoint implements Serializable {
 	}
 
 	public Map<OperatorID, OperatorState> getOperatorStates() {
-		return operatorStates;
+		return Collections.unmodifiableMap(operatorStates);
+	}
+
+	public Map<OperatorID, TaskChannelsState> getChannelsStates() {
+		return Collections.unmodifiableMap(channelsStates);
 	}
 
 	public Collection<MasterState> getMasterHookStates() {
@@ -188,6 +218,9 @@ public class CompletedCheckpoint implements Serializable {
 		for (OperatorState operatorState : operatorStates.values()) {
 			result += operatorState.getStateSize();
 		}
+		for (TaskChannelsState channelsState : channelsStates.values()) {
+			result += channelsState.getStateSize();
+		}
 
 		return result;
 	}
@@ -204,6 +237,7 @@ public class CompletedCheckpoint implements Serializable {
 	 */
 	public void registerSharedStatesAfterRestored(SharedStateRegistry sharedStateRegistry) {
 		sharedStateRegistry.registerAll(operatorStates.values());
+		sharedStateRegistry.registerAll(channelsStates.values());
 	}
 
 	// ------------------------------------------------------------------------
@@ -258,6 +292,11 @@ public class CompletedCheckpoint implements Serializable {
 			} catch (Exception e) {
 				exception = ExceptionUtils.firstOrSuppressed(e, exception);
 			}
+			try {
+				StateUtil.bestEffortDiscardAllStateObjects(channelsStates.values());
+			} catch (Exception e) {
+				exception = ExceptionUtils.firstOrSuppressed(e, exception);
+			}
 
 			// discard location as a whole
 			try {
@@ -272,6 +311,7 @@ public class CompletedCheckpoint implements Serializable {
 			}
 		} finally {
 			operatorStates.clear();
+			channelsStates.clear();
 
 			// to be null-pointer safe, copy reference to stack
 			CompletedCheckpointStats.DiscardCallback discardCallback = this.discardCallback;

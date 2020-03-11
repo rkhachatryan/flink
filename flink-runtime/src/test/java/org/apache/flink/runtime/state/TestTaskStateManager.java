@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.testutils.OneShotLatch;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
@@ -157,6 +158,11 @@ public class TestTaskStateManager implements TaskStateManager {
 	public LocalRecoveryConfig createLocalRecoveryConfig() {
 		return Preconditions.checkNotNull(localRecoveryDirectoryProvider,
 			"Local state directory was never set for this test object!");
+	}
+
+	@Override
+	public SubtaskChannelsState getChannelStates() {
+		return SubtaskChannelsState.EMPTY;
 	}
 
 	public void setLocalRecoveryConfig(LocalRecoveryConfig recoveryDirectoryProvider) {

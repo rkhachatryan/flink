@@ -21,6 +21,6 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 /**
  * {@link StateObject Handle} to an {@link org.apache.flink.runtime.io.network.partition.consumer.InputChannel InputChannel} state.
  */
-public interface InputChannelStateHandle extends StateObject {
+public interface InputChannelStateHandle extends ChannelStateHandle {
 	InputChannelInfo getInputChannelInfo();
 }

@@ -88,6 +88,8 @@ public class PendingCheckpoint {
 
 	private final Map<OperatorID, OperatorState> operatorStates;
 
+	private final Map<OperatorID, TaskChannelsState> channelsStates; // task.chain.tail -> task.channels.state
+
 	private final Map<ExecutionAttemptID, ExecutionVertex> notYetAcknowledgedTasks;
 
 	private final Set<OperatorID> notYetAcknowledgedOperatorCoordinators;
@@ -149,6 +151,7 @@ public class PendingCheckpoint {
 		this.executor = Preconditions.checkNotNull(executor);
 
 		this.operatorStates = new HashMap<>();
+		this.channelsStates = new HashMap<>();
 		this.masterStates = new ArrayList<>(masterStateIdentifiers.size());
 		this.notYetAcknowledgedMasterStates = masterStateIdentifiers.isEmpty()
 				? Collections.emptySet() : new HashSet<>(masterStateIdentifiers);
@@ -194,6 +197,10 @@ public class PendingCheckpoint {
 
 	public Map<OperatorID, OperatorState> getOperatorStates() {
 		return operatorStates;
+	}
+
+	public Map<OperatorID, TaskChannelsState> getChannelsStates() {
+		return channelsStates;
 	}
 
 	public List<MasterState> getMasterStates() {
@@ -298,7 +305,7 @@ public class PendingCheckpoint {
 			// make sure we fulfill the promise with an exception if something fails
 			try {
 				// write out the metadata
-				final CheckpointMetadata savepoint = new CheckpointMetadata(checkpointId, operatorStates.values(), masterStates);
+				final CheckpointMetadata savepoint = new CheckpointMetadata(checkpointId, operatorStates.values(), channelsStates.values(), masterStates);
 				final CompletedCheckpointStorageLocation finalizedLocation;
 
 				try (CheckpointMetadataOutputStream out = targetLocation.createMetadataOutputStream()) {
@@ -312,6 +319,7 @@ public class PendingCheckpoint {
 						checkpointTimestamp,
 						System.currentTimeMillis(),
 						operatorStates,
+						channelsStates,
 						masterStates,
 						props,
 						finalizedLocation);
@@ -345,13 +353,13 @@ public class PendingCheckpoint {
 	 * Acknowledges the task with the given execution attempt id and the given subtask state.
 	 *
 	 * @param executionAttemptId of the acknowledged task
-	 * @param operatorSubtaskStates of the acknowledged task
+	 * @param taskStateSnapshot of the acknowledged task
 	 * @param metrics Checkpoint metrics for the stats
 	 * @return TaskAcknowledgeResult of the operation
 	 */
 	public TaskAcknowledgeResult acknowledgeTask(
 			ExecutionAttemptID executionAttemptId,
-			TaskStateSnapshot operatorSubtaskStates,
+			TaskStateSnapshot taskStateSnapshot,
 			CheckpointMetrics metrics) {
 
 		synchronized (lock) {
@@ -377,11 +385,11 @@ public class PendingCheckpoint {
 
 			long stateSize = 0L;
 
-			if (operatorSubtaskStates != null) {
+			if (taskStateSnapshot != null) {
 				for (OperatorID operatorID : operatorIDs) {
 
 					OperatorSubtaskState operatorSubtaskState =
-						operatorSubtaskStates.getSubtaskStateByOperatorID(operatorID);
+						taskStateSnapshot.getSubtaskStateByOperatorID(operatorID);
 
 					// if no real operatorSubtaskState was reported, we insert an empty state
 					if (operatorSubtaskState == null) {
@@ -401,6 +409,9 @@ public class PendingCheckpoint {
 					operatorState.putState(subtaskIndex, operatorSubtaskState);
 					stateSize += operatorSubtaskState.getStateSize();
 				}
+				channelsStates
+						.computeIfAbsent(operatorIDs.get(0), TaskChannelsState::new)
+						.putSubtaskState(subtaskIndex, taskStateSnapshot.getSubtaskChannelsState());
 			}
 
 			++numAcknowledgedTasks;
@@ -457,6 +468,8 @@ public class PendingCheckpoint {
 				}
 				operatorState.setCoordinatorState(stateHandle);
 			}
+
+			// todo: confirm with Stephan that channel state has nothing to do with Operator Coordinator
 
 			return TaskAcknowledgeResult.SUCCESS;
 		}
@@ -526,12 +539,14 @@ public class PendingCheckpoint {
 							// unregistered shared states are still considered private at this point.
 							try {
 								StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
+								StateUtil.bestEffortDiscardAllStateObjects(channelsStates.values());
 								targetLocation.disposeOnFailure();
 							} catch (Throwable t) {
 								LOG.warn("Could not properly dispose the private states in the pending checkpoint {} of job {}.",
 									checkpointId, jobId, t);
 							} finally {
 								operatorStates.clear();
+								channelsStates.clear();
 							}
 						}
 					});

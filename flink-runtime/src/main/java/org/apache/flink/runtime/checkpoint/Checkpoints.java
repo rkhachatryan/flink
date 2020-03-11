@@ -48,6 +48,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -206,6 +208,8 @@ public class Checkpoints {
 				0L,
 				0L,
 				operatorStates,
+				// todo: review logic of building operatorStates
+				checkpointMetadata.getChannelsStates().stream().collect(Collectors.toMap(TaskChannelsState::getOperatorID, Function.identity())),
 				checkpointMetadata.getMasterStates(),
 				props,
 				location);

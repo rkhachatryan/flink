@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * This class encapsulates state handles to the snapshots of all operator instances executed within one task. A task
@@ -47,7 +48,7 @@ import java.util.Map;
  */
 public class TaskStateSnapshot implements CompositeStateHandle {
 
-	public static final TaskStateSnapshot EMPTY = new TaskStateSnapshot(Collections.emptyMap());
+	public static final TaskStateSnapshot EMPTY = new TaskStateSnapshot(Collections.emptyMap(), SubtaskChannelsState.EMPTY);
 
 	private static final long serialVersionUID = 1L;
 
@@ -56,13 +57,20 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 	 */
 	private final Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID;
 
+	private final SubtaskChannelsState subtaskChannelsState;
+
 	public TaskStateSnapshot(OperatorID id, OperatorSubtaskState state) {
-		this(Collections.singletonMap(id, state));
+		this(Collections.singletonMap(id, state), SubtaskChannelsState.EMPTY);
 	}
 
 	public TaskStateSnapshot(Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID) {
-		subtaskStatesByOperatorID.values().forEach(Preconditions::checkNotNull);
+		this(subtaskStatesByOperatorID, SubtaskChannelsState.EMPTY);
+	}
+
+	public TaskStateSnapshot(Map<OperatorID, OperatorSubtaskState> subtaskStatesByOperatorID, SubtaskChannelsState subtaskChannelsState) {
 		this.subtaskStatesByOperatorID = Preconditions.checkNotNull(Collections.unmodifiableMap(new HashMap<>(subtaskStatesByOperatorID)));
+		this.subtaskStatesByOperatorID.values().forEach(Preconditions::checkNotNull);
+		this.subtaskChannelsState = Preconditions.checkNotNull(subtaskChannelsState);
 	}
 
 	/**
@@ -89,12 +97,13 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 				return true;
 			}
 		}
-		return false;
+		return subtaskChannelsState.hasState();
 	}
 
 	@Override
 	public void discardState() throws Exception {
 		StateUtil.bestEffortDiscardAllStateObjects(subtaskStatesByOperatorID.values());
+		StateUtil.bestEffortDiscardAllStateObjects(subtaskChannelsState.getStateHandles());
 	}
 
 	@Override
@@ -106,6 +115,7 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 				size += subtaskState.getStateSize();
 			}
 		}
+		size += subtaskChannelsState.getStateSize();
 
 		return size;
 	}
@@ -117,6 +127,7 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 				operatorSubtaskState.registerSharedStates(stateRegistry);
 			}
 		}
+		subtaskChannelsState.registerSharedStates(stateRegistry);
 	}
 
 	@Override
@@ -130,18 +141,25 @@ public class TaskStateSnapshot implements CompositeStateHandle {
 
 		TaskStateSnapshot that = (TaskStateSnapshot) o;
 
-		return subtaskStatesByOperatorID.equals(that.subtaskStatesByOperatorID);
+		return subtaskStatesByOperatorID.equals(that.subtaskStatesByOperatorID) &&
+			subtaskChannelsState.equals(that.subtaskChannelsState);
 	}
 
 	@Override
 	public int hashCode() {
-		return subtaskStatesByOperatorID.hashCode();
+		return Objects.hash(subtaskStatesByOperatorID, subtaskChannelsState);
 	}
 
 	@Override
 	public String toString() {
 		return "TaskOperatorSubtaskStates{" +
 			"subtaskStatesByOperatorID=" + subtaskStatesByOperatorID +
+			"channelsState=" + subtaskChannelsState +
 			'}';
 	}
+
+	public SubtaskChannelsState getSubtaskChannelsState() {
+		return subtaskChannelsState;
+	}
+
 }

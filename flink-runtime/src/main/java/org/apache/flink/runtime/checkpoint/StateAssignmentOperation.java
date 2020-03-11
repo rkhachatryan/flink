@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.OperatorInstanceID;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -56,6 +57,7 @@ public class StateAssignmentOperation {
 
 	private final Set<ExecutionJobVertex> tasks;
 	private final Map<OperatorID, OperatorState> operatorStates;
+	private final Map<OperatorID, TaskChannelsState> channelsStates; // task.chain.tail -> task.channels.state
 
 	private final long restoreCheckpointId;
 	private final boolean allowNonRestoredState;
@@ -64,18 +66,20 @@ public class StateAssignmentOperation {
 		long restoreCheckpointId,
 		Set<ExecutionJobVertex> tasks,
 		Map<OperatorID, OperatorState> operatorStates,
+		Map<OperatorID, TaskChannelsState> channelsStates,
 		boolean allowNonRestoredState) {
 
 		this.restoreCheckpointId = restoreCheckpointId;
-		this.tasks = Preconditions.checkNotNull(tasks);
-		this.operatorStates = Preconditions.checkNotNull(operatorStates);
+		this.tasks = checkNotNull(tasks);
+		this.operatorStates = checkNotNull(operatorStates);
 		this.allowNonRestoredState = allowNonRestoredState;
+		this.channelsStates = Collections.unmodifiableMap(new HashMap<>(checkNotNull(channelsStates)));
 	}
 
 	public void assignStates() {
 		Map<OperatorID, OperatorState> localOperators = new HashMap<>(operatorStates);
 
-		checkStateMappingCompleteness(allowNonRestoredState, operatorStates, tasks);
+		checkStateMappingCompleteness(allowNonRestoredState, operatorStates, channelsStates, tasks);
 
 		for (ExecutionJobVertex executionJobVertex : this.tasks) {
 
@@ -83,7 +87,7 @@ public class StateAssignmentOperation {
 			List<OperatorID> operatorIDs = executionJobVertex.getOperatorIDs();
 			List<OperatorID> altOperatorIDs = executionJobVertex.getUserDefinedOperatorIDs();
 			List<OperatorState> operatorStates = new ArrayList<>(operatorIDs.size());
-			boolean statelessTask = true;
+			boolean hasOperatorState = false;
 			for (int x = 0; x < operatorIDs.size(); x++) {
 				OperatorID operatorID = altOperatorIDs.get(x) == null
 					? operatorIDs.get(x)
@@ -96,17 +100,34 @@ public class StateAssignmentOperation {
 						executionJobVertex.getParallelism(),
 						executionJobVertex.getMaxParallelism());
 				} else {
-					statelessTask = false;
+					hasOperatorState = true;
 				}
 				operatorStates.add(operatorState);
 			}
-			if (statelessTask) { // skip tasks where no operator has any state
-				continue;
+			if (hasOperatorState) {
+				assignAttemptState(executionJobVertex, operatorStates);
+			} else {
+				assignChannelsStates(executionJobVertex);
 			}
-
-			assignAttemptState(executionJobVertex, operatorStates);
 		}
+	}
 
+	private void assignChannelsStates(ExecutionJobVertex executionJobVertex) {
+		for (int i = 0; i < executionJobVertex.getOperatorIDs().size(); i++) {
+			final OperatorID operatorID = executionJobVertex.getOperatorIDs().get(i);
+			final OperatorID userOperatorID = executionJobVertex.getUserDefinedOperatorIDs().get(i);
+			TaskChannelsState taskChannelsState = channelsStates.containsKey(userOperatorID) ? channelsStates.get(userOperatorID) : channelsStates.get(operatorID);
+			if (taskChannelsState != null) {
+				for (ExecutionVertex subtask : executionJobVertex.getTaskVertices()) {
+					SubtaskChannelsState subtaskChannelsState = taskChannelsState.getSubtaskChannelsStates().get(subtask.getParallelSubtaskIndex());
+					if (subtaskChannelsState != null && subtaskChannelsState.hasState()) {
+						subtask
+							.getCurrentExecutionAttempt()
+							.setInitialState(new JobManagerTaskRestore(restoreCheckpointId, new TaskStateSnapshot(Collections.emptyMap(), subtaskChannelsState)));
+					}
+				}
+			}
+		}
 	}
 
 	private void assignAttemptState(ExecutionJobVertex executionJobVertex, List<OperatorState> operatorStates) {
@@ -205,6 +226,7 @@ public class StateAssignmentOperation {
 			boolean statelessTask = true;
 
 			final Map<OperatorID, OperatorSubtaskState> stateMap = new HashMap<>();
+			SubtaskChannelsState subtaskChannelsState = SubtaskChannelsState.EMPTY;
 			for (OperatorID operatorID : operatorIDs) {
 				OperatorInstanceID instanceID = OperatorInstanceID.of(subTaskIndex, operatorID);
 
@@ -219,10 +241,20 @@ public class StateAssignmentOperation {
 					statelessTask = false;
 				}
 				stateMap.put(operatorID, operatorSubtaskState);
-			}
-			TaskStateSnapshot taskState = new TaskStateSnapshot(stateMap);
 
+				TaskChannelsState taskChannelsState = channelsStates.get(operatorID);
+				if (taskChannelsState != null) {
+					SubtaskChannelsState receivedState = taskChannelsState.getSubtaskChannelsStates().remove(subTaskIndex);
+					if (receivedState != null && receivedState.hasState()) {
+						Preconditions.checkState(!subtaskChannelsState.hasState(),
+								String.format("state was already assigned operatorId: %s, subtaskIdx: %s", operatorID, subTaskIndex));
+						statelessTask = false;
+						subtaskChannelsState = receivedState;
+					}
+				}
+			}
 			if (!statelessTask) {
+				TaskStateSnapshot taskState = new TaskStateSnapshot(stateMap, subtaskChannelsState);
 				JobManagerTaskRestore taskRestore = new JobManagerTaskRestore(restoreCheckpointId, taskState);
 				currentExecutionAttempt.setInitialState(taskRestore);
 			}
@@ -541,15 +573,15 @@ public class StateAssignmentOperation {
 
 	/**
 	 * Verifies that all operator states can be mapped to an execution job vertex.
-	 *
-	 * @param allowNonRestoredState if false an exception will be thrown if a state could not be mapped
+	 *  @param allowNonRestoredState if false an exception will be thrown if a state could not be mapped
 	 * @param operatorStates operator states to map
 	 * @param tasks task to map to
 	 */
 	private static void checkStateMappingCompleteness(
-			boolean allowNonRestoredState,
-			Map<OperatorID, OperatorState> operatorStates,
-			Set<ExecutionJobVertex> tasks) {
+		boolean allowNonRestoredState,
+		Map<OperatorID, OperatorState> operatorStates,
+		Map<OperatorID, TaskChannelsState> channelsStates,
+		Set<ExecutionJobVertex> tasks) {
 
 		Set<OperatorID> allOperatorIDs = new HashSet<>();
 		for (ExecutionJobVertex executionJobVertex : tasks) {
@@ -565,6 +597,14 @@ public class StateAssignmentOperation {
 				} else {
 					throw new IllegalStateException("There is no operator for the state " + operatorState.getOperatorID());
 				}
+			}
+		}
+		if (!allOperatorIDs.containsAll(channelsStates.keySet())) {
+			final String msg = String.format("Can'to map some channels state to tasks; state operator ids: %s; task operator ids: %s", channelsStates.keySet(), allOperatorIDs);
+			if (allowNonRestoredState) {
+				LOG.info(msg);
+			} else {
+				throw new IllegalStateException(msg);
 			}
 		}
 	}

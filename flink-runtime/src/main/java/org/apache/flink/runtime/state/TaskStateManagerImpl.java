@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.checkpoint.SubtaskChannelsState;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.JobManagerTaskRestore;
@@ -151,6 +152,12 @@ public class TaskStateManagerImpl implements TaskStateManager {
 	@Override
 	public LocalRecoveryConfig createLocalRecoveryConfig() {
 		return localStateStore.getLocalRecoveryConfig();
+	}
+
+	@Override
+	public SubtaskChannelsState getChannelStates() {
+		return jobManagerTaskRestore == null ? SubtaskChannelsState.EMPTY :
+			jobManagerTaskRestore.getTaskStateSnapshot().getSubtaskChannelsState();
 	}
 
 	/**

@@ -105,9 +105,9 @@ public class ZooKeeperCompletedCheckpointStoreITCase extends CompletedCheckpoint
 		checkpoints.addCheckpoint(expected[1]);
 		checkpoints.addCheckpoint(expected[2]);
 
-		verifyCheckpointRegistered(expected[0].getOperatorStates().values(), sharedStateRegistry);
-		verifyCheckpointRegistered(expected[1].getOperatorStates().values(), sharedStateRegistry);
-		verifyCheckpointRegistered(expected[2].getOperatorStates().values(), sharedStateRegistry);
+		verifyCheckpointRegistered(expected[0]);
+		verifyCheckpointRegistered(expected[1]);
+		verifyCheckpointRegistered(expected[2]);
 
 		// All three should be in ZK
 		assertEquals(3, ZOOKEEPER.getClient().getChildren().forPath(CHECKPOINT_PATH).size());
@@ -134,7 +134,7 @@ public class ZooKeeperCompletedCheckpointStoreITCase extends CompletedCheckpoint
 		assertEquals(expectedCheckpoints, actualCheckpoints);
 
 		for (CompletedCheckpoint actualCheckpoint : actualCheckpoints) {
-			verifyCheckpointRegistered(actualCheckpoint.getOperatorStates().values(), sharedStateRegistry);
+			verifyCheckpointRegistered(actualCheckpoint);
 		}
 	}
 
@@ -223,7 +223,7 @@ public class ZooKeeperCompletedCheckpointStoreITCase extends CompletedCheckpoint
 
 		CompletedCheckpoint latestCheckpoint = checkpointStore.getLatestCheckpoint(false);
 
-		assertEquals(checkpoints.get(checkpoints.size() -1), latestCheckpoint);
+		assertEquals(checkpoints.get(checkpoints.size() - 1), latestCheckpoint);
 	}
 
 	/**

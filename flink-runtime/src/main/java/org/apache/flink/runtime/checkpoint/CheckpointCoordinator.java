@@ -31,7 +31,6 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
-import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
@@ -1025,8 +1024,8 @@ public class CheckpointCoordinator {
 		final CompletedCheckpoint completedCheckpoint;
 
 		// As a first step to complete the checkpoint, we register its state with the registry
-		Map<OperatorID, OperatorState> operatorStates = pendingCheckpoint.getOperatorStates();
-		sharedStateRegistry.registerAll(operatorStates.values());
+		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
+		sharedStateRegistry.registerAll(pendingCheckpoint.getChannelsStates().values());
 
 		try {
 			try {
@@ -1267,11 +1266,12 @@ public class CheckpointCoordinator {
 
 			LOG.info("Restoring job {} from latest valid checkpoint: {}.", job, latest);
 
-			// re-assign the task states
-			final Map<OperatorID, OperatorState> operatorStates = latest.getOperatorStates();
-
-			StateAssignmentOperation stateAssignmentOperation =
-					new StateAssignmentOperation(latest.getCheckpointID(), tasks, operatorStates, allowNonRestoredState);
+			StateAssignmentOperation stateAssignmentOperation = new StateAssignmentOperation(
+				latest.getCheckpointID(),
+				tasks,
+				latest.getOperatorStates(),
+				latest.getChannelsStates(),
+				allowNonRestoredState);
 
 			stateAssignmentOperation.assignStates();
 
