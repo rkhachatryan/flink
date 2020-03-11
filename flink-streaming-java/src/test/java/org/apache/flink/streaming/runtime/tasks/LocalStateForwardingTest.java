@@ -105,8 +105,8 @@ public class LocalStateForwardingTest extends TestLogger {
 		OperatorID operatorID = new OperatorID();
 		snapshots.put(operatorID, osFuture);
 
-		StreamTask.AsyncCheckpointRunnable checkpointRunnable =
-			new StreamTask.AsyncCheckpointRunnable(
+		AsyncCheckpointRunnable checkpointRunnable =
+			new AsyncCheckpointRunnable(
 				testStreamTask,
 				snapshots,
 				checkpointMetaData,
