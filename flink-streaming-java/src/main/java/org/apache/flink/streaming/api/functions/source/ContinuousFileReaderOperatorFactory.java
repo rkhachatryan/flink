@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.api.functions.source;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.io.FileInputFormat;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperatorFactory;
@@ -58,7 +59,8 @@ public class ContinuousFileReaderOperatorFactory<OUT, T extends TimestampedInput
 
 	@Override
 	public <O extends StreamOperator<OUT>> O createStreamOperator(StreamOperatorParameters<OUT> parameters) {
-		ContinuousFileReaderOperator<OUT, T> operator = new ContinuousFileReaderOperator<>(inputFormat, processingTimeService, mailboxExecutor);
+		OldContinuousFileReaderOperator<OUT> operator = new OldContinuousFileReaderOperator<>((FileInputFormat) inputFormat);
+		operator.setProcessingTimeService(processingTimeService);
 		operator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
 		operator.setOutputType(type, executionConfig);
 		return (O) operator;
