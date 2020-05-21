@@ -44,5 +44,5 @@ public interface CompletedCheckpointStorageLocation extends java.io.Serializable
 	 * been released. It typically disposes the base structure of the checkpoint storage,
 	 * like the checkpoint directory.
 	 */
-	void disposeStorageLocation() throws IOException;
+	void disposeStorageLocation(boolean recursive) throws IOException;
 }

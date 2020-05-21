@@ -257,7 +257,7 @@ public class Checkpoints {
 
 		// now dispose the location (directory, table, whatever)
 		try {
-			checkpointLocation.disposeStorageLocation();
+			checkpointLocation.disposeStorageLocation(false);
 		}
 		catch (Exception e) {
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);

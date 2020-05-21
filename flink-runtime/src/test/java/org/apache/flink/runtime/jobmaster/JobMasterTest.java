@@ -2158,7 +2158,7 @@ public class JobMasterTest extends TestLogger {
 		}
 
 		@Override
-		public void disposeStorageLocation() throws IOException {
+		public void disposeStorageLocation(boolean recursive) throws IOException {
 
 		}
 	}

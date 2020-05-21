@@ -24,9 +24,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.SharedStateRegistry;
-import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.LambdaUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -252,16 +252,18 @@ public class CompletedCheckpoint implements Serializable {
 				exception = e;
 			}
 
+			final boolean disposeStorageLocationRecursively =
+					operatorStates.values().stream().flatMap(s -> s.getSubtaskStates().values().stream()).anyMatch(OperatorSubtaskState::hasChannelState);
 			// discard private state objects
 			try {
-				StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
+				LambdaUtil.applyToAllWhileSuppressingExceptions(operatorStates.values(), s -> s.discardState(false));
 			} catch (Exception e) {
 				exception = ExceptionUtils.firstOrSuppressed(e, exception);
 			}
 
 			// discard location as a whole
 			try {
-				storageLocation.disposeStorageLocation();
+				storageLocation.disposeStorageLocation(disposeStorageLocationRecursively);
 			}
 			catch (Exception e) {
 				exception = ExceptionUtils.firstOrSuppressed(e, exception);

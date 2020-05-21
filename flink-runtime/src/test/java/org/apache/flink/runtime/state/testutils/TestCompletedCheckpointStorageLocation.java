@@ -60,7 +60,7 @@ public class TestCompletedCheckpointStorageLocation implements CompletedCheckpoi
 	}
 
 	@Override
-	public void disposeStorageLocation() throws IOException {
+	public void disposeStorageLocation(boolean recursive) throws IOException {
 		disposed = true;
 	}
 }

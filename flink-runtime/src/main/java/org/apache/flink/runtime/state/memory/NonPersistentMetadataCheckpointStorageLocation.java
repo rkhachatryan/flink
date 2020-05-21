@@ -85,7 +85,7 @@ public class NonPersistentMetadataCheckpointStorageLocation
 		}
 
 		@Override
-		public void disposeStorageLocation() {}
+		public void disposeStorageLocation(boolean recursive) {}
 	}
 
 	// ------------------------------------------------------------------------

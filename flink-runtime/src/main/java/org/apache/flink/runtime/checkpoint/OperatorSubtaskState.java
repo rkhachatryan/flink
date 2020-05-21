@@ -218,6 +218,10 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 
 	@Override
 	public void discardState() {
+		discardState(true);
+	}
+
+	public void discardState(boolean withChannelState) {
 		try {
 			List<StateObject> toDispose =
 				new ArrayList<>(
@@ -231,8 +235,10 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 			toDispose.addAll(rawOperatorState);
 			toDispose.addAll(managedKeyedState);
 			toDispose.addAll(rawKeyedState);
-			toDispose.addAll(inputChannelState);
-			toDispose.addAll(resultSubpartitionState);
+			if (withChannelState) {
+				toDispose.addAll(inputChannelState);
+				toDispose.addAll(resultSubpartitionState);
+			}
 			StateUtil.bestEffortDiscardAllStateObjects(toDispose);
 		} catch (Exception e) {
 			LOG.warn("Error while discarding operator states.", e);
@@ -319,12 +325,15 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 			'}';
 	}
 
+	boolean hasChannelState() {
+		return inputChannelState.hasState() || resultSubpartitionState.hasState();
+	}
+
 	public boolean hasState() {
 		return managedOperatorState.hasState()
 			|| rawOperatorState.hasState()
 			|| managedKeyedState.hasState()
 			|| rawKeyedState.hasState()
-			|| inputChannelState.hasState()
-			|| resultSubpartitionState.hasState();
+			|| hasChannelState();
 	}
 }

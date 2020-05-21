@@ -137,7 +137,7 @@ public class TestingCheckpointStorageCoordinatorView implements CheckpointStorag
 		}
 
 		@Override
-		public void disposeStorageLocation() throws IOException {}
+		public void disposeStorageLocation(boolean recursive) throws IOException {}
 	}
 
 	// ------------------------------------------------------------------------

@@ -126,15 +126,19 @@ public class OperatorState implements CompositeStateHandle {
 		return maxParallelism;
 	}
 
-	@Override
-	public void discardState() throws Exception {
+	public void discardState(boolean withChannelState) throws Exception {
 		for (OperatorSubtaskState operatorSubtaskState : operatorSubtaskStates.values()) {
-			operatorSubtaskState.discardState();
+			operatorSubtaskState.discardState(withChannelState);
 		}
 
 		if (coordinatorState != null) {
 			coordinatorState.discardState();
 		}
+	}
+
+	@Override
+	public void discardState() throws Exception {
+		discardState(true);
 	}
 
 	@Override
