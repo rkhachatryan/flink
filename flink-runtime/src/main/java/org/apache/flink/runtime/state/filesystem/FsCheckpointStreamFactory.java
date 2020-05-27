@@ -295,6 +295,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 		@Override
 		public void close() {
 			if (!closed) {
+				LOG.debug("close {} from {}", statePath, Arrays.toString(Thread.currentThread().getStackTrace()));
 				closed = true;
 
 				// make sure write requests need to go to 'flushToFile()' where they recognized
@@ -329,6 +330,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 				if (!closed) {
 					if (outStream == null && pos <= localStateThreshold) {
 						closed = true;
+						LOG.debug("closeAndGetHandle {} from {}", statePath, Arrays.toString(Thread.currentThread().getStackTrace()));
 						byte[] bytes = Arrays.copyOf(writeBuffer, pos);
 						pos = writeBuffer.length;
 						return new ByteStreamStateHandle(createStatePath().toString(), bytes);
@@ -367,6 +369,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 								"stream state handle", exception);
 						} finally {
 							closed = true;
+							LOG.debug("closeAndGetHandle finally {} from {}", statePath, Arrays.toString(Thread.currentThread().getStackTrace()));
 						}
 					}
 				}
