@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.runtime.state.AbstractChannelStateHandle;
 import org.apache.flink.runtime.state.CompositeStateHandle;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
@@ -36,6 +37,7 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.StateObjectCollection.emptyIfNull;
 
@@ -231,8 +233,8 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 			toDispose.addAll(rawOperatorState);
 			toDispose.addAll(managedKeyedState);
 			toDispose.addAll(rawKeyedState);
-			toDispose.addAll(inputChannelState);
-			toDispose.addAll(resultSubpartitionState);
+			toDispose.addAll(inputChannelState.stream().map(AbstractChannelStateHandle::getDelegate).collect(Collectors.toSet()));
+			toDispose.addAll(resultSubpartitionState.stream().map(AbstractChannelStateHandle::getDelegate).collect(Collectors.toSet()));
 			StateUtil.bestEffortDiscardAllStateObjects(toDispose);
 		} catch (Exception e) {
 			LOG.warn("Error while discarding operator states.", e);
