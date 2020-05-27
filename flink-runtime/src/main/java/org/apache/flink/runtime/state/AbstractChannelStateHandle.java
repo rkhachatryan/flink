@@ -19,6 +19,9 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.Internal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,6 +35,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public abstract class AbstractChannelStateHandle<Info> implements StateObject {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractChannelStateHandle.class);
 
 	private static final long serialVersionUID = 1L;
 
@@ -52,7 +56,9 @@ public abstract class AbstractChannelStateHandle<Info> implements StateObject {
 
 	@Override
 	public void discardState() throws Exception {
+		long now = System.currentTimeMillis();
 		delegate.discardState();
+		LOG.debug("discarded {} bytes in {} ms", size, System.currentTimeMillis() - now);
 	}
 
 	@Override
