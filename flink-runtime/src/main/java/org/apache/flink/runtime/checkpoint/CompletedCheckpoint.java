@@ -242,43 +242,52 @@ public class CompletedCheckpoint implements Serializable {
 		LOG.trace("Executing discard procedure for {}.", this);
 
 		try {
-			// collect exceptions and continue cleanup
-			Exception exception = null;
-
-			// drop the metadata
 			try {
-				metadataHandle.discardState();
-			} catch (Exception e) {
-				exception = e;
-			}
+				// collect exceptions and continue cleanup
+				Exception exception = null;
 
-			// discard private state objects
-			try {
-				StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
-			} catch (Exception e) {
-				exception = ExceptionUtils.firstOrSuppressed(e, exception);
-			}
+				// drop the metadata
+				try {
+					metadataHandle.discardState();
+					LOG.trace("metadataHandle discarded");
+				} catch (Exception e) {
+					exception = e;
+				}
 
-			// discard location as a whole
-			try {
-				storageLocation.disposeStorageLocation();
-			}
-			catch (Exception e) {
-				exception = ExceptionUtils.firstOrSuppressed(e, exception);
-			}
+				// discard private state objects
+				try {
+					StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
+					LOG.trace("operatorStates discarded");
+				} catch (Exception e) {
+					exception = ExceptionUtils.firstOrSuppressed(e, exception);
+				}
 
-			if (exception != null) {
-				throw exception;
-			}
-		} finally {
-			operatorStates.clear();
+				// discard location as a whole
+				try {
+					storageLocation.disposeStorageLocation();
+					LOG.trace("storageLocation disposed");
+				}
+				catch (Exception e) {
+					exception = ExceptionUtils.firstOrSuppressed(e, exception);
+				}
 
-			// to be null-pointer safe, copy reference to stack
-			CompletedCheckpointStats.DiscardCallback discardCallback = this.discardCallback;
-			if (discardCallback != null) {
-				discardCallback.notifyDiscardedCheckpoint();
+				if (exception != null) {
+					throw exception;
+				}
+			} finally {
+				operatorStates.clear();
+
+				// to be null-pointer safe, copy reference to stack
+				CompletedCheckpointStats.DiscardCallback discardCallback = this.discardCallback;
+				if (discardCallback != null) {
+					discardCallback.notifyDiscardedCheckpoint();
+				}
 			}
+		} catch (Exception e) {
+			LOG.error("Discard procedure failed for {}.", this, e);
+			throw e;
 		}
+		LOG.trace("Discard procedure completed for {}.", this);
 	}
 
 	// ------------------------------------------------------------------------
