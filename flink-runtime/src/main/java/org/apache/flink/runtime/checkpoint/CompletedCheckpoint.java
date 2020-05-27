@@ -24,7 +24,6 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.SharedStateRegistry;
-import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -256,7 +255,20 @@ public class CompletedCheckpoint implements Serializable {
 
 				// discard private state objects
 				try {
-					StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
+					LOG.trace("discard {} operatorStates", operatorStates.size());
+					Throwable t = null;
+					for (OperatorState state : operatorStates.values()) {
+						LOG.trace("discarding {}", state);
+						try {
+							state.discardState();
+						} catch (Throwable e) {
+							LOG.warn("failed to discard op state {}", state, e);
+							t = ExceptionUtils.firstOrSuppressed(e, t);
+						}
+					}
+					if (t != null) {
+						throw new RuntimeException(t);
+					}
 					LOG.trace("operatorStates discarded");
 				} catch (Exception e) {
 					exception = ExceptionUtils.firstOrSuppressed(e, exception);
