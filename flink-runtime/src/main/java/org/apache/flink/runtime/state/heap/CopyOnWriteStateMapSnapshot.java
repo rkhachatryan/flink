@@ -123,10 +123,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		int size = snapshotIterator.size();
 		dov.writeInt(size);
 		while (snapshotIterator.hasNext()) {
-			StateEntry<K, N, S> stateEntry = snapshotIterator.next();
-			namespaceSerializer.serialize(stateEntry.getNamespace(), dov);
-			keySerializer.serialize(stateEntry.getKey(), dov);
-			stateSerializer.serialize(stateEntry.getState(), dov);
+			snapshotIterator.next().writeState(keySerializer, namespaceSerializer, stateSerializer, dov);
 		}
 	}
 
