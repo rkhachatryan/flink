@@ -73,14 +73,14 @@ class HeapSnapshotStrategy<K>
 	private final StateSerializerProvider<K> keySerializerProvider;
 
 	HeapSnapshotStrategy(
-		SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait,
-		Map<String, StateTable<K, ?, ?>> registeredKVStates,
-		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,
-		StreamCompressionDecorator keyGroupCompressionDecorator,
-		LocalRecoveryConfig localRecoveryConfig,
-		KeyGroupRange keyGroupRange,
-		CloseableRegistry cancelStreamRegistry,
-		StateSerializerProvider<K> keySerializerProvider) {
+			SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait,
+			Map<String, StateTable<K, ?, ?>> registeredKVStates,
+			Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,
+			StreamCompressionDecorator keyGroupCompressionDecorator,
+			LocalRecoveryConfig localRecoveryConfig,
+			KeyGroupRange keyGroupRange,
+			CloseableRegistry cancelStreamRegistry,
+			StateSerializerProvider<K> keySerializerProvider) {
 		super("Heap backend snapshot");
 		this.snapshotStrategySynchronicityTrait = snapshotStrategySynchronicityTrait;
 		this.registeredKVStates = registeredKVStates;
@@ -95,10 +95,10 @@ class HeapSnapshotStrategy<K>
 	@Nonnull
 	@Override
 	public RunnableFuture<SnapshotResult<KeyedStateHandle>> snapshot(
-		long checkpointId,
-		long timestamp,
-		@Nonnull CheckpointStreamFactory primaryStreamFactory,
-		@Nonnull CheckpointOptions checkpointOptions) throws IOException {
+			long checkpointId,
+			long timestamp,
+			@Nonnull CheckpointStreamFactory primaryStreamFactory,
+			@Nonnull CheckpointOptions checkpointOptions) throws IOException {
 
 		if (!hasRegisteredState()) {
 			return DoneFuture.of(SnapshotResult.empty());
@@ -111,10 +111,8 @@ class HeapSnapshotStrategy<K>
 				". Currently at most " + Short.MAX_VALUE + " states are supported");
 
 		final List<StateMetaInfoSnapshot> metaInfoSnapshots = new ArrayList<>(numStates);
-		final Map<StateUID, Integer> stateNamesToId =
-			new HashMap<>(numStates);
-		final Map<StateUID, StateSnapshot> cowStateStableSnapshots =
-			new HashMap<>(numStates);
+		final Map<StateUID, Integer> stateNamesToId = new HashMap<>(numStates);
+		final Map<StateUID, StateSnapshot> cowStateStableSnapshots = new HashMap<>(numStates);
 
 		processSnapshotMetaInfoForAllStates(
 			metaInfoSnapshots,
@@ -177,16 +175,11 @@ class HeapSnapshotStrategy<K>
 						keyGroupRangeOffsets[keyGroupPos] = localStream.getPos();
 						outView.writeInt(keyGroupId);
 
-						for (Map.Entry<StateUID, StateSnapshot> stateSnapshot :
-							cowStateStableSnapshots.entrySet()) {
-							StateSnapshot.StateKeyGroupWriter partitionedSnapshot =
-
-								stateSnapshot.getValue().getKeyGroupWriter();
+						for (Map.Entry<StateUID, StateSnapshot> stateSnapshot : cowStateStableSnapshots.entrySet()) {
+							StateSnapshot.StateKeyGroupWriter partitionedSnapshot = stateSnapshot.getValue().getKeyGroupWriter();
 							try (
-								OutputStream kgCompressionOut =
-									keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
-								DataOutputViewStreamWrapper kgCompressionView =
-									new DataOutputViewStreamWrapper(kgCompressionOut);
+								OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
+								DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
 								kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
 								partitionedSnapshot.writeStateInKeyGroup(kgCompressionView, keyGroupId);
 							} // this will just close the outer compression stream
@@ -195,8 +188,7 @@ class HeapSnapshotStrategy<K>
 
 					if (snapshotCloseableRegistry.unregisterCloseable(streamWithResultProvider)) {
 						KeyGroupRangeOffsets kgOffs = new KeyGroupRangeOffsets(keyGroupRange, keyGroupRangeOffsets);
-						SnapshotResult<StreamStateHandle> result =
-							streamWithResultProvider.closeAndFinalizeCheckpointStreamResult();
+						SnapshotResult<StreamStateHandle> result = streamWithResultProvider.closeAndFinalizeCheckpointStreamResult();
 						return CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult(result, kgOffs);
 					} else {
 						throw new IOException("Stream already unregistered.");
@@ -237,18 +229,18 @@ class HeapSnapshotStrategy<K>
 
 	@Override
 	public <N, V> StateTable<K, N, V> newStateTable(
-		InternalKeyContext<K> keyContext,
-		RegisteredKeyValueStateBackendMetaInfo<N, V> newMetaInfo,
-		TypeSerializer<K> keySerializer) {
+			InternalKeyContext<K> keyContext,
+			RegisteredKeyValueStateBackendMetaInfo<N, V> newMetaInfo,
+			TypeSerializer<K> keySerializer) {
 		return snapshotStrategySynchronicityTrait.newStateTable(keyContext, newMetaInfo, keySerializer);
 	}
 
 	private void processSnapshotMetaInfoForAllStates(
-		List<StateMetaInfoSnapshot> metaInfoSnapshots,
-		Map<StateUID, StateSnapshot> cowStateStableSnapshots,
-		Map<StateUID, Integer> stateNamesToId,
-		Map<String, ? extends StateSnapshotRestore> registeredStates,
-		StateMetaInfoSnapshot.BackendStateType stateType) {
+			List<StateMetaInfoSnapshot> metaInfoSnapshots,
+			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
+			Map<StateUID, Integer> stateNamesToId,
+			Map<String, ? extends StateSnapshotRestore> registeredStates,
+			StateMetaInfoSnapshot.BackendStateType stateType) {
 
 		for (Map.Entry<String, ? extends StateSnapshotRestore> kvState : registeredStates.entrySet()) {
 			final StateUID stateUid = StateUID.of(kvState.getKey(), stateType);
