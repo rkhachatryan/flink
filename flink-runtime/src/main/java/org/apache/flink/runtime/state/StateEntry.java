@@ -18,6 +18,13 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataOutputView;
+
+import javax.annotation.Nonnull;
+
+import java.io.IOException;
+
 /**
  * Interface of entries in a state backend. Entries are triple of key, namespace, and state.
  *
@@ -67,5 +74,15 @@ public interface StateEntry<K, N, S> {
 		public S getState() {
 			return value;
 		}
+	}
+
+	default void writeState(
+			TypeSerializer<K> keySerializer,
+			TypeSerializer<N> namespaceSerializer,
+			TypeSerializer<S> stateSerializer,
+			@Nonnull DataOutputView dov) throws IOException {
+		namespaceSerializer.serialize(this.getNamespace(), dov);
+		keySerializer.serialize(this.getKey(), dov);
+		stateSerializer.serialize(this.getState(), dov);
 	}
 }
