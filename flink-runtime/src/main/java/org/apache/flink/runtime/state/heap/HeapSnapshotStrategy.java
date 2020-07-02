@@ -20,7 +20,6 @@ package org.apache.flink.runtime.state.heap;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.CloseableRegistry;
-import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.state.AbstractSnapshotStrategy;
 import org.apache.flink.runtime.state.AsyncSnapshotCallable;
@@ -29,7 +28,6 @@ import org.apache.flink.runtime.state.CheckpointStreamWithResultProvider;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
 import org.apache.flink.runtime.state.DoneFuture;
 import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.KeyGroupRangeOffsets;
 import org.apache.flink.runtime.state.KeyedBackendSerializationProxy;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
@@ -39,7 +37,6 @@ import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.StateSnapshot;
 import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
-import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.util.Preconditions;
@@ -48,7 +45,6 @@ import org.apache.flink.util.function.SupplierWithException;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -155,68 +151,21 @@ class HeapSnapshotStrategy<K>
 					CheckpointedStateScope.EXCLUSIVE,
 					primaryStreamFactory);
 
-		//--------------------------------------------------- this becomes the end of sync part
-
-		final AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> asyncSnapshotCallable =
-			new AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>>() {
-				@Override
-				protected SnapshotResult<KeyedStateHandle> callInternal() throws Exception {
-
-					final CheckpointStreamWithResultProvider streamWithResultProvider =
-						checkpointStreamSupplier.get();
-
-					snapshotCloseableRegistry.registerCloseable(streamWithResultProvider);
-
-					final CheckpointStreamFactory.CheckpointStateOutputStream localStream =
-						streamWithResultProvider.getCheckpointOutputStream();
-
-					final DataOutputViewStreamWrapper outView = new DataOutputViewStreamWrapper(localStream);
-					serializationProxy.write(outView);
-
-					final long[] keyGroupRangeOffsets = new long[keyGroupRange.getNumberOfKeyGroups()];
-
-					for (int keyGroupPos = 0; keyGroupPos < keyGroupRange.getNumberOfKeyGroups(); ++keyGroupPos) {
-						int keyGroupId = keyGroupRange.getKeyGroupId(keyGroupPos);
-						keyGroupRangeOffsets[keyGroupPos] = localStream.getPos();
-						outView.writeInt(keyGroupId);
-
-						for (Map.Entry<StateUID, StateSnapshot> stateSnapshot : cowStateStableSnapshots.entrySet()) {
-							StateSnapshot.StateKeyGroupWriter partitionedSnapshot = stateSnapshot.getValue().getKeyGroupWriter();
-							try (
-								OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
-								DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
-								kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
-								partitionedSnapshot.writeStateInKeyGroup(kgCompressionView, keyGroupId);
-							} // this will just close the outer compression stream
-						}
-					}
-
-					if (snapshotCloseableRegistry.unregisterCloseable(streamWithResultProvider)) {
-						KeyGroupRangeOffsets kgOffs = new KeyGroupRangeOffsets(keyGroupRange, keyGroupRangeOffsets);
-						SnapshotResult<StreamStateHandle> result = streamWithResultProvider.closeAndFinalizeCheckpointStreamResult();
-						return CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult(result, kgOffs);
-					} else {
-						throw new IOException("Stream already unregistered.");
-					}
+		AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> asyncSnapshotCallable =
+			new HeapSnapshotResultCallable<>(
+				checkpointStreamSupplier,
+				serializationProxy,
+				cowStateStableSnapshots,
+				stateNamesToId,
+				keyGroupRange,
+				keyGroupCompressionDecorator,
+				startTime -> {
+				if (snapshotStrategySynchronicityTrait.isAsynchronous()) {
+					logAsyncCompleted(primaryStreamFactory, startTime);
 				}
+			});
 
-				@Override
-				protected void cleanupProvidedResources() {
-					for (StateSnapshot tableSnapshot : cowStateStableSnapshots.values()) {
-						tableSnapshot.release();
-					}
-				}
-
-				@Override
-				protected void logAsyncSnapshotComplete(long startTime) {
-					if (snapshotStrategySynchronicityTrait.isAsynchronous()) {
-						logAsyncCompleted(primaryStreamFactory, startTime);
-					}
-				}
-			};
-
-		final FutureTask<SnapshotResult<KeyedStateHandle>> task =
-			asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry);
+		FutureTask<SnapshotResult<KeyedStateHandle>> task = asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry);
 		finalizeSnapshotBeforeReturnHook(task);
 
 		return task;
@@ -271,4 +220,5 @@ class HeapSnapshotStrategy<K>
 	public void checkpointConfirmed(long id) {
 		lastConfirmedCheckpoint = Math.max(lastConfirmedCheckpoint, id);
 	}
+
 }
