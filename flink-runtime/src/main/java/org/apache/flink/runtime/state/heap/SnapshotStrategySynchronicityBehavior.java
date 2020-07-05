@@ -19,7 +19,11 @@
 package org.apache.flink.runtime.state.heap;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
+import org.apache.flink.runtime.state.SnapshotResult;
+
+import java.util.concurrent.FutureTask;
 
 /**
  * Interface for synchronicity behavior of heap snapshot strategy.
@@ -28,8 +32,8 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
  */
 interface SnapshotStrategySynchronicityBehavior<K> {
 
-	default void finalizeSnapshotBeforeReturnHook(Runnable runnable) {
-
+	default FutureTask<SnapshotResult<KeyedStateHandle>> finalizeSnapshotBeforeReturnHook(FutureTask<SnapshotResult<KeyedStateHandle>> runnable) {
+		return runnable;
 	}
 
 	boolean isAsynchronous();

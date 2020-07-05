@@ -160,15 +160,13 @@ class HeapSnapshotStrategy<K>
 				}
 			});
 
-		FutureTask<SnapshotResult<KeyedStateHandle>> task = asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry);
-		finalizeSnapshotBeforeReturnHook(task);
-
-		return task;
+		return finalizeSnapshotBeforeReturnHook(asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry));
 	}
 
 	@Override
-	public void finalizeSnapshotBeforeReturnHook(Runnable runnable) {
+	public FutureTask<SnapshotResult<KeyedStateHandle>> finalizeSnapshotBeforeReturnHook(FutureTask<SnapshotResult<KeyedStateHandle>> runnable) {
 		snapshotStrategySynchronicityTrait.finalizeSnapshotBeforeReturnHook(runnable);
+		return runnable;
 	}
 
 	@Override

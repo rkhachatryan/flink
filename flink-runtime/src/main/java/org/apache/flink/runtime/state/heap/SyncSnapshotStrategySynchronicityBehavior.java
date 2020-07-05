@@ -19,7 +19,11 @@
 package org.apache.flink.runtime.state.heap;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
+import org.apache.flink.runtime.state.SnapshotResult;
+
+import java.util.concurrent.FutureTask;
 
 /**
  * Synchronous behavior for heap snapshot strategy.
@@ -29,9 +33,10 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 class SyncSnapshotStrategySynchronicityBehavior<K> implements SnapshotStrategySynchronicityBehavior<K> {
 
 	@Override
-	public void finalizeSnapshotBeforeReturnHook(Runnable runnable) {
+	public FutureTask<SnapshotResult<KeyedStateHandle>> finalizeSnapshotBeforeReturnHook(FutureTask<SnapshotResult<KeyedStateHandle>> runnable) {
 		// this triggers a synchronous execution from the main checkpointing thread.
 		runnable.run();
+		return runnable;
 	}
 
 	@Override
