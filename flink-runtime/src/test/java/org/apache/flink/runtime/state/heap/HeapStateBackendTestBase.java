@@ -72,6 +72,7 @@ public abstract class HeapStateBackendTestBase {
 			TestLocalRecoveryConfig.disabled(),
 			new HeapPriorityQueueSetFactory(keyGroupRange, numKeyGroups, 128),
 			async,
+			false,
 			new CloseableRegistry()).build();
 	}
 }
