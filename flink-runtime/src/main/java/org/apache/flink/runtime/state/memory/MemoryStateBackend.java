@@ -117,6 +117,10 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 	 * A value of 'UNDEFINED' means not yet configured, in which case the default will be used. */
 	private final TernaryBoolean asynchronousSnapshots;
 
+	/** Switch to chose between synchronous and incremental snapshots.
+	 * A value of 'UNDEFINED' means not yet configured, in which case the default will be used. */
+	private final TernaryBoolean incrementalSnapshots;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -217,6 +221,21 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 			@Nullable String savepointPath,
 			int maxStateSize,
 			TernaryBoolean asynchronousSnapshots) {
+		this(
+			checkpointPath,
+			savepointPath,
+			maxStateSize,
+			asynchronousSnapshots,
+			TernaryBoolean.UNDEFINED
+		);
+	}
+
+	public MemoryStateBackend(
+			@Nullable String checkpointPath,
+			@Nullable String savepointPath,
+			int maxStateSize,
+			TernaryBoolean asynchronousSnapshots,
+			TernaryBoolean incrementalSnapshots) {
 
 		super(checkpointPath == null ? null : new Path(checkpointPath),
 				savepointPath == null ? null : new Path(savepointPath));
@@ -225,6 +244,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 		this.maxStateSize = maxStateSize;
 
 		this.asynchronousSnapshots = asynchronousSnapshots;
+		this.incrementalSnapshots = incrementalSnapshots;
 	}
 
 	/**
@@ -242,7 +262,9 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 		// if asynchronous snapshots were configured, use that setting,
 		// else check the configuration
 		this.asynchronousSnapshots = original.asynchronousSnapshots.resolveUndefined(
-				configuration.get(CheckpointingOptions.ASYNC_SNAPSHOTS));
+			configuration.get(CheckpointingOptions.ASYNC_SNAPSHOTS));
+		this.incrementalSnapshots = original.incrementalSnapshots.resolveUndefined(
+				configuration.get(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
 	}
 
 	// ------------------------------------------------------------------------
@@ -267,6 +289,16 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 	 */
 	public boolean isUsingAsynchronousSnapshots() {
 		return asynchronousSnapshots.getOrDefault(CheckpointingOptions.ASYNC_SNAPSHOTS.defaultValue());
+	}
+
+	/**
+	 * Gets whether the key/value data structures are incrementally snapshotted.
+	 *
+	 * <p>If not explicitly configured, this is the default value of
+	 * {@link CheckpointingOptions#INCREMENTAL_CHECKPOINTS}.
+	 */
+	public boolean isUsingIncrementalSnapshots() {
+		return incrementalSnapshots.getOrDefault(CheckpointingOptions.INCREMENTAL_CHECKPOINTS.defaultValue());
 	}
 
 	// ------------------------------------------------------------------------
@@ -344,6 +376,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 			taskStateManager.createLocalRecoveryConfig(),
 			priorityQueueSetFactory,
 			isUsingAsynchronousSnapshots(),
+			isUsingIncrementalSnapshots(),
 			cancelStreamRegistry).build();
 	}
 
