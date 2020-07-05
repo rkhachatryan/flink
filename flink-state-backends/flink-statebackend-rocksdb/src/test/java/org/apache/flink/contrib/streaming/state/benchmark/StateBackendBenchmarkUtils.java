@@ -130,6 +130,7 @@ public class StateBackendBenchmarkUtils {
 			new LocalRecoveryConfig(false, new LocalRecoveryDirectoryProviderImpl(recoveryBaseDir, new JobID(), new JobVertexID(), 0)),
 			priorityQueueSetFactory,
 			false,
+			false, // todo: incremental?
 			new CloseableRegistry()
 		);
 		return backendBuilder.build();

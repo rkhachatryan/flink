@@ -316,6 +316,7 @@ public class KvStateRequestSerializerTest {
 				TestLocalRecoveryConfig.disabled(),
 				new HeapPriorityQueueSetFactory(keyGroupRange, keyGroupRange.getNumberOfKeyGroups(), 128),
 				async,
+				false, // todo: parameterize
 				new CloseableRegistry()).build();
 		longHeapKeyedStateBackend.setCurrentKey(key);
 		return longHeapKeyedStateBackend;

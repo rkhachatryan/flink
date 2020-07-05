@@ -115,6 +115,10 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 	 * A value of 'undefined' means not yet configured, in which case the default will be used. */
 	private final TernaryBoolean asynchronousSnapshots;
 
+	/** Switch to chose between synchronous and asynchronous snapshots.
+	 * A value of 'undefined' means not yet configured, in which case the default will be used. */
+	private final TernaryBoolean incrementalSnapshots;
+
 	/**
 	 * The write buffer size for created checkpoint stream, this should not be less than file state threshold when we want
 	 * state below that threshold stored as part of metadata not files.
@@ -303,42 +307,71 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 				TernaryBoolean.fromBoolean(asynchronousSnapshots));
 	}
 
-	/**
-	 * Creates a new state backend that stores its checkpoint data in the file system and location
-	 * defined by the given URI.
-	 *
-	 * <p>A file system for the file system scheme in the URI (e.g., 'file://', 'hdfs://', or 'S3://')
-	 * must be accessible via {@link FileSystem#get(URI)}.
-	 *
-	 * <p>For a state backend targeting HDFS, this means that the URI must either specify the authority
-	 * (host and port), or that the Hadoop configuration that describes that information must be in the
-	 * classpath.
-	 *
-	 * @param checkpointDirectory        The path to write checkpoint metadata to.
-	 * @param defaultSavepointDirectory  The path to write savepoints to. If null, the value from
-	 *                                   the runtime configuration will be used, or savepoint
-	 *                                   target locations need to be passed when triggering a savepoint.
-	 * @param fileStateSizeThreshold     State below this size will be stored as part of the metadata,
-	 *                                   rather than in files. If -1, the value configured in the
-	 *                                   runtime configuration will be used, or the default value (1KB)
-	 *                                   if nothing is configured.
-	 * @param writeBufferSize            Write buffer size used to serialize state. If -1, the value configured in the
-	 *                                   runtime configuration will be used, or the default value (4KB)
-	 *                                   if nothing is configured.
-	 * @param asynchronousSnapshots      Flag to switch between synchronous and asynchronous
-	 *                                   snapshot mode. If UNDEFINED, the value configured in the
-	 *                                   runtime configuration will be used.
-	 */
+	public FsStateBackend(
+			URI checkpointDataUri,
+			boolean asynchronousSnapshots,
+			boolean incrementalSnapshots) {
+
+		this(checkpointDataUri, null, -1, -1,
+			TernaryBoolean.fromBoolean(asynchronousSnapshots),
+			TernaryBoolean.fromBoolean(incrementalSnapshots));
+	}
+
+
 	public FsStateBackend(
 			URI checkpointDirectory,
 			@Nullable URI defaultSavepointDirectory,
 			int fileStateSizeThreshold,
 			int writeBufferSize,
 			TernaryBoolean asynchronousSnapshots) {
+		this(
+			checkpointDirectory,
+			defaultSavepointDirectory,
+			fileStateSizeThreshold,
+			writeBufferSize,
+			asynchronousSnapshots,
+			TernaryBoolean.UNDEFINED
+		);
+	}
+
+		/**
+		 * Creates a new state backend that stores its checkpoint data in the file system and location
+		 * defined by the given URI.
+		 *
+		 * <p>A file system for the file system scheme in the URI (e.g., 'file://', 'hdfs://', or 'S3://')
+		 * must be accessible via {@link FileSystem#get(URI)}.
+		 *
+		 * <p>For a state backend targeting HDFS, this means that the URI must either specify the authority
+		 * (host and port), or that the Hadoop configuration that describes that information must be in the
+		 * classpath.
+		 *
+		 * @param checkpointDirectory        The path to write checkpoint metadata to.
+		 * @param defaultSavepointDirectory  The path to write savepoints to. If null, the value from
+		 *                                   the runtime configuration will be used, or savepoint
+		 *                                   target locations need to be passed when triggering a savepoint.
+		 * @param fileStateSizeThreshold     State below this size will be stored as part of the metadata,
+		 *                                   rather than in files. If -1, the value configured in the
+		 *                                   runtime configuration will be used, or the default value (1KB)
+		 *                                   if nothing is configured.
+		 * @param writeBufferSize            Write buffer size used to serialize state. If -1, the value configured in the
+		 *                                   runtime configuration will be used, or the default value (4KB)
+		 *                                   if nothing is configured.
+		 * @param asynchronousSnapshots      Flag to switch between synchronous and asynchronous
+		 *                                   snapshot mode. If UNDEFINED, the value configured in the
+		 *                                   runtime configuration will be used.
+		 */
+	public FsStateBackend(
+			URI checkpointDirectory,
+			@Nullable URI defaultSavepointDirectory,
+			int fileStateSizeThreshold,
+			int writeBufferSize,
+			TernaryBoolean asynchronousSnapshots,
+			TernaryBoolean incrementalSnapshots) {
 
 		super(checkNotNull(checkpointDirectory, "checkpoint directory is null"), defaultSavepointDirectory);
 
 		checkNotNull(asynchronousSnapshots, "asynchronousSnapshots");
+		checkNotNull(incrementalSnapshots, "incrementalSnapshots");
 		checkArgument(fileStateSizeThreshold >= -1 && fileStateSizeThreshold <= MAX_FILE_STATE_THRESHOLD,
 				"The threshold for file state size must be in [-1, %s], where '-1' means to use " +
 						"the value from the deployment's configuration.", MAX_FILE_STATE_THRESHOLD);
@@ -349,6 +382,7 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		this.fileStateThreshold = fileStateSizeThreshold;
 		this.writeBufferSize = writeBufferSize;
 		this.asynchronousSnapshots = asynchronousSnapshots;
+		this.incrementalSnapshots = incrementalSnapshots;
 	}
 
 	/**
@@ -363,7 +397,10 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		// if asynchronous snapshots were configured, use that setting,
 		// else check the configuration
 		this.asynchronousSnapshots = original.asynchronousSnapshots.resolveUndefined(
-				configuration.get(CheckpointingOptions.ASYNC_SNAPSHOTS));
+			configuration.get(CheckpointingOptions.ASYNC_SNAPSHOTS));
+
+		this.incrementalSnapshots = original.incrementalSnapshots.resolveUndefined(
+				configuration.get(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
 
 		if (getValidFileStateThreshold(original.fileStateThreshold) >= 0) {
 			this.fileStateThreshold = original.fileStateThreshold;
@@ -470,6 +507,16 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		return asynchronousSnapshots.getOrDefault(CheckpointingOptions.ASYNC_SNAPSHOTS.defaultValue());
 	}
 
+	/**
+	 * Gets whether the key/value data structures are incrementally snapshotted.
+	 *
+	 * <p>If not explicitly configured, this is the default value of
+	 * {@link CheckpointingOptions#INCREMENTAL_CHECKPOINTS}.
+	 */
+	public boolean isUsingIncrementalSnapshots() {
+		return incrementalSnapshots.getOrDefault(CheckpointingOptions.INCREMENTAL_CHECKPOINTS.defaultValue());
+	}
+
 	// ------------------------------------------------------------------------
 	//  Reconfiguration
 	// ------------------------------------------------------------------------
@@ -537,6 +584,7 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			localRecoveryConfig,
 			priorityQueueSetFactory,
 			isUsingAsynchronousSnapshots(),
+			isUsingIncrementalSnapshots(),
 			cancelStreamRegistry).build();
 	}
 
