@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Builder class for {@link HeapKeyedStateBackend} which handles all necessary initializations and clean ups.
@@ -53,7 +54,10 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 	 * Whether asynchronous snapshot is enabled.
 	 */
 	private final boolean asynchronousSnapshots;
-
+	/**
+	 * Whether incremental snapshot is enabled.
+	 */
+	private final boolean incrementalSnapshots;
 
 	public HeapKeyedStateBackendBuilder(
 		TaskKvStateRegistry kvStateRegistry,
@@ -68,6 +72,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		LocalRecoveryConfig localRecoveryConfig,
 		HeapPriorityQueueSetFactory priorityQueueSetFactory,
 		boolean asynchronousSnapshots,
+		boolean isIncremental,
 		CloseableRegistry cancelStreamRegistry) {
 		super(
 			kvStateRegistry,
@@ -83,6 +88,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		this.localRecoveryConfig = localRecoveryConfig;
 		this.priorityQueueSetFactory = priorityQueueSetFactory;
 		this.asynchronousSnapshots = asynchronousSnapshots;
+		this.incrementalSnapshots = isIncremental;
 	}
 
 	@Override
@@ -93,7 +99,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates = new HashMap<>();
 		CloseableRegistry cancelStreamRegistryForBackend = new CloseableRegistry();
 		HeapSnapshotStrategy<K> snapshotStrategy = initSnapshotStrategy(
-			asynchronousSnapshots, registeredKVStates, registeredPQStates, cancelStreamRegistryForBackend);
+			asynchronousSnapshots, incrementalSnapshots, registeredKVStates, registeredPQStates, cancelStreamRegistryForBackend);
 		InternalKeyContext<K> keyContext = new InternalKeyContextImpl<>(
 			keyGroupRange,
 			numberOfKeyGroups
@@ -133,20 +139,33 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 
 	private HeapSnapshotStrategy<K> initSnapshotStrategy(
 		boolean asynchronousSnapshots,
+		boolean incrementalSnapshots,
 		Map<String, StateTable<K, ?, ?>> registeredKVStates,
 		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,
 		CloseableRegistry cancelStreamRegistry) {
 		SnapshotStrategySynchronicityBehavior<K> synchronicityTrait = asynchronousSnapshots ?
 			new AsyncSnapshotStrategySynchronicityBehavior<>() :
 			new SyncSnapshotStrategySynchronicityBehavior<>();
-		return new HeapSnapshotStrategy<>(
-			synchronicityTrait,
-			registeredKVStates,
-			registeredPQStates,
-			keyGroupCompressionDecorator,
-			localRecoveryConfig,
-			keyGroupRange,
-			cancelStreamRegistry,
-			keySerializerProvider);
+
+		return incrementalSnapshots ?
+			new IncrementalHeapSnapshotStrategy<>(
+				synchronicityTrait,
+				registeredKVStates,
+				registeredPQStates,
+				keyGroupCompressionDecorator,
+				localRecoveryConfig,
+				keyGroupRange,
+				cancelStreamRegistry,
+				keySerializerProvider,
+				UUID.randomUUID()) :
+			new HeapSnapshotStrategy<>(
+				synchronicityTrait,
+				registeredKVStates,
+				registeredPQStates,
+				keyGroupCompressionDecorator,
+				localRecoveryConfig,
+				keyGroupRange,
+				cancelStreamRegistry,
+				keySerializerProvider);
 	}
 }

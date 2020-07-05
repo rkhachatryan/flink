@@ -109,6 +109,7 @@ public class StateSnapshotCompressionTest extends TestLogger {
 			TestLocalRecoveryConfig.disabled(),
 			mock(HeapPriorityQueueSetFactory.class),
 			true,
+			false,
 			new CloseableRegistry()).build();
 	}
 
