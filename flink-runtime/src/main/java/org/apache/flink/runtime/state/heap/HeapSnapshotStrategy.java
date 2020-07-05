@@ -151,21 +151,29 @@ class HeapSnapshotStrategy<K>
 					CheckpointedStateScope.EXCLUSIVE,
 					primaryStreamFactory);
 
-		AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> asyncSnapshotCallable =
-			new HeapSnapshotResultCallable<>(
-				checkpointStreamSupplier,
-				serializationProxy,
-				cowStateStableSnapshots,
-				stateNamesToId,
-				keyGroupRange,
-				keyGroupCompressionDecorator,
-				startTime -> {
+		return finalizeSnapshotBeforeReturnHook(
+			getSnapshotCallable(primaryStreamFactory, stateNamesToId, cowStateStableSnapshots, serializationProxy, checkpointStreamSupplier)
+				.toAsyncSnapshotFutureTask(cancelStreamRegistry));
+	}
+
+	private AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> getSnapshotCallable(
+			CheckpointStreamFactory primaryStreamFactory,
+			Map<StateUID, Integer> stateNamesToId,
+			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
+			KeyedBackendSerializationProxy<K> serializationProxy,
+			SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier) {
+		return new HeapSnapshotResultCallable<>(
+			checkpointStreamSupplier,
+			serializationProxy,
+			cowStateStableSnapshots,
+			stateNamesToId,
+			keyGroupRange,
+			keyGroupCompressionDecorator,
+			startTime -> {
 				if (snapshotStrategySynchronicityTrait.isAsynchronous()) {
 					logAsyncCompleted(primaryStreamFactory, startTime);
 				}
 			});
-
-		return finalizeSnapshotBeforeReturnHook(asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry));
 	}
 
 	@Override
