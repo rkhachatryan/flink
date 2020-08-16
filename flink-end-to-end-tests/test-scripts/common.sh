@@ -403,7 +403,7 @@ function check_logs_for_exceptions {
    | grep -ic "exception" || true)
   if [[ ${exception_count} -gt 0 ]]; then
     echo "Found exception in log files; printing first 500 lines; see full logs for details:"
-    find $FLINK_DIR/log/ -exec head -n 500 {} \;
+    find $FLINK_DIR/log/ -type f -exec head -n 500 {} \;
     EXIT_CODE=1
   else
     echo "No exceptions in log files."
