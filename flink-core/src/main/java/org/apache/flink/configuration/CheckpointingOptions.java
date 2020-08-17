@@ -71,7 +71,7 @@ public class CheckpointingOptions {
 	@Documentation.Section(Documentation.Sections.COMMON_STATE_BACKENDS)
 	public static final ConfigOption<Boolean> INCREMENTAL_CHECKPOINTS = ConfigOptions
 			.key("state.backend.incremental")
-			.defaultValue(false)
+			.defaultValue(true)
 			.withDescription("Option whether the state backend should create incremental checkpoints, if possible. For" +
 				" an incremental checkpoint, only a diff from the previous checkpoint is stored, rather than the" +
 				" complete checkpoint state. Once enabled, the state size shown in web UI or fetched from rest API" +
