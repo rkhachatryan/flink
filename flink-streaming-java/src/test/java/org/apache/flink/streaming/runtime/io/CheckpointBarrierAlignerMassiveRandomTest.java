@@ -234,6 +234,11 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 		}
 
 		@Override
+		public CompletableFuture<Void> getStateConsumedFuture() {
+			return CompletableFuture.completedFuture(null);
+		}
+
+		@Override
 		public void requestPartitions() {
 		}
 
@@ -244,6 +249,10 @@ public class CheckpointBarrierAlignerMassiveRandomTest {
 		@Override
 		public int getGateIndex() {
 			return 0;
+		}
+
+		@Override
+		public void finishReadRecoveredState() {
 		}
 	}
 }

@@ -78,6 +78,11 @@ public class MockInputGate extends IndexedInputGate {
 	}
 
 	@Override
+	public CompletableFuture<Void> getStateConsumedFuture() {
+		return CompletableFuture.completedFuture(null);
+	}
+
+	@Override
 	public void requestPartitions() {
 	}
 
@@ -146,6 +151,10 @@ public class MockInputGate extends IndexedInputGate {
 
 	@Override
 	public void close() {
+	}
+
+	@Override
+	public void finishReadRecoveredState() {
 	}
 
 	@Override

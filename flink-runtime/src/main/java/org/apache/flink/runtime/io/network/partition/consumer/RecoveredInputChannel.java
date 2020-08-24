@@ -114,7 +114,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
 		return result;
 	}
 
-	private void onRecoveredStateBuffer(Buffer buffer) {
+	public void onRecoveredStateBuffer(Buffer buffer) {
 		boolean recycleBuffer = true;
 		try {
 			final boolean wasEmpty;
@@ -140,7 +140,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
 		}
 	}
 
-	private void finishReadRecoveredState() throws IOException {
+	public void finishReadRecoveredState() throws IOException {
 		onRecoveredStateBuffer(EventSerializer.toBuffer(EndOfChannelStateEvent.INSTANCE, false));
 		bufferManager.releaseFloatingBuffers();
 		LOG.debug("{}/{} finished recovering input.", inputGate.getOwningTaskName(), channelInfo);
@@ -235,5 +235,9 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
 		synchronized (receivedBuffers) {
 			return receivedBuffers.size();
 		}
+	}
+
+	public Buffer requestBufferBlocking() throws IOException, InterruptedException {
+		return bufferManager.requestBufferBlocking();
 	}
 }

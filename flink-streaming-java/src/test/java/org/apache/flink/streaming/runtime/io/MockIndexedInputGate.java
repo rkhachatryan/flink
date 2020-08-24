@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +56,11 @@ public class MockIndexedInputGate extends IndexedInputGate {
 
 	@Override
 	public CompletableFuture<?> readRecoveredState(ExecutorService executor, ChannelStateReader reader) {
+		return CompletableFuture.completedFuture(null);
+	}
+
+	@Override
+	public CompletableFuture<Void> getStateConsumedFuture() {
 		return CompletableFuture.completedFuture(null);
 	}
 
@@ -108,6 +114,10 @@ public class MockIndexedInputGate extends IndexedInputGate {
 
 	@Override
 	public void close() {
+	}
+
+	@Override
+	public void finishReadRecoveredState() throws IOException {
 	}
 
 	@Override

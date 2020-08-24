@@ -29,8 +29,8 @@ import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
+import org.apache.flink.runtime.checkpoint.channel.SequentialChannelStateReader;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.execution.Environment;
@@ -43,7 +43,6 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
-import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
@@ -502,33 +501,24 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	}
 
 	private void readRecoveredChannelState() throws IOException, InterruptedException {
-		ChannelStateReader reader = getEnvironment().getTaskStateManager().getChannelStateReader();
-		if (!reader.hasChannelStates()) {
-			requestPartitions();
-			return;
-		}
-
-		ResultPartitionWriter[] writers = getEnvironment().getAllWriters();
-		if (writers != null) {
-			for (ResultPartitionWriter writer : writers) {
-				if (writer instanceof CheckpointedResultPartition) {
-					((CheckpointedResultPartition) writer).readRecoveredState(reader);
-				} else {
-					throw new IllegalStateException(
-							"Cannot restore state to a non-checkpointable partition type: " + writer);
+		SequentialChannelStateReader reader = getEnvironment().getTaskStateManager().getSequentialChannelStateReader();
+		if (reader.hasChannelStates()) {
+			reader.readOutputData(getEnvironment().getAllWriters());
+			channelIOExecutor.execute(() -> {
+				try {
+					reader.readInputData(getEnvironment().getAllInputGates());
+				} catch (Exception e) {
+					asyncExceptionHandler.handleAsyncException("Unable to read channel state", e);
 				}
-			}
-		}
+			});
 
-		// It would get possible benefits to recovery input side after output side, which guarantees the
-		// output can request more floating buffers from global firstly.
-		InputGate[] inputGates = getEnvironment().getAllInputGates();
-		if (inputGates != null && inputGates.length > 0) {
-			for (InputGate inputGate : inputGates) {
+			for (InputGate inputGate : getEnvironment().getAllInputGates()) {
 				inputGate
-					.readRecoveredState(channelIOExecutor, reader)
+					.getStateConsumedFuture()
 					.thenRun(() -> mainMailboxExecutor.execute(inputGate::requestPartitions, "Input gate request partitions"));
 			}
+		} else {
+			requestPartitions();
 		}
 	}
 
