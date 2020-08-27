@@ -502,23 +502,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private void readRecoveredChannelState() throws IOException, InterruptedException {
 		SequentialChannelStateReader reader = getEnvironment().getTaskStateManager().getSequentialChannelStateReader();
-		if (reader.hasChannelStates()) {
-			reader.readOutputData(getEnvironment().getAllWriters());
-			channelIOExecutor.execute(() -> {
-				try {
-					reader.readInputData(getEnvironment().getAllInputGates());
-				} catch (Exception e) {
-					asyncExceptionHandler.handleAsyncException("Unable to read channel state", e);
-				}
-			});
-
-			for (InputGate inputGate : getEnvironment().getAllInputGates()) {
-				inputGate
-					.getStateConsumedFuture()
-					.thenRun(() -> mainMailboxExecutor.execute(inputGate::requestPartitions, "Input gate request partitions"));
+		reader.readOutputData(getEnvironment().getAllWriters());
+		channelIOExecutor.execute(() -> {
+			try {
+				reader.readInputData(getEnvironment().getAllInputGates());
+			} catch (Exception e) {
+				asyncExceptionHandler.handleAsyncException("Unable to read channel state", e);
 			}
-		} else {
-			requestPartitions();
+		});
+		for (InputGate inputGate : getEnvironment().getAllInputGates()) {
+			inputGate
+				.getStateConsumedFuture()
+				.thenRun(() -> mainMailboxExecutor.execute(inputGate::requestPartitions, "Input gate request partitions"));
 		}
 	}
 
@@ -577,7 +572,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		return mailboxProcessor.isMailboxLoopRunning();
 	}
 
-	private void runMailboxLoop() throws Exception {
+	public void runMailboxLoop() throws Exception {
 		mailboxProcessor.runMailboxLoop();
 	}
 
