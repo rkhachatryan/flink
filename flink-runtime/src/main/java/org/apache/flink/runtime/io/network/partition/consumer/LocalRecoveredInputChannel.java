@@ -50,7 +50,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 	}
 
 	@Override
-	public InputChannel toInputChannel() {
+	protected InputChannel toInputChannelInternal() {
 		final LocalInputChannel localInputChannel = new LocalInputChannel(
 			inputGate,
 			getChannelIndex(),

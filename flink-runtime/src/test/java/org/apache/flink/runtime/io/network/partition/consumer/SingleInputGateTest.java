@@ -235,6 +235,10 @@ public class SingleInputGateTest extends InputGateTestBase {
 		final SingleInputGate gate = createInputGate(environment);
 
 		try {
+			gate.finishReadRecoveredState();
+			while (!gate.getStateConsumedFuture().isDone()) {
+				gate.pollNext();
+			}
 			gate.requestPartitions();
 			// check channel error during above partition request
 			gate.pollNext();
@@ -564,6 +568,10 @@ public class SingleInputGateTest extends InputGateTestBase {
 				SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
 				InputChannelTestUtils.newUnregisteredInputChannelMetrics());
 
+		gate.finishReadRecoveredState();
+		while (!gate.getStateConsumedFuture().isDone()) {
+			gate.pollNext();
+		}
 		gate.convertRecoveredInputChannels();
 
 		try {

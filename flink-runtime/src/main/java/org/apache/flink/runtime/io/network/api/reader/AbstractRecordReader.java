@@ -45,6 +45,8 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 
 	private RecordDeserializer<T> currentRecordDeserializer;
 
+	private boolean finishedStateReading;
+
 	private boolean requestedPartitions;
 
 	private boolean isFinished;
@@ -72,6 +74,14 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 		// The action of partition request was removed from InputGate#setup since FLINK-16536, and this is the only
 		// unified way for launching partition request for batch jobs. In order to avoid potential performance concern,
 		// we might consider migrating this action back to the setup based on some condition judgement future.
+		if (!finishedStateReading) {
+			inputGate.finishReadRecoveredState();
+			finishedStateReading = true;
+		}
+		while (!inputGate.getStateConsumedFuture().isDone()) {
+			inputGate.pollNext();
+		}
+
 		if (!requestedPartitions) {
 			inputGate.requestPartitions();
 			requestedPartitions = true;
