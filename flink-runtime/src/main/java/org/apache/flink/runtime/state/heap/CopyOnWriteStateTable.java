@@ -100,4 +100,9 @@ public class CopyOnWriteStateTable<K, N, S> extends StateTable<K, N, S> {
 		}
 		return snapshotList;
 	}
+
+	@Override
+	public void confirmSnapshot(int keyGroup, int version) {
+		getMapForKeyGroup(keyGroup).confirmSnapshot(version);
+	}
 }

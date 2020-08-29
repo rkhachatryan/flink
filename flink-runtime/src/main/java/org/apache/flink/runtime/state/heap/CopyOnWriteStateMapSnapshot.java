@@ -130,24 +130,18 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			ThrowingConsumer<Integer, IOException> sizeWriter,
 			ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter,
 			Optional<Integer> minVersion) throws IOException {
+		if (stateSnapshotTransformer != null && minVersion.isPresent()) {
+			throw new UnsupportedOperationException();
+		}
 
 		Iterator<StateEntry<K, N, S>> snapshotIterator = stateSnapshotTransformer == null ?
 			new NonTransformSnapshotIterator<>(snapshotData, minVersion) :
 			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer, minVersion);
 
-		if (!snapshotIterator.hasNext()) {
-			sizeWriter.accept(0);
-			return;
-		}
-
-		// todo: optimize
 		ArrayList<StateEntry<K, N, S>> entries = org.apache.flink.shaded.guava18.com.google.common.collect.Lists.newArrayList(snapshotIterator);
-
-		sizeWriter.accept(entries.size());
-		for (StateEntry<K, N, S> entry: entries) {
-			CopyOnWriteStateMap.StateMapEntry<K, N, S> next = (CopyOnWriteStateMap.StateMapEntry<K, N, S>) entry;
-			LOG.debug("Write entry: {}", next);
-			entryWriter.accept(next);
+		sizeWriter.accept(entries.size()); // not numberOfEntriesInSnapshotData because of minVersion
+		for (StateEntry<K, N, S> e : entries) {
+			entryWriter.accept((CopyOnWriteStateMap.StateMapEntry<K, N, S>) e);
 		}
 	}
 
@@ -254,7 +248,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		}
 
 		private void advanceInChain() {
-			while (nextEntry != null && nextEntry.stateVersion < minVersion) {
+			while (nextEntry != null && nextEntry.stateVersion < minVersion) { // todo: check entryVersion too?
 				nextEntry = nextEntry.next;
 			}
 		}
@@ -263,6 +257,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 	/**
 	 * Implementation of {@link SnapshotIterator} with a {@link StateSnapshotTransformer}.
 	 */
+	// todo: filter out empty (removing) states for non-incremental checkpoints
 	static class TransformedSnapshotIterator<K, N, S> extends SnapshotIterator<K, N, S> {
 
 		TransformedSnapshotIterator(
