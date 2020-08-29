@@ -363,15 +363,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 	@Override
 	public S removeAndGetOld(K key, N namespace) {
-
-		final StateMapEntry<K, N, S> e = removeEntry(key, namespace);
-
-		return e != null ?
-			// copy-on-write check for state
-			(e.stateVersion < highestRequiredSnapshotVersion ?
-				getStateSerializer().copy(e.state) :
-				e.state) :
-			null;
+		return removeEntry(key, namespace);
 	}
 
 	@Override
@@ -432,7 +424,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * Helper method that is the basis for operations that remove mappings.
 	 */
-	private StateMapEntry<K, N, S> removeEntry(K key, N namespace) {
+	private S removeEntry(K key, N namespace) {
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -455,7 +447,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 				} else {
 					--incrementalRehashTableSize;
 				}
-				return e;
+
+				return (e.stateVersion < highestRequiredSnapshotVersion) ?
+					getStateSerializer().copy(e.state) :
+					e.state;
 			}
 		}
 		return null;
