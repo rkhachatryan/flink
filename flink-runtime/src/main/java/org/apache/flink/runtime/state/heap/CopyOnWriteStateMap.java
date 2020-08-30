@@ -293,8 +293,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (e.entryVersion < requiredVersion) {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
-					e.stateVersion = stateMapVersion;
-					e.state = getStateSerializer().copy(e.state);
+					e.setState(copyState(e), stateMapVersion);
 				}
 
 				return e.state;
@@ -302,6 +301,14 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		}
 
 		return null;
+	}
+
+	private S getStateAndCopyIfNeeded(StateMapEntry<K, N, S> e) {
+		return e.stateVersion < highestRequiredSnapshotVersion ? copyState(e) : e.state;
+	}
+
+	private S copyState(StateMapEntry<K, N, S> e) {
+		return e.state == null ? null : getStateSerializer().copy(e.state);
 	}
 
 	@Override
@@ -333,10 +340,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	public S putAndGetOld(K key, N namespace, S state) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
 
-		// copy-on-write check for state
-		S oldState = (e.stateVersion < highestRequiredSnapshotVersion) ?
-			getStateSerializer().copy(e.state) :
-			e.state;
+		S oldState = getStateAndCopyIfNeeded(e);
 
 		e.state = state;
 		e.stateVersion = stateMapVersion;
@@ -372,9 +376,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 		// copy-on-write check for state
 		entry.state = transformation.apply(
-			(entry.stateVersion < highestRequiredSnapshotVersion) ?
-				getStateSerializer().copy(entry.state) :
-				entry.state,
+			getStateAndCopyIfNeeded(entry),
 			value);
 		entry.stateVersion = stateMapVersion;
 	}
@@ -437,9 +439,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					--incrementalRehashTableSize;
 				}
 
-				return (e.stateVersion < highestRequiredSnapshotVersion) ?
-					getStateSerializer().copy(e.state) :
-					e.state;
+				return getStateAndCopyIfNeeded(e);
 			}
 		}
 		return null;
