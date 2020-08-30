@@ -308,7 +308,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (e.entryVersion < requiredVersion) {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
-					e.setState(getStateSerializer().copy(e.state), stateMapVersion, true, false);
+					e.setState(copyState(e), stateMapVersion, true, false);
 				}
 
 				return e.state;
@@ -316,6 +316,14 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		}
 
 		return null;
+	}
+
+	private S getStateAndCopyIfNeeded(StateMapEntry<K, N, S> e) {
+		return e.stateVersion < highestRequiredSnapshotVersion ? copyState(e) : e.state;
+	}
+
+	private S copyState(StateMapEntry<K, N, S> e) {
+		return e.state == null ? null : getStateSerializer().copy(e.state);
 	}
 
 	@Override
@@ -346,10 +354,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	public S putAndGetOld(K key, N namespace, S state) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
 
-		// copy-on-write check for state
-		S oldState = (e.stateVersion < highestRequiredSnapshotVersion) ?
-			getStateSerializer().copy(e.state) :
-			e.state;
+		S oldState = getStateAndCopyIfNeeded(e);
 
 		e.setState(state, stateMapVersion, false, true);
 
@@ -384,9 +389,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 		// copy-on-write check for state
 		entry.setState(transformation.apply(
-			(entry.stateVersion < highestRequiredSnapshotVersion) ?
-				getStateSerializer().copy(entry.state) :
-				entry.state,
+			getStateAndCopyIfNeeded(entry),
 			value), stateMapVersion, false, false /* todo: confirm that transformation can't store the resulting value */);
 	}
 
@@ -448,9 +451,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					--incrementalRehashTableSize;
 				}
 
-				return (e.stateVersion < highestRequiredSnapshotVersion) ?
-					getStateSerializer().copy(e.state) :
-					e.state;
+				return getStateAndCopyIfNeeded(e);
 			}
 		}
 		return null;
