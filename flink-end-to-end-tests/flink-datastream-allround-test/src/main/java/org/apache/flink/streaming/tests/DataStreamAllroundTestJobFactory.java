@@ -54,6 +54,7 @@ import org.apache.flink.streaming.tests.artificialstate.builder.ArtificialStateB
 import org.apache.flink.streaming.tests.artificialstate.builder.ArtificialValueStateBuilder;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -183,6 +184,11 @@ public class DataStreamAllroundTestJobFactory {
 		.key("state_backend.checkpoint_directory")
 		.noDefaultValue()
 		.withDescription("The checkpoint directory.");
+
+	private static final ConfigOption<Boolean> STATE_BACKEND_INCREMENTAL = ConfigOptions
+		.key("state_backend.incremental")
+		.defaultValue(true)
+		.withDescription("Activate or deactivate incremental snapshots");
 
 	private static final ConfigOption<Boolean> STATE_BACKEND_ROCKS_INCREMENTAL = ConfigOptions
 		.key("state_backend.rocks.incremental")
@@ -321,7 +327,11 @@ public class DataStreamAllroundTestJobFactory {
 				STATE_BACKEND_FILE_ASYNC.key(),
 				STATE_BACKEND_FILE_ASYNC.defaultValue());
 
-			env.setStateBackend((StateBackend) new FsStateBackend(checkpointDir, asyncCheckpoints));
+			boolean incremental = pt.getBoolean(
+				STATE_BACKEND_INCREMENTAL.key(),
+				STATE_BACKEND_INCREMENTAL.defaultValue());
+
+			env.setStateBackend((StateBackend) new FsStateBackend(URI.create(checkpointDir), asyncCheckpoints, incremental));
 		} else if ("rocks".equalsIgnoreCase(stateBackend)) {
 			boolean incrementalCheckpoints = pt.getBoolean(
 				STATE_BACKEND_ROCKS_INCREMENTAL.key(),
