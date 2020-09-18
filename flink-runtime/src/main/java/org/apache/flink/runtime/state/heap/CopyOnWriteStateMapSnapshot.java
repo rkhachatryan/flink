@@ -25,6 +25,8 @@ import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.ThrowingConsumer;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +35,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * This class represents the snapshot of a {@link CopyOnWriteStateMap}.
@@ -134,14 +136,17 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			throw new UnsupportedOperationException();
 		}
 
-		Iterator<StateEntry<K, N, S>> snapshotIterator = stateSnapshotTransformer == null ?
+		Supplier<Iterator<StateEntry<K, N, S>>> snapshotIteratorSupplier = () -> stateSnapshotTransformer == null ?
 			new NonTransformSnapshotIterator<>(snapshotData, minVersion) :
 			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer, minVersion);
 
-		ArrayList<StateEntry<K, N, S>> entries = org.apache.flink.shaded.guava18.com.google.common.collect.Lists.newArrayList(snapshotIterator);
-		sizeWriter.accept(entries.size()); // not numberOfEntriesInSnapshotData because of minVersion
-		for (StateEntry<K, N, S> e : entries) {
-			entryWriter.accept((CopyOnWriteStateMap.StateMapEntry<K, N, S>) e);
+		// if minVersion is set numberOfEntriesInSnapshotData will count for some irrelevant entries
+		// todo: restore iterator.size encapsulation?
+		sizeWriter.accept(minVersion.map(unused -> Iterators.size(snapshotIteratorSupplier.get())).orElse(numberOfEntriesInSnapshotData));
+		Iterator<StateEntry<K, N, S>> snapshotIterator = snapshotIteratorSupplier.get();
+
+		while (snapshotIterator.hasNext()) {
+			entryWriter.accept((CopyOnWriteStateMap.StateMapEntry<K, N, S>) snapshotIterator.next());
 		}
 	}
 
