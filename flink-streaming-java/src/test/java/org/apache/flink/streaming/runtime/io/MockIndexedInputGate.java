@@ -18,7 +18,6 @@
 
 package org.apache.flink.streaming.runtime.io;
 
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateReader;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.TaskEvent;
@@ -30,7 +29,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,11 +50,6 @@ public class MockIndexedInputGate extends IndexedInputGate {
 
 	@Override
 	public void setup() {
-	}
-
-	@Override
-	public CompletableFuture<?> readRecoveredState(ExecutorService executor, ChannelStateReader reader) {
-		return CompletableFuture.completedFuture(null);
 	}
 
 	@Override
