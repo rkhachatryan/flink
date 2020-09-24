@@ -487,10 +487,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private void readRecoveredChannelState() throws IOException, InterruptedException {
 		ChannelStateReader reader = getEnvironment().getTaskStateManager().getChannelStateReader();
-		if (!reader.hasChannelStates()) {
-			requestPartitions();
-			return;
-		}
 
 		ResultPartitionWriter[] writers = getEnvironment().getAllWriters();
 		if (writers != null) {

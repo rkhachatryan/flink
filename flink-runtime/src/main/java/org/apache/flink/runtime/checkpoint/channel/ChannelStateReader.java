@@ -34,11 +34,6 @@ public interface ChannelStateReader extends AutoCloseable {
 	enum ReadResult { HAS_MORE_DATA, NO_MORE_DATA }
 
 	/**
-	 * Return whether there are any channel states to be read.
-	 */
-	boolean hasChannelStates();
-
-	/**
 	 * Put data into the supplied buffer to be injected into
 	 * {@link org.apache.flink.runtime.io.network.partition.consumer.InputChannel InputChannel}.
 	 */
@@ -54,11 +49,6 @@ public interface ChannelStateReader extends AutoCloseable {
 	void close() throws Exception;
 
 	ChannelStateReader NO_OP = new ChannelStateReader() {
-
-		@Override
-		public boolean hasChannelStates() {
-			return false;
-		}
 
 		@Override
 		public ReadResult readInputData(InputChannelInfo info, Buffer buffer) {

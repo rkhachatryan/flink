@@ -1062,34 +1062,6 @@ public class StreamTaskTest extends TestLogger {
 	}
 
 	@Test
-	public void testBeforeInvokeWithoutChannelStates() throws Exception {
-		int numWriters = 2;
-		int numGates = 2;
-		RecoveryResultPartition[] partitions = new RecoveryResultPartition[numWriters];
-		for (int i = 0; i < numWriters; i++) {
-			partitions[i] = new RecoveryResultPartition();
-		}
-		RecoveryInputGate[] gates = new RecoveryInputGate[numGates];
-		for (int i = 0; i < numGates; i++) {
-			gates[i] = new RecoveryInputGate(partitions);
-		}
-
-		MockEnvironment mockEnvironment = new MockEnvironmentBuilder().build();
-		mockEnvironment.addOutputs(asList(partitions));
-		mockEnvironment.addInputs(asList(gates));
-		StreamTask task = new MockStreamTaskBuilder(mockEnvironment).build();
-		try {
-			verifyResults(gates, partitions, false, false);
-
-			task.beforeInvoke();
-
-			verifyResults(gates, partitions, false, true);
-		} finally {
-			task.cleanUpInvoke();
-		}
-	}
-
-	@Test
 	public void testBeforeInvokeWithChannelStates() throws Exception {
 		int numWriters = 2;
 		int numGates = 2;

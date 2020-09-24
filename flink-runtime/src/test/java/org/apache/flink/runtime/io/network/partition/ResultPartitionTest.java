@@ -573,11 +573,6 @@ public class ResultPartitionTest {
 		}
 
 		@Override
-		public boolean hasChannelStates() {
-			return true;
-		}
-
-		@Override
 		public ReadResult readInputData(InputChannelInfo info, Buffer buffer) {
 			for (int state: states) {
 				buffer.asByteBuf().writeInt(state);
@@ -611,11 +606,6 @@ public class ResultPartitionTest {
 	 * {@link #readOutputData(ResultSubpartitionInfo, BufferBuilder)} and {@link #readInputData(InputChannelInfo, Buffer)}.
 	 */
 	public static final class ChannelStateReaderWithException implements ChannelStateReader {
-
-		@Override
-		public boolean hasChannelStates() {
-			return true;
-		}
 
 		@Override
 		public ReadResult readInputData(InputChannelInfo info, Buffer buffer) throws IOException {
