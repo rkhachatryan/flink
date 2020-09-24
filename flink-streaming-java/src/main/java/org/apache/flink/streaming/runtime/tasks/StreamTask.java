@@ -497,9 +497,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			for (ResultPartitionWriter writer : writers) {
 				if (writer instanceof CheckpointedResultPartition) {
 					((CheckpointedResultPartition) writer).readRecoveredState(reader);
-				} else {
-					throw new IllegalStateException(
-							"Cannot restore state to a non-checkpointable partition type: " + writer);
 				}
 			}
 		}
