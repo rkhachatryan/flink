@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 /**
  * This class represents the snapshot of a {@link CopyOnWriteStateMap}.
@@ -136,14 +135,18 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			throw new UnsupportedOperationException();
 		}
 
-		Supplier<Iterator<StateEntry<K, N, S>>> snapshotIteratorSupplier = () -> stateSnapshotTransformer == null ?
-			new NonTransformSnapshotIterator<>(snapshotData, minVersion) :
-			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer, minVersion);
-
 		// if minVersion is set numberOfEntriesInSnapshotData will count for some irrelevant entries
+		// todo: if minVersion and stateSnapshotTransformer both empty then can use numberOfEntriesInSnapshotData
 		// todo: restore iterator.size encapsulation?
-		sizeWriter.accept(minVersion.map(unused -> Iterators.size(snapshotIteratorSupplier.get())).orElse(numberOfEntriesInSnapshotData));
-		Iterator<StateEntry<K, N, S>> snapshotIterator = snapshotIteratorSupplier.get();
+		// todo: optimize size calculation
+		sizeWriter.accept(Iterators.size(new NonTransformSnapshotIterator<>(
+			snapshotData,
+			minVersion,
+			Optional.ofNullable(stateSnapshotTransformer))));
+		Iterator<StateEntry<K, N, S>> snapshotIterator = new NonTransformSnapshotIterator<>(
+			snapshotData,
+			minVersion,
+			Optional.ofNullable(stateSnapshotTransformer));
 
 		while (snapshotIterator.hasNext()) {
 			entryWriter.accept((CopyOnWriteStateMap.StateMapEntry<K, N, S>) snapshotIterator.next());
@@ -220,10 +223,15 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		private final int minVersion;
 		private CopyOnWriteStateMap.StateMapEntry<K, N, S> nextEntry;
 		private int nextBucket = 0;
+		private final StateSnapshotTransformer<S> transformer;
 
-		NonTransformSnapshotIterator(CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData, Optional<Integer> minVersion) {
+		NonTransformSnapshotIterator(
+				CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData,
+				Optional<Integer> minVersion,
+				Optional<StateSnapshotTransformer<S>> stateSnapshotTransformer) {
 			this.snapshotData = snapshotData;
 			this.minVersion = minVersion.orElse(-1);
+			this.transformer = stateSnapshotTransformer.orElse(null);
 		}
 
 		@Override
@@ -253,9 +261,21 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		}
 
 		private void advanceInChain() {
-			while (nextEntry != null && nextEntry.stateVersion < minVersion) { // todo: check entryVersion too?
-				nextEntry = nextEntry.next;
+			while (nextEntry != null && (nextEntry.stateVersion < minVersion || filterOrTransformNextEntry() == null)) { // todo: check entryVersion too?
+				nextEntry = nextEntry == null ? null : nextEntry.next; // can be null after filtering
 			}
+		}
+
+		private CopyOnWriteStateMap.StateMapEntry<K, N, S> filterOrTransformNextEntry() {
+			if (transformer != null && nextEntry != null) {
+				S newValue = transformer.filterOrTransform(nextEntry.state);
+				if (newValue == null) {
+					nextEntry = null;
+				} else if (newValue != nextEntry.state) {
+					nextEntry = new CopyOnWriteStateMap.StateMapEntry<>(nextEntry, nextEntry.entryVersion);
+				}
+			}
+			return nextEntry;
 		}
 	}
 
@@ -274,6 +294,8 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			if (minVersion.isPresent()) {
 				// todo: fixme
 				throw new UnsupportedOperationException("TransformedSnapshotIterator doesn't support minVersion");
+			} else {
+				throw new UnsupportedOperationException("test");
 			}
 		}
 
