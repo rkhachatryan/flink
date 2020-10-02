@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
@@ -217,6 +218,8 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 	private final StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory;
 
+	private final RemovalLog<K, N> removalLog = new RemovalLogImpl<>(); // todo: noop for non-inc; move to stateJournalFactory?
+
 	/**
 	 * Constructs a new {@code StateMap} with default capacity of {@code DEFAULT_CAPACITY}.
 	 *
@@ -350,6 +353,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		e.setState(value, stateMapVersion, false, true);
 	}
 
+	public Collection<Map<K, Set<N>>> getRemovedKeys(int version) {
+		return removalLog.collect(version);
+	}
+
 	@Override
 	public S putAndGetOld(K key, N namespace, S state) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
@@ -399,6 +406,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * Helper method that is the basis for operations that add mappings.
 	 */
 	private StateMapEntry<K, N, S> putEntry(K key, N namespace) {
+		removalLog.added(key, namespace);
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -428,6 +436,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * Helper method that is the basis for operations that remove mappings.
 	 */
 	private S removeEntry(K key, N namespace) {
+		removalLog.removed(key, namespace);
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -455,6 +464,12 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			}
 		}
 		return null;
+	}
+
+	public Collection<Map<K, Set<N>>> snapshotRemovedKeys() {
+		removalLog.truncate();
+		removalLog.startNewVersion(stateMapVersion);
+		return getRemovedKeys(stateMapVersion);
 	}
 
 	// Iteration  ------------------------------------------------------------------------------------------------------
@@ -938,7 +953,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			return "(" + key + "|" + namespace + ")=" + state;
 		}
 
-		public void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {
+		void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {
 			namespaceSerializer.serialize(this.getNamespace(), dov);
 			keySerializer.serialize(this.getKey(), dov);
 			diffSerializer.serialize(journal.getDiff(), dov);
@@ -1109,5 +1124,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		public void update(StateEntry<K, N, S> stateEntry, S newValue) {
 			CopyOnWriteStateMap.this.put(stateEntry.getKey(), stateEntry.getNamespace(), newValue);
 		}
+	}
+
+	@Override
+	public void confirmSnapshot(int version) {
+		removalLog.confirmed(version);
 	}
 }
