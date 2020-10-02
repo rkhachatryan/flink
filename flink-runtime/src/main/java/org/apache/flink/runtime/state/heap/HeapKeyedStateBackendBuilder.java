@@ -42,6 +42,7 @@ import java.util.UUID;
  * @param <K> The data type that the key serializer serializes.
  */
 public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBuilder<K> {
+	private static final int DEFAULT_MAX_INCREMENTAL_SNAPSHOTS = 10;
 	/**
 	 * The configuration of local recovery.
 	 */
@@ -58,22 +59,60 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 	 * Whether incremental snapshot is enabled.
 	 */
 	private final boolean incrementalSnapshots;
+	/**
+	 * Maximum number of consecutive incremental snapshots (before taking a full snapshot).
+	 */
+	private final int maxIncrementalSnapshots;
 
 	public HeapKeyedStateBackendBuilder(
-		TaskKvStateRegistry kvStateRegistry,
-		TypeSerializer<K> keySerializer,
-		ClassLoader userCodeClassLoader,
-		int numberOfKeyGroups,
-		KeyGroupRange keyGroupRange,
-		ExecutionConfig executionConfig,
-		TtlTimeProvider ttlTimeProvider,
-		@Nonnull Collection<KeyedStateHandle> stateHandles,
-		StreamCompressionDecorator keyGroupCompressionDecorator,
-		LocalRecoveryConfig localRecoveryConfig,
-		HeapPriorityQueueSetFactory priorityQueueSetFactory,
-		boolean asynchronousSnapshots,
-		boolean isIncremental,
-		CloseableRegistry cancelStreamRegistry) {
+			TaskKvStateRegistry kvStateRegistry,
+			TypeSerializer<K> keySerializer,
+			ClassLoader userCodeClassLoader,
+			int numberOfKeyGroups,
+			KeyGroupRange keyGroupRange,
+			ExecutionConfig executionConfig,
+			TtlTimeProvider ttlTimeProvider,
+			@Nonnull Collection<KeyedStateHandle> stateHandles,
+			StreamCompressionDecorator keyGroupCompressionDecorator,
+			LocalRecoveryConfig localRecoveryConfig,
+			HeapPriorityQueueSetFactory priorityQueueSetFactory,
+			boolean asynchronousSnapshots,
+			boolean isIncremental,
+			CloseableRegistry cancelStreamRegistry) {
+		this(
+			kvStateRegistry,
+			keySerializer,
+			userCodeClassLoader,
+			numberOfKeyGroups,
+			keyGroupRange,
+			executionConfig,
+			ttlTimeProvider,
+			stateHandles,
+			keyGroupCompressionDecorator,
+			localRecoveryConfig,
+			priorityQueueSetFactory,
+			asynchronousSnapshots,
+			isIncremental,
+			cancelStreamRegistry,
+			DEFAULT_MAX_INCREMENTAL_SNAPSHOTS);
+	}
+
+	public HeapKeyedStateBackendBuilder(
+			TaskKvStateRegistry kvStateRegistry,
+			TypeSerializer<K> keySerializer,
+			ClassLoader userCodeClassLoader,
+			int numberOfKeyGroups,
+			KeyGroupRange keyGroupRange,
+			ExecutionConfig executionConfig,
+			TtlTimeProvider ttlTimeProvider,
+			@Nonnull Collection<KeyedStateHandle> stateHandles,
+			StreamCompressionDecorator keyGroupCompressionDecorator,
+			LocalRecoveryConfig localRecoveryConfig,
+			HeapPriorityQueueSetFactory priorityQueueSetFactory,
+			boolean asynchronousSnapshots,
+			boolean isIncremental,
+			CloseableRegistry cancelStreamRegistry,
+			int maxIncrementalSnapshots) {
 		super(
 			kvStateRegistry,
 			keySerializer,
@@ -89,6 +128,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		this.priorityQueueSetFactory = priorityQueueSetFactory;
 		this.asynchronousSnapshots = asynchronousSnapshots;
 		this.incrementalSnapshots = isIncremental;
+		this.maxIncrementalSnapshots = maxIncrementalSnapshots;
 	}
 
 	@Override
