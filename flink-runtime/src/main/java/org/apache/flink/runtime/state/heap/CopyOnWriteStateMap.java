@@ -22,6 +22,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateTransformationFunction;
+import org.apache.flink.runtime.state.heap.inc.StateDiff;
+import org.apache.flink.runtime.state.heap.inc.StateJournal;
+import org.apache.flink.runtime.state.heap.inc.StateJournalFactory;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.Preconditions;
@@ -145,7 +148,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * Empty entry that we use to bootstrap our {@link CopyOnWriteStateMap.StateEntryIterator}.
 	 */
 	private static final StateMapEntry<?, ?, ?> ITERATOR_BOOTSTRAP_ENTRY =
-		new StateMapEntry<>(new Object(), new Object(), new Object(), 0, null, 0, 0);
+		new StateMapEntry<>(new Object(), new Object(), new Object(), 0, null, 0, 0, /* todo: verify */ StateJournalFactory.noOp());
 
 	/**
 	 * Maintains an ordered set of version ids that are still in use by unreleased snapshots.
@@ -209,13 +212,19 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 */
 	private int modCount;
 
+	private final StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory;
+
 	/**
 	 * Constructs a new {@code StateMap} with default capacity of {@code DEFAULT_CAPACITY}.
 	 *
 	 * @param stateSerializer the serializer of the key.
 	 */
 	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer) {
-		this(DEFAULT_CAPACITY, stateSerializer);
+		this(stateSerializer, StateJournalFactory.noOp());
+	}
+
+	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer, StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
+		this(DEFAULT_CAPACITY, stateSerializer, stateJournalFactory);
 	}
 
 	/**
@@ -227,7 +236,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 */
 	@SuppressWarnings("unchecked")
 	private CopyOnWriteStateMap(
-		int capacity, TypeSerializer<S> stateSerializer) {
+			int capacity,
+			TypeSerializer<S> stateSerializer,
+			StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
+		this.stateJournalFactory = Preconditions.checkNotNull(stateJournalFactory);
 		this.stateSerializer = Preconditions.checkNotNull(stateSerializer);
 
 		// initialized maps to EMPTY_TABLE.
@@ -293,8 +305,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (e.entryVersion < requiredVersion) {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
-					e.stateVersion = stateMapVersion;
-					e.state = getStateSerializer().copy(e.state);
+					e.setState(getStateSerializer().copy(e.state), stateMapVersion, true);
 				}
 
 				return e.state;
@@ -325,8 +336,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	public void put(K key, N namespace, S value) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
 
-		e.state = value;
-		e.stateVersion = stateMapVersion;
+		e.setState(value, stateMapVersion, false);
 	}
 
 	@Override
@@ -338,8 +348,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			getStateSerializer().copy(e.state) :
 			e.state;
 
-		e.state = state;
-		e.stateVersion = stateMapVersion;
+		e.setState(state, stateMapVersion, false);
 
 		return oldState;
 	}
@@ -379,12 +388,11 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		final StateMapEntry<K, N, S> entry = putEntry(key, namespace);
 
 		// copy-on-write check for state
-		entry.state = transformation.apply(
+		entry.setState(transformation.apply(
 			(entry.stateVersion < highestRequiredSnapshotVersion) ?
 				getStateSerializer().copy(entry.state) :
 				entry.state,
-			value);
-		entry.stateVersion = stateMapVersion;
+			value), stateMapVersion, false);
 	}
 
 	// Private implementation details of the API methods ---------------------------------------------------------------
@@ -584,7 +592,8 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			hash,
 			table[index],
 			stateMapVersion,
-			stateMapVersion);
+			stateMapVersion,
+			stateJournalFactory);
 		table[index] = newEntry;
 
 		if (table == primaryTable) {
@@ -822,6 +831,8 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		@Nonnull
 		final N namespace;
 
+		StateJournal<S, StateDiff<S>> journal;
+
 		/**
 		 * The state. This is not final to allow exchanging the object for copy-on-write. Can be null.
 		 */
@@ -834,6 +845,8 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		 */
 		@Nullable
 		StateMapEntry<K, N, S> next;
+
+		final StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory;
 
 		/**
 		 * The version of this {@link StateMapEntry}. This is meta data for copy-on-write of the map structure.
@@ -851,7 +864,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		final int hash;
 
 		StateMapEntry(StateMapEntry<K, N, S> other, int entryVersion) {
-			this(other.key, other.namespace, other.state, other.hash, other.next, entryVersion, other.stateVersion);
+			this(other.key, other.namespace, other.state, other.hash, other.next, entryVersion, other.stateVersion, other.stateJournalFactory);
 		}
 
 		StateMapEntry(
@@ -861,22 +874,23 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			int hash,
 			@Nullable StateMapEntry<K, N, S> next,
 			int entryVersion,
-			int stateVersion) {
+			int stateVersion,
+			StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
 			this.key = key;
 			this.namespace = namespace;
 			this.hash = hash;
 			this.next = next;
 			this.entryVersion = entryVersion;
-			this.state = state;
 			this.stateVersion = stateVersion;
+			this.stateJournalFactory = stateJournalFactory;
+			this.journal = this.stateJournalFactory.createJournal(state, false);
+			this.state = this.journal.getJournaledState();
 		}
 
-		public final void setState(@Nullable S value, int mapVersion) {
-			// naturally, we can update the state version every time we replace the old state with a different object
-			if (value != state) {
-				this.state = value;
-				this.stateVersion = mapVersion;
-			}
+		public final void setState(@Nullable S value, int mapVersion, boolean isIncremental) {
+			this.journal = stateJournalFactory.createJournal(value, !isIncremental);
+			this.state = journal.getJournaledState();
+			this.stateVersion = mapVersion;
 		}
 
 		@Nonnull
