@@ -27,6 +27,7 @@ import org.apache.flink.runtime.state.KeyedBackendSerializationProxy;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSnapshot;
+import org.apache.flink.runtime.state.StateSnapshot.StateKeyGroupWriter;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.function.SupplierWithException;
@@ -39,11 +40,11 @@ import java.util.function.Consumer;
 import static org.apache.flink.runtime.state.CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult;
 
 class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
-	private final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
-	private final KeyedBackendSerializationProxy<K> serializationProxy;
+	final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
+	protected final KeyedBackendSerializationProxy<K> serializationProxy;
 	private final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
 	private final Map<StateUID, Integer> stateNamesToId;
-	private final KeyGroupRange keyGroupRange;
+	protected final KeyGroupRange keyGroupRange;
 	private final StreamCompressionDecorator keyGroupCompressionDecorator;
 	private final Consumer<Long> logAsyncSnapshotComplete;
 
@@ -84,11 +85,10 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 			outView.writeInt(keyGroupId);
 
 			for (Map.Entry<StateUID, StateSnapshot> stateSnapshot : cowStateStableSnapshots.entrySet()) {
-				StateSnapshot.StateKeyGroupWriter partitionedSnapshot = stateSnapshot.getValue().getKeyGroupWriter();
 				try (OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
 					DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
 					kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
-					partitionedSnapshot.writeStateInKeyGroup(kgCompressionView, keyGroupId);
+					getWriter(stateSnapshot.getKey(), keyGroupId, stateSnapshot.getValue()).writeStateInKeyGroup(kgCompressionView, keyGroupId);
 				} // this will just close the outer compression stream
 			}
 		}
@@ -100,6 +100,10 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 		} else {
 			throw new IOException("Stream already unregistered.");
 		}
+	}
+
+	protected StateKeyGroupWriter getWriter(StateUID stateUID, int keyGroupId, StateSnapshot stateSnapshot) {
+		return stateSnapshot.getKeyGroupWriter();
 	}
 
 	@Override
