@@ -104,18 +104,31 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 			keyGroupRange,
 			numberOfKeyGroups
 		);
-		HeapRestoreOperation<K> restoreOperation = new HeapRestoreOperation<>(
-			restoreStateHandles,
-			keySerializerProvider,
-			userCodeClassLoader,
-			registeredKVStates,
-			registeredPQStates,
-			cancelStreamRegistry,
-			priorityQueueSetFactory,
-			keyGroupRange,
-			numberOfKeyGroups,
-			snapshotStrategy,
-			keyContext);
+		HeapRestoreOperation<K> restoreOperation = incrementalSnapshots ?
+			new IncrementalHeapRestoreOperation<>(
+				restoreStateHandles,
+				keySerializerProvider,
+				userCodeClassLoader,
+				registeredKVStates,
+				registeredPQStates,
+				cancelStreamRegistry,
+				priorityQueueSetFactory,
+				keyGroupRange,
+				numberOfKeyGroups,
+				snapshotStrategy,
+				keyContext) :
+			new HeapRestoreOperation<>(
+				restoreStateHandles,
+				keySerializerProvider,
+				userCodeClassLoader,
+				registeredKVStates,
+				registeredPQStates,
+				cancelStreamRegistry,
+				priorityQueueSetFactory,
+				keyGroupRange,
+				numberOfKeyGroups,
+				snapshotStrategy,
+				keyContext);
 		try {
 			restoreOperation.restore();
 		} catch (Exception e) {
@@ -147,7 +160,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 			new AsyncSnapshotStrategySynchronicityBehavior<>() :
 			new SyncSnapshotStrategySynchronicityBehavior<>();
 
-		return incrementalSnapshots ?
+		return asynchronousSnapshots && incrementalSnapshots ? // todo: validate and document this pairing
 			new IncrementalHeapSnapshotStrategy<>(
 				synchronicityTrait,
 				registeredKVStates,
