@@ -70,19 +70,23 @@ class StateTableByKeyGroupReaders {
 	}
 
 	private static <K, S, N> StateSnapshotKeyGroupReader createV7(StateTable<K, N, S> stateTable) {
-		final TypeSerializer<K> keySerializer = stateTable.keySerializer;
-		final TypeSerializer<N> namespaceSerializer = stateTable.getNamespaceSerializer();
-		final TypeSerializer<S> stateSerializer = stateTable.getStateSerializer();
-		final StateDiffSerializer<S, StateDiff<S>> diffSerializer = (StateDiffSerializer<S, StateDiff<S>>) stateTable.getMetaInfo().getIncrementalStateMetaInfo().getDiffSerializer(); // todo: new serializer version
-
 		return (in, keyGroupId) -> {
-			int numElements = in.readInt();
-			for (int i = 0; i < numElements; i++) {
-				final N namespace = namespaceSerializer.deserialize(in);
-				final K key = keySerializer.deserialize(in);
-				final StateDiff<S> diff = diffSerializer.deserialize(in);
-				StateMap<K, N, S> stateMap = stateTable.getMapForKeyGroup(keyGroupId);
-				stateMap.put(key, namespace, diff.apply(stateMap.get(key, namespace))); // todo: use transform
+			boolean incremental = in.readBoolean();
+			if (!incremental) {
+				createV2PlusReader(stateTable).readMappingsInKeyGroup(in, keyGroupId);
+			} else {
+				int numElements = in.readInt();
+				final TypeSerializer<K> keySerializer = stateTable.keySerializer;
+				final TypeSerializer<N> namespaceSerializer = stateTable.getNamespaceSerializer();
+				final TypeSerializer<S> stateSerializer = stateTable.getStateSerializer();
+				final StateDiffSerializer<S, StateDiff<S>> diffSerializer = (StateDiffSerializer<S, StateDiff<S>>) stateTable.getMetaInfo().getIncrementalStateMetaInfo().getDiffSerializer();
+				for (int i = 0; i < numElements; i++) {
+					final N namespace = namespaceSerializer.deserialize(in);
+					final K key = keySerializer.deserialize(in);
+					final StateDiff<S> diff = diffSerializer.deserialize(in);
+					StateMap<K, N, S> stateMap = stateTable.getMapForKeyGroup(keyGroupId);
+					stateMap.put(key, namespace, diff.apply(stateMap.get(key, namespace))); // todo: use transform
+				}
 			}
 		};
 	}

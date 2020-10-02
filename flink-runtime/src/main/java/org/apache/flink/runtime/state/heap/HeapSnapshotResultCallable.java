@@ -92,6 +92,7 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 				try (OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
 					DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
 					kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
+					kgCompressionView.writeBoolean(isIncremental());
 					partitionedSnapshot.writeStateInKeyGroup(kgCompressionView, keyGroupId);
 				} // this will just close the outer compression stream
 			}
@@ -104,6 +105,10 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 		} else {
 			throw new IOException("Stream already unregistered.");
 		}
+	}
+
+	protected boolean isIncremental() {
+		return false;
 	}
 
 	@Override
