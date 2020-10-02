@@ -35,6 +35,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.apache.flink.runtime.state.heap.inc.IncrementalStateMetaInfo.fromStateDescriptor;
+
 /**
  * Compound meta information for a registered state in a keyed state backend. This combines all serializers and the
  * state name.
@@ -53,7 +55,7 @@ public class RegisteredKeyValueStateBackendMetaInfo<N, S> extends RegisteredStat
 	@Nonnull
 	private StateSnapshotTransformFactory<S> stateSnapshotTransformFactory;
 
-	private IncrementalStateMetaInfo<S, ?, ?> incrementalStateMetaInfo = IncrementalStateMetaInfo.noOp(); // todo: eq/hc/snapshot/...
+	private IncrementalStateMetaInfo<S, ?, ?> incrementalStateMetaInfo; // todo: eq/hc/snapshot/...
 
 	public RegisteredKeyValueStateBackendMetaInfo(
 		@Nonnull StateDescriptor.Type stateType,
@@ -112,6 +114,9 @@ public class RegisteredKeyValueStateBackendMetaInfo<N, S> extends RegisteredStat
 		this.namespaceSerializerProvider = namespaceSerializerProvider;
 		this.stateSerializerProvider = stateSerializerProvider;
 		this.stateSnapshotTransformFactory = stateSnapshotTransformFactory;
+		this.incrementalStateMetaInfo = stateSerializerProvider.getPreviousSerializerSnapshot() == null ?
+			IncrementalStateMetaInfo.noOp() :
+			fromStateDescriptor(stateType, stateSerializerProvider.getPreviousSerializerSnapshot().restoreSerializer());
 	}
 
 	@Nonnull

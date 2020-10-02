@@ -232,6 +232,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			}
 
 			stateTable.setMetaInfo(restoredKvMetaInfo);
+			stateTable.getMetaInfo().setIncrementalStateMetaInfo(IncrementalStateMetaInfo.fromStateDescriptor(stateDesc));
 		} else {
 			RegisteredKeyValueStateBackendMetaInfo<N, V> newMetaInfo = new RegisteredKeyValueStateBackendMetaInfo<>(
 				stateDesc.getType(),
@@ -240,7 +241,6 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				newStateSerializer,
 				snapshotTransformFactory);
 			newMetaInfo.setIncrementalStateMetaInfo(IncrementalStateMetaInfo.fromStateDescriptor(stateDesc));
-
 			stateTable = snapshotStrategy.newStateTable(keyContext, newMetaInfo, keySerializer);
 			registeredKVStates.put(stateDesc.getName(), stateTable);
 		}
