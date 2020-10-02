@@ -32,14 +32,20 @@ import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingConsumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.state.CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult;
 
 class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
+	private static final Logger LOG = LoggerFactory.getLogger(HeapSnapshotResultCallable.class);
+
 	final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
 	protected final KeyedBackendSerializationProxy<K> serializationProxy;
 	final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
@@ -82,20 +88,27 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 
 		final long[] keyGroupRangeOffsets = new long[keyGroupRange.getNumberOfKeyGroups()];
 
+		Map<StateUID, Long> times = new HashMap<>();
+		Map<StateUID, Long> sizes  = new HashMap<>();
 		for (int keyGroupPos = 0; keyGroupPos < keyGroupRange.getNumberOfKeyGroups(); ++keyGroupPos) {
 			int keyGroupId = keyGroupRange.getKeyGroupId(keyGroupPos);
 			keyGroupRangeOffsets[keyGroupPos] = localStream.getPos();
 			outView.writeInt(keyGroupId);
 
 			for (Map.Entry<StateUID, StateSnapshot> stateSnapshot : cowStateStableSnapshots.entrySet()) {
+				long startPos = localStream.getPos();
+				long startTime = System.nanoTime();
 				StateSnapshot.StateKeyGroupWriter partitionedSnapshot = stateSnapshot.getValue().getKeyGroupWriter();
 				try (OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
 					DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
 					kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
 					writeSnapshot(keyGroupId, partitionedSnapshot, kgCompressionView, stateSnapshot.getKey());
+					times.put(stateSnapshot.getKey(), times.getOrDefault(stateSnapshot.getKey(), 0L) + (System.nanoTime() - startTime) / 1000_000);
+					sizes.put(stateSnapshot.getKey(), sizes.getOrDefault(stateSnapshot.getKey(), 0L) + (localStream.getPos() - startPos) / 1024);
 				} // this will just close the outer compression stream
 			}
 		}
+		times.forEach((id, value) -> LOG.debug("Written {}Kb of state '{}' in {}ms", sizes.get(id), id.getStateName(), value));
 
 		if (snapshotCloseableRegistry.unregisterCloseable(streamWithResultProvider)) {
 			KeyGroupRangeOffsets kgOffs = new KeyGroupRangeOffsets(keyGroupRange, keyGroupRangeOffsets);
