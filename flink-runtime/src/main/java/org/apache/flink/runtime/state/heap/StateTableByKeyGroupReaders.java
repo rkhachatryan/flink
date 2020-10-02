@@ -79,22 +79,33 @@ class StateTableByKeyGroupReaders {
 			if (!incremental) {
 				createV2PlusReader(stateTable).readMappingsInKeyGroup(in, keyGroupId);
 			} else {
-				int numElements = in.readInt();
 				final TypeSerializer<K> keySerializer = stateTable.keySerializer;
 				final TypeSerializer<N> namespaceSerializer = stateTable.getNamespaceSerializer();
 				final TypeSerializer<S> stateSerializer = stateTable.getStateSerializer();
 				final StateDiffSerializer<S, StateDiff<S>> diffSerializer = (StateDiffSerializer<S, StateDiff<S>>) stateTable.getMetaInfo().getIncrementalStateMetaInfo().getDiffSerializer();
+				int numElements;
+				numElements = in.readInt();
 				for (int i = 0; i < numElements; i++) {
 					final N namespace = namespaceSerializer.deserialize(in);
 					final K key = keySerializer.deserialize(in);
-					final StateDiff<S> diff = diffSerializer.deserialize(in);
 					StateMap<K, N, S> stateMap = stateTable.getMapForKeyGroup(keyGroupId);
-					LOG.trace("deserialized for {}/{} diff: {}", key, namespace, diff);
-					S state = stateMap.get(key, namespace);
-					if (state == null) {
-						LOG.warn("no state for diff {}, key: {}, namespace: {}", diff, key, namespace);
+					{
+						final StateDiff<S> diff = diffSerializer.deserialize(in);
+						LOG.trace("deserialized for {}/{} diff: {}", key, namespace, diff);
+						S state = stateMap.get(key, namespace);
+						if (state == null) {
+							LOG.warn("no state for diff {}, key: {}, namespace: {}", diff, key, namespace);
+						}
+						stateMap.put(key, namespace, diff.apply(state)); // todo: use transform
 					}
-					stateMap.put(key, namespace, diff.apply(state)); // todo: use transform
+				}
+				{
+					numElements = in.readInt();
+					for (int j = 0; j < numElements; j++) {
+						final K key = keySerializer.deserialize(in);
+						final N namespace = namespaceSerializer.deserialize(in);
+						stateTable.getMapForKeyGroup(keyGroupId).remove(key, namespace);
+					}
 				}
 			}
 		};
