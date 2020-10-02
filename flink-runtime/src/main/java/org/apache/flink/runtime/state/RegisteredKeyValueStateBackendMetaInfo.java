@@ -23,6 +23,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
+import org.apache.flink.runtime.state.heap.inc.IncrementalStateMetaInfo;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.util.Preconditions;
 
@@ -51,6 +52,8 @@ public class RegisteredKeyValueStateBackendMetaInfo<N, S> extends RegisteredStat
 	private final StateSerializerProvider<S> stateSerializerProvider;
 	@Nonnull
 	private StateSnapshotTransformFactory<S> stateSnapshotTransformFactory;
+
+	private IncrementalStateMetaInfo<S, ?, ?> incrementalStateMetaInfo = IncrementalStateMetaInfo.noOp(); // todo: eq/hc/snapshot/...
 
 	public RegisteredKeyValueStateBackendMetaInfo(
 		@Nonnull StateDescriptor.Type stateType,
@@ -250,5 +253,13 @@ public class RegisteredKeyValueStateBackendMetaInfo<N, S> extends RegisteredStat
 			optionsMap,
 			serializerConfigSnapshotsMap,
 			serializerMap);
+	}
+
+	public IncrementalStateMetaInfo<S, ?, ?> getIncrementalStateMetaInfo() {
+		return incrementalStateMetaInfo;
+	}
+
+	public void setIncrementalStateMetaInfo(IncrementalStateMetaInfo<S, ?, ?> incrementalStateMetaInfo) {
+		this.incrementalStateMetaInfo = incrementalStateMetaInfo;
 	}
 }
