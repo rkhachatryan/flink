@@ -308,7 +308,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	@Override
 	public void notifyCheckpointComplete(long checkpointId) {
-		//Nothing to do
+		snapshotStrategy.checkpointConfirmed(checkpointId);  // todo: check thread-safety
 	}
 
 	@Override
