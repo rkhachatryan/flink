@@ -23,6 +23,8 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.runtime.state.KeyGroupPartitioner;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
+import org.apache.flink.runtime.state.heap.inc.StateDiff;
+import org.apache.flink.runtime.state.heap.inc.StateDiffSerializer;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -60,9 +62,29 @@ class StateTableByKeyGroupReaders {
 			case 5:
 			case 6:
 				return createV2PlusReader(stateTable);
+			case 7:
+				return createV7(stateTable);
 			default:
 				throw new IllegalArgumentException("Unknown version: " + version);
 		}
+	}
+
+	private static <K, S, N> StateSnapshotKeyGroupReader createV7(StateTable<K, N, S> stateTable) {
+		final TypeSerializer<K> keySerializer = stateTable.keySerializer;
+		final TypeSerializer<N> namespaceSerializer = stateTable.getNamespaceSerializer();
+		final TypeSerializer<S> stateSerializer = stateTable.getStateSerializer();
+		final StateDiffSerializer<S, StateDiff<S>> diffSerializer = (StateDiffSerializer<S, StateDiff<S>>) stateTable.getMetaInfo().getIncrementalStateMetaInfo().getDiffSerializer(); // todo: new serializer version
+
+		return (in, keyGroupId) -> {
+			int numElements = in.readInt();
+			for (int i = 0; i < numElements; i++) {
+				final N namespace = namespaceSerializer.deserialize(in);
+				final K key = keySerializer.deserialize(in);
+				final StateDiff<S> diff = diffSerializer.deserialize(in);
+				StateMap<K, N, S> stateMap = stateTable.getMapForKeyGroup(keyGroupId);
+				stateMap.put(key, namespace, diff.apply(stateMap.get(key, namespace))); // todo: use transform
+			}
+		};
 	}
 
 	private static <K, N, S> StateSnapshotKeyGroupReader createV2PlusReader(
