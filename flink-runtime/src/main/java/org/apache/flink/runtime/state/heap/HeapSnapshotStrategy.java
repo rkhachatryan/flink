@@ -231,4 +231,8 @@ public class HeapSnapshotStrategy<K>
 	public TypeSerializer<K> getKeySerializer() {
 		return keySerializerProvider.currentSchemaSerializer();
 	}
+
+	public void checkpointConfirmed(long id) {
+	}
+
 }
