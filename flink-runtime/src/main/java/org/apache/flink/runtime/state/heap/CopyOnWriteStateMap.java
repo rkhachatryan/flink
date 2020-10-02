@@ -895,6 +895,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		}
 
 		public final void setState(@Nullable S value, int mapVersion, boolean isIncremental) {
+			LOG.warn("setState: {} {} {}", isIncremental, mapVersion, value);
 			this.journal = stateJournalFactory.createJournal(value, !isIncremental);
 			this.state = journal.getJournaledState();
 			this.stateVersion = mapVersion;
