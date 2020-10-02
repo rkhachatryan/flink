@@ -151,7 +151,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * Empty entry that we use to bootstrap our {@link CopyOnWriteStateMap.StateEntryIterator}.
 	 */
 	private static final StateMapEntry<?, ?, ?> ITERATOR_BOOTSTRAP_ENTRY =
-		new StateMapEntry<>(new Object(), new Object(), new Object(), 0, null, 0, 0, /* todo: verify */ StateJournalFactory.noOp());
+		new StateMapEntry<>(new Object(), new Object(), new Object(), false, 0, null, 0, 0, /* todo: verify */ StateJournalFactory.noOp());
 
 	/**
 	 * Maintains an ordered set of version ids that are still in use by unreleased snapshots.
@@ -308,7 +308,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (e.entryVersion < requiredVersion) {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
-					e.setState(getStateSerializer().copy(e.state), stateMapVersion, true);
+					e.setState(getStateSerializer().copy(e.state), stateMapVersion, true, false);
 				}
 
 				return e.state;
@@ -339,7 +339,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	public void put(K key, N namespace, S value) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
 
-		e.setState(value, stateMapVersion, false);
+		e.setState(value, stateMapVersion, false, true);
 	}
 
 	@Override
@@ -351,7 +351,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			getStateSerializer().copy(e.state) :
 			e.state;
 
-		e.setState(state, stateMapVersion, false);
+		e.setState(state, stateMapVersion, false, true);
 
 		return oldState;
 	}
@@ -395,7 +395,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			(entry.stateVersion < highestRequiredSnapshotVersion) ?
 				getStateSerializer().copy(entry.state) :
 				entry.state,
-			value), stateMapVersion, false);
+			value), stateMapVersion, false, false /* todo: confirm that transformation can't store the resulting value */);
 	}
 
 	// Private implementation details of the API methods ---------------------------------------------------------------
@@ -592,6 +592,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			key,
 			namespace,
 			null,
+			false,
 			hash,
 			table[index],
 			stateMapVersion,
@@ -871,13 +872,14 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		final int hash;
 
 		StateMapEntry(StateMapEntry<K, N, S> other, int entryVersion) {
-			this(other.key, other.namespace, other.state, other.hash, other.next, entryVersion, other.stateVersion, other.stateJournalFactory);
+			this(other.key, other.namespace, other.state, other.journal.isStateExposed(), other.hash, other.next, entryVersion, other.stateVersion, other.stateJournalFactory);
 		}
 
 		StateMapEntry(
 			@Nonnull K key,
 			@Nonnull N namespace,
 			@Nullable S state,
+			boolean isStateExposed,
 			int hash,
 			@Nullable StateMapEntry<K, N, S> next,
 			int entryVersion,
@@ -890,13 +892,13 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			this.entryVersion = entryVersion;
 			this.stateVersion = stateVersion;
 			this.stateJournalFactory = stateJournalFactory;
-			this.journal = this.stateJournalFactory.createJournal(state, false);
+			this.journal = this.stateJournalFactory.createJournal(state, false, isStateExposed);
 			this.state = this.journal.getJournaledState();
 		}
 
-		public final void setState(@Nullable S value, int mapVersion, boolean isIncremental) {
+		public final void setState(@Nullable S value, int mapVersion, boolean isIncremental, boolean isValueExposed) {
 			LOG.warn("setState: {} {} {}", isIncremental, mapVersion, value);
-			this.journal = stateJournalFactory.createJournal(value, !isIncremental);
+			this.journal = stateJournalFactory.createJournal(value, !isIncremental, isValueExposed);
 			this.state = journal.getJournaledState();
 			this.stateVersion = mapVersion;
 		}
