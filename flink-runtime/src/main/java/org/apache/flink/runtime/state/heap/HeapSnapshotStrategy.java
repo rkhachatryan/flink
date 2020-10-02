@@ -145,17 +145,21 @@ public class HeapSnapshotStrategy<K>
 
 				() -> CheckpointStreamWithResultProvider.createDuplicatingStream(
 					checkpointId,
-					CheckpointedStateScope.EXCLUSIVE,
+					getCheckpointedStateScope(),
 					primaryStreamFactory,
 					localRecoveryConfig.getLocalStateDirectoryProvider()) :
 
 				() -> CheckpointStreamWithResultProvider.createSimpleStream(
-					CheckpointedStateScope.EXCLUSIVE,
+					getCheckpointedStateScope(),
 					primaryStreamFactory);
 
 		return finalizeSnapshotBeforeReturnHook(
 			getSnapshotCallable(checkpointId, primaryStreamFactory, stateNamesToId, cowStateStableSnapshots, serializationProxy, checkpointStreamSupplier, checkpointOptions)
 				.toAsyncSnapshotFutureTask(cancelStreamRegistry));
+	}
+
+	protected CheckpointedStateScope getCheckpointedStateScope() {
+		return CheckpointedStateScope.EXCLUSIVE;
 	}
 
 	protected AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> getSnapshotCallable(
