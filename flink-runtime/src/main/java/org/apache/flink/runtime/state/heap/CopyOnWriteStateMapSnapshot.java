@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.ThrowingConsumer;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -111,19 +112,24 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 
 	@Override
 	public void writeState(
-		TypeSerializer<K> keySerializer,
-		TypeSerializer<N> namespaceSerializer,
-		TypeSerializer<S> stateSerializer,
-		@Nonnull DataOutputView dov,
-		@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
+			TypeSerializer<K> keySerializer,
+			TypeSerializer<N> namespaceSerializer,
+			TypeSerializer<S> stateSerializer,
+			@Nonnull DataOutputView dov,
+			@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
+		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov));
+	}
+
+	protected void iterate(
+			StateSnapshotTransformer<S> stateSnapshotTransformer,
+				ThrowingConsumer<Integer, IOException> sizeWriter,
+				ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter) throws IOException {
 		SnapshotIterator<K, N, S> snapshotIterator = stateSnapshotTransformer == null ?
 			new NonTransformSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData) :
 			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
-
-		int size = snapshotIterator.size();
-		dov.writeInt(size);
+		sizeWriter.accept(snapshotIterator.size());
 		while (snapshotIterator.hasNext()) {
-			snapshotIterator.next().writeState(keySerializer, namespaceSerializer, stateSerializer, dov);
+			entryWriter.accept(snapshotIterator.next());
 		}
 	}
 

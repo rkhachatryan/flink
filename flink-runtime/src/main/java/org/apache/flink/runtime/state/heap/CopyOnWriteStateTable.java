@@ -20,11 +20,14 @@ package org.apache.flink.runtime.state.heap;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
+import org.apache.flink.runtime.state.heap.inc.StateDiff;
+import org.apache.flink.runtime.state.heap.inc.StateDiffSerializer;
 
 import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * This implementation of {@link StateTable} uses {@link CopyOnWriteStateMap}. This implementation supports asynchronous snapshots.
@@ -73,11 +76,27 @@ public class CopyOnWriteStateTable<K, N, S> extends StateTable<K, N, S> {
 	}
 
 	@SuppressWarnings("unchecked")
+	public IncrementalStateTableSnapshot<K, N, S> incrementalStateSnapshot() {
+		return new IncrementalStateTableSnapshot<>(
+			this,
+			getKeySerializer().duplicate(),
+			getNamespaceSerializer().duplicate(),
+			getMetaInfo().getStateSnapshotTransformFactory().createForDeserializedState().orElse(null),
+			(StateDiffSerializer<S, StateDiff<S>>) getMetaInfo().getIncrementalStateMetaInfo().getDiffSerializer());
+	}
+
 	List<CopyOnWriteStateMapSnapshot<K, N, S>> getStateMapSnapshotList() {
-		List<CopyOnWriteStateMapSnapshot<K, N, S>> snapshotList = new ArrayList<>(keyGroupedStateMaps.length);
-		for (int i = 0; i < keyGroupedStateMaps.length; i++) {
-			CopyOnWriteStateMap<K, N, S> stateMap = (CopyOnWriteStateMap<K, N, S>) keyGroupedStateMaps[i];
-			snapshotList.add(stateMap.stateSnapshot());
+		return getSnapshots(CopyOnWriteStateMap::stateSnapshot);
+	}
+
+	List<IncrementalStateMapSnapshot<K, N, S>> getIncrementalStateMapSnapshotList() {
+		return getSnapshots(CopyOnWriteStateMap::incrementalStateSnapshot);
+	}
+
+	private <T> List<T> getSnapshots(Function<CopyOnWriteStateMap<K, N, S>, T> snapshot) {
+		List<T> snapshotList = new ArrayList<>(keyGroupedStateMaps.length);
+		for (StateMap<K, N, S> map : keyGroupedStateMaps) {
+			snapshotList.add(snapshot.apply((CopyOnWriteStateMap<K, N, S>) map));
 		}
 		return snapshotList;
 	}
