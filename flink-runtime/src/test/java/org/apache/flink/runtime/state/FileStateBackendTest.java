@@ -27,10 +27,6 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.io.File;
-import java.util.Arrays;
-import java.util.List;
-
 /**
  * Tests for the keyed state backend and operator state backend, as created by the
  * {@link FsStateBackend}.
@@ -38,21 +34,28 @@ import java.util.List;
 @RunWith(Parameterized.class)
 public class FileStateBackendTest extends StateBackendTestBase<FsStateBackend> {
 
-	@Parameterized.Parameters
-	public static List<Boolean> modes() {
-		return Arrays.asList(true, false);
+	@Parameterized.Parameters(name = "async={0}, incremental={1}")
+	public static Object[][] modes() {
+		return new Object[][]{
+			new Object[]{true, true},
+			new Object[]{true, false},
+			new Object[]{false, true},
+			new Object[]{false, false},
+		};
 	}
 
-	@Parameterized.Parameter
+	@Parameterized.Parameter(0)
 	public boolean useAsyncMode;
+
+	@Parameterized.Parameter(1)
+	public boolean useIncrementalSnapshots;
 
 	@Rule
 	public final TemporaryFolder tempFolder = new TemporaryFolder();
 
 	@Override
 	protected FsStateBackend getStateBackend() throws Exception {
-		File checkpointPath = tempFolder.newFolder();
-		return new FsStateBackend(checkpointPath.toURI(), useAsyncMode);
+		return new FsStateBackend(tempFolder.newFolder().toURI(), useAsyncMode, useIncrementalSnapshots);
 	}
 
 	@Override
@@ -77,10 +80,21 @@ public class FileStateBackendTest extends StateBackendTestBase<FsStateBackend> {
 	@Test
 	public void testMapStateRestoreWithWrongSerializers() {}
 
+	@Override
+	public void testMapState() throws Exception {
+		super.testMapState();
+	}
+
 	@Ignore
 	@Test
 	public void testConcurrentMapIfQueryable() throws Exception {
 		super.testConcurrentMapIfQueryable();
 	}
 
+	@Test
+	@Override
+	public void smokeTestMapState() throws Exception {
+		super.smokeTestMapState();
+	}
 }
+
