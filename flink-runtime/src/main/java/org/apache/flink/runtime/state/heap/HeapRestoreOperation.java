@@ -106,65 +106,64 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 		registeredKVStates.clear();
 		registeredPQStates.clear();
 
-		boolean keySerializerRestored = false;
-
+		boolean isTheFirst = true;
 		for (KeyedStateHandle keyedStateHandle : restoreStateHandles) {
-
-			if (keyedStateHandle == null) {
-				continue;
-			}
-
-			if (!(keyedStateHandle instanceof KeyGroupsStateHandle)) {
-				throw new IllegalStateException("Unexpected state handle type, " +
-					"expected: " + KeyGroupsStateHandle.class +
-					", but found: " + keyedStateHandle.getClass());
-			}
-
-			KeyGroupsStateHandle keyGroupsStateHandle = (KeyGroupsStateHandle) keyedStateHandle;
-			FSDataInputStream fsDataInputStream = keyGroupsStateHandle.openInputStream();
-			cancelStreamRegistry.registerCloseable(fsDataInputStream);
-
-			try {
-				DataInputViewStreamWrapper inView = new DataInputViewStreamWrapper(fsDataInputStream);
-
-				KeyedBackendSerializationProxy<K> serializationProxy =
-					new KeyedBackendSerializationProxy<>(userCodeClassLoader);
-
-				serializationProxy.read(inView);
-
-				if (!keySerializerRestored) {
-					// check for key serializer compatibility; this also reconfigures the
-					// key serializer to be compatible, if it is required and is possible
-					TypeSerializerSchemaCompatibility<K> keySerializerSchemaCompat =
-						keySerializerProvider.setPreviousSerializerSnapshotForRestoredState(serializationProxy.getKeySerializerSnapshot());
-					if (keySerializerSchemaCompat.isCompatibleAfterMigration() || keySerializerSchemaCompat.isIncompatible()) {
-						throw new StateMigrationException("The new key serializer must be compatible.");
-					}
-
-					keySerializerRestored = true;
-				}
-
-				List<StateMetaInfoSnapshot> restoredMetaInfos =
-					serializationProxy.getStateMetaInfoSnapshots();
-
-				final Map<Integer, StateMetaInfoSnapshot> kvStatesById = new HashMap<>();
-
-				createOrCheckStateForMetaInfo(restoredMetaInfos, kvStatesById);
-
-				readStateHandleStateData(
-					fsDataInputStream,
-					inView,
-					keyGroupsStateHandle.getGroupRangeOffsets(),
-					kvStatesById, restoredMetaInfos.size(),
-					serializationProxy.getReadVersion(),
-					serializationProxy.isUsingKeyGroupCompression());
-			} finally {
-				if (cancelStreamRegistry.unregisterCloseable(fsDataInputStream)) {
-					IOUtils.closeQuietly(fsDataInputStream);
-				}
+			if (keyedStateHandle != null) {
+				restoreHandle(isTheFirst, keyedStateHandle);
+				isTheFirst = false;
 			}
 		}
 		return null;
+	}
+
+	protected void restoreHandle(boolean isTheFirst, KeyedStateHandle keyedStateHandle) throws IOException, StateMigrationException {
+		if (!(keyedStateHandle instanceof KeyGroupsStateHandle)) {
+			throw new IllegalStateException("Unexpected state handle type, " +
+				"expected: " + KeyGroupsStateHandle.class +
+				", but found: " + keyedStateHandle.getClass());
+		}
+
+		KeyGroupsStateHandle keyGroupsStateHandle = (KeyGroupsStateHandle) keyedStateHandle;
+		FSDataInputStream fsDataInputStream = keyGroupsStateHandle.openInputStream();
+		cancelStreamRegistry.registerCloseable(fsDataInputStream);
+
+		try {
+			DataInputViewStreamWrapper inView = new DataInputViewStreamWrapper(fsDataInputStream);
+
+			KeyedBackendSerializationProxy<K> serializationProxy =
+				new KeyedBackendSerializationProxy<>(userCodeClassLoader);
+
+			serializationProxy.read(inView);
+
+			if (isTheFirst) {
+				// check for key serializer compatibility; this also reconfigures the
+				// key serializer to be compatible, if it is required and is possible
+				TypeSerializerSchemaCompatibility<K> keySerializerSchemaCompat =
+					keySerializerProvider.setPreviousSerializerSnapshotForRestoredState(serializationProxy.getKeySerializerSnapshot());
+				if (keySerializerSchemaCompat.isCompatibleAfterMigration() || keySerializerSchemaCompat.isIncompatible()) {
+					throw new StateMigrationException("The new key serializer must be compatible.");
+				}
+			}
+
+			List<StateMetaInfoSnapshot> restoredMetaInfos =
+				serializationProxy.getStateMetaInfoSnapshots();
+
+			final Map<Integer, StateMetaInfoSnapshot> kvStatesById = new HashMap<>();
+
+			createOrCheckStateForMetaInfo(restoredMetaInfos, kvStatesById);
+
+			readStateHandleStateData(
+				fsDataInputStream,
+				inView,
+				keyGroupsStateHandle.getGroupRangeOffsets(),
+				kvStatesById, restoredMetaInfos.size(),
+				serializationProxy.getReadVersion(),
+				serializationProxy.isUsingKeyGroupCompression());
+		} finally {
+			if (cancelStreamRegistry.unregisterCloseable(fsDataInputStream)) {
+				IOUtils.closeQuietly(fsDataInputStream);
+			}
+		}
 	}
 
 	private void createOrCheckStateForMetaInfo(
