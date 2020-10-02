@@ -22,19 +22,17 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
-import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.ThrowingConsumer;
 
-import javax.annotation.Nonnegative;
+import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Optional;
 
 /**
  * This class represents the snapshot of a {@link CopyOnWriteStateMap}.
@@ -67,10 +65,6 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 	@Nonnull
 	private final CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData;
 
-	/** The number of (non-null) entries in snapshotData. */
-	@Nonnegative
-	private final int numberOfEntriesInSnapshotData;
-
 	/**
 	 * Whether this snapshot has been released.
 	 */
@@ -86,7 +80,6 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 
 		this.snapshotData = owningStateMap.snapshotMapArrays();
 		this.snapshotVersion = owningStateMap.getStateMapVersion();
-		this.numberOfEntriesInSnapshotData = owningStateMap.size();
 		this.released = false;
 	}
 
@@ -117,217 +110,91 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			TypeSerializer<S> stateSerializer,
 			@Nonnull DataOutputView dov,
 			@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
-		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov));
+		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov), Optional.empty());
 	}
 
 	protected void iterate(
 			StateSnapshotTransformer<S> stateSnapshotTransformer,
-				ThrowingConsumer<Integer, IOException> sizeWriter,
-				ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter) throws IOException {
-		SnapshotIterator<K, N, S> snapshotIterator = stateSnapshotTransformer == null ?
-			new NonTransformSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData) :
-			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
-		sizeWriter.accept(snapshotIterator.size());
+			ThrowingConsumer<Integer, IOException> sizeWriter,
+			ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter,
+			Optional<Integer> minVersion) throws IOException {
+
+		// if minVersion is set numberOfEntriesInSnapshotData will count for some irrelevant entries
+		// todo: if minVersion and stateSnapshotTransformer both empty then can use numberOfEntriesInSnapshotData
+		// todo: restore iterator.size encapsulation?
+		// todo: optimize size calculation
+		sizeWriter.accept(Iterators.size(new NonTransformSnapshotIterator<>(
+			snapshotData,
+			minVersion,
+			Optional.ofNullable(stateSnapshotTransformer))));
+		Iterator<StateEntry<K, N, S>> snapshotIterator = new NonTransformSnapshotIterator<>(
+			snapshotData,
+			minVersion,
+			Optional.ofNullable(stateSnapshotTransformer));
+
 		while (snapshotIterator.hasNext()) {
-			entryWriter.accept(snapshotIterator.next());
+			entryWriter.accept((CopyOnWriteStateMap.StateMapEntry<K, N, S>) snapshotIterator.next());
 		}
 	}
 
-	/**
-	 * Iterator over state entries in a {@link CopyOnWriteStateMapSnapshot}.
-	 */
-	abstract static class SnapshotIterator<K, N, S> implements Iterator<StateEntry<K, N, S>> {
+	private static class NonTransformSnapshotIterator<K, N, S> implements Iterator<StateEntry<K, N, S>> {
+		private final CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData;
+		private final int minVersion;
+		private CopyOnWriteStateMap.StateMapEntry<K, N, S> nextEntry;
+		private int nextBucket = 0;
+		private final StateSnapshotTransformer<S> transformer;
 
-		int numberOfEntriesInSnapshotData;
-
-		CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData;
-
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> chainIterator;
-
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> entryIterator;
-
-		SnapshotIterator(
-			int numberOfEntriesInSnapshotData,
-			CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData,
-			@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) {
-			this.numberOfEntriesInSnapshotData = numberOfEntriesInSnapshotData;
+		NonTransformSnapshotIterator(
+				CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData,
+				Optional<Integer> minVersion,
+				Optional<StateSnapshotTransformer<S>> stateSnapshotTransformer) {
 			this.snapshotData = snapshotData;
-
-			transform(stateSnapshotTransformer);
-			this.chainIterator = getChainIterator();
-			this.entryIterator = Collections.emptyIterator();
+			this.minVersion = minVersion.orElse(-1);
+			this.transformer = stateSnapshotTransformer.orElse(null);
 		}
-
-		/**
-		 * Return the number of state entries in this snapshot.
-		 */
-		abstract int size();
-
-		/**
-		 * Transform the state in the snapshot before iterating the state.
-		 */
-		abstract void transform(@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer);
-
-		/**
-		 * Return an iterator over the chains of entries in snapshotData.
-		 */
-		abstract Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getChainIterator();
-
-		/**
-		 * Return an iterator over the entries in the chain.
-		 *
-		 * @param stateMapEntry The head entry of the chain.
-		 */
-		abstract Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getEntryIterator(
-			CopyOnWriteStateMap.StateMapEntry<K, N, S> stateMapEntry);
 
 		@Override
 		public boolean hasNext() {
-			return entryIterator.hasNext() || chainIterator.hasNext();
+			advanceGlobally();
+			return nextEntry != null;
 		}
 
 		@Override
 		public CopyOnWriteStateMap.StateMapEntry<K, N, S> next() {
-			if (entryIterator.hasNext()) {
-				return entryIterator.next();
+			advanceGlobally();
+			if (nextEntry == null) {
+				throw new NoSuchElementException();
 			}
-
-			CopyOnWriteStateMap.StateMapEntry<K, N, S> stateMapEntry = chainIterator.next();
-			entryIterator = getEntryIterator(stateMapEntry);
-			return entryIterator.next();
-		}
-	}
-
-	/**
-	 * Implementation of {@link SnapshotIterator} with no transform.
-	 */
-	static class NonTransformSnapshotIterator<K, N, S> extends SnapshotIterator<K, N, S> {
-
-		NonTransformSnapshotIterator(
-			int numberOfEntriesInSnapshotData,
-			CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData) {
-			super(numberOfEntriesInSnapshotData, snapshotData, null);
+			CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = nextEntry;
+			nextEntry = nextEntry.next;
+			return entry;
 		}
 
-		@Override
-		void transform(@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) {
-		}
-
-		@Override
-		public int size() {
-			return numberOfEntriesInSnapshotData;
-		}
-
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getChainIterator() {
-			return Arrays.stream(snapshotData).filter(Objects::nonNull).iterator();
-		}
-
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getEntryIterator(
-			final CopyOnWriteStateMap.StateMapEntry<K, N, S> stateMapEntry) {
-			return new Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>>() {
-
-				CopyOnWriteStateMap.StateMapEntry<K, N, S> nextEntry = stateMapEntry;
-
-				@Override
-				public boolean hasNext() {
-					return nextEntry != null;
-				}
-
-				@Override
-				public CopyOnWriteStateMap.StateMapEntry<K, N, S> next() {
-					if (nextEntry == null) {
-						throw new NoSuchElementException();
-					}
-					CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = nextEntry;
-					nextEntry = nextEntry.next;
-					return entry;
-				}
-			};
-		}
-	}
-
-	/**
-	 * Implementation of {@link SnapshotIterator} with a {@link StateSnapshotTransformer}.
-	 */
-	static class TransformedSnapshotIterator<K, N, S> extends SnapshotIterator<K, N, S> {
-
-		TransformedSnapshotIterator(
-			int numberOfEntriesInSnapshotData,
-			CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData,
-			@Nonnull StateSnapshotTransformer<S> stateSnapshotTransformer) {
-			super(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
-		}
-
-		/**
-		 * Move the chains in snapshotData to the back of the array, and return the
-		 * index of the first chain from the front.
-		 */
-		int moveChainsToBackOfArray() {
-			int index = snapshotData.length - 1;
-			// find the first null chain from the back
-			while (index >= 0) {
-				if (snapshotData[index] == null) {
-					break;
-				}
-				index--;
+		private void advanceGlobally() {
+			advanceInChain();
+			while (nextEntry == null && nextBucket < snapshotData.length) {
+				nextEntry = snapshotData[nextBucket];
+				advanceInChain();
+				nextBucket++;
 			}
-
-			int lastNullIndex = index;
-			index--;
-			// move the chains to the back
-			while (index >= 0) {
-				CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = snapshotData[index];
-				if (entry != null) {
-					snapshotData[lastNullIndex] = entry;
-					snapshotData[index] = null;
-					lastNullIndex--;
-				}
-				index--;
-			}
-			// return the index of the first chain from the front
-			return lastNullIndex + 1;
 		}
 
-		@Override
-		void transform(@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) {
-			Preconditions.checkNotNull(stateSnapshotTransformer);
-			int indexOfFirstChain = moveChainsToBackOfArray();
-			int count = 0;
-			// reuse the snapshotData to transform and flatten the entries.
-			for (int i = indexOfFirstChain; i < snapshotData.length; i++) {
-				CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = snapshotData[i];
-				while (entry != null) {
-					S transformedValue = stateSnapshotTransformer.filterOrTransform(entry.state);
-					if (transformedValue != null) {
-						CopyOnWriteStateMap.StateMapEntry<K, N, S> filteredEntry = entry;
-						if (transformedValue != entry.state) {
-							filteredEntry = new CopyOnWriteStateMap.StateMapEntry<>(entry, entry.entryVersion);
-							filteredEntry.state = transformedValue;
-						}
-						snapshotData[count++] = filteredEntry;
-					}
-					entry = entry.next;
+		private void advanceInChain() {
+			while (nextEntry != null && (nextEntry.stateVersion < minVersion || filterOrTransformNextEntry() == null)) { // todo: check entryVersion too?
+				nextEntry = nextEntry == null ? null : nextEntry.next; // can be null after filtering
+			}
+		}
+
+		private CopyOnWriteStateMap.StateMapEntry<K, N, S> filterOrTransformNextEntry() {
+			if (transformer != null && nextEntry != null) {
+				S newValue = transformer.filterOrTransform(nextEntry.state);
+				if (newValue == null) {
+					nextEntry = null;
+				} else if (newValue != nextEntry.state) {
+					nextEntry = new CopyOnWriteStateMap.StateMapEntry<>(nextEntry, nextEntry.entryVersion);
 				}
 			}
-			numberOfEntriesInSnapshotData = count;
-		}
-
-		@Override
-		public int size() {
-			return numberOfEntriesInSnapshotData;
-		}
-
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getChainIterator() {
-			return Arrays.stream(snapshotData, 0, numberOfEntriesInSnapshotData).iterator();
-		}
-
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getEntryIterator(
-			CopyOnWriteStateMap.StateMapEntry<K, N, S> stateMapEntry) {
-			return Collections.singleton(stateMapEntry).iterator();
+			return nextEntry;
 		}
 	}
 }
