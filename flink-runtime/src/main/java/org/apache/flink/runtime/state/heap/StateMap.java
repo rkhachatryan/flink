@@ -162,4 +162,8 @@ public abstract class StateMap<K, N, S> implements Iterable<StateEntry<K, N, S>>
 
 	@VisibleForTesting
 	public abstract int sizeOfNamespace(Object namespace);
+
+	// todo: better design?
+	public void confirmSnapshot(int version) {
+	}
 }
