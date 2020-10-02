@@ -2478,7 +2478,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 		backend.dispose();
 		// restore the second snapshot and validate it
 		backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot2);
-		snapshot1.discardState();
+		snapshot2.discardState();
 
 		@SuppressWarnings("unchecked")
 		FoldingState<Integer, String> restored2 = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
