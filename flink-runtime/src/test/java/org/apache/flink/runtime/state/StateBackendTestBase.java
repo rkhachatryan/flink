@@ -4506,4 +4506,54 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 	private MockEnvironment buildMockEnv() {
 		return MockEnvironment.builder().build();
 	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void smokeTestMapState() throws Exception {
+		CheckpointStreamFactory streamFactory = createStreamFactory();
+		SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+		AbstractKeyedStateBackend<String> backend = createKeyedBackend(StringSerializer.INSTANCE);
+
+		MapStateDescriptor<Integer, String> kvId = new MapStateDescriptor<>("id", Integer.class, String.class);
+
+		TypeSerializer<String> keySerializer = StringSerializer.INSTANCE;
+		TypeSerializer<VoidNamespace> namespaceSerializer = VoidNamespaceSerializer.INSTANCE;
+
+		MapState<Integer, String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+		@SuppressWarnings("unchecked")
+		InternalKvState<String, VoidNamespace, Map<Integer, String>> kvState = (InternalKvState<String, VoidNamespace, Map<Integer, String>>) state;
+
+		// these are only available after the backend initialized the serializer
+		TypeSerializer<Integer> userKeySerializer = kvId.getKeySerializer();
+		TypeSerializer<String> userValueSerializer = kvId.getValueSerializer();
+
+		backend.setCurrentKey("1");
+
+		state.put(1, "x");
+		KeyedStateHandle snapshot1 = runSnapshot(backend.snapshot(682375462378L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()), sharedStateRegistry);
+		state.put(2, "y");
+
+		backend.notifyCheckpointComplete(682375462378L); // allow incremental snapshot
+		KeyedStateHandle snapshot2 = runSnapshot(backend.snapshot(682375462379L, 4, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()), sharedStateRegistry);
+
+//		backend.dispose();
+//		backend = restoreKeyedBackend(StringSerializer.INSTANCE, snapshot1);
+
+//		snapshot1.discardState();
+
+		backend.dispose();
+		backend = restoreKeyedBackend(StringSerializer.INSTANCE, snapshot2);
+		snapshot2.discardState();
+
+		MapState<Integer, String> restored2 = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+		@SuppressWarnings("unchecked")
+		InternalKvState<String, VoidNamespace, Map<Integer, String>> restoredKvState2 = (InternalKvState<String, VoidNamespace, Map<Integer, String>>) restored2;
+
+		backend.setCurrentKey("1");
+		assertEquals("x", restored2.get(1));
+		assertEquals("y", restored2.get(2));
+
+		backend.dispose();
+	}
+
 }
