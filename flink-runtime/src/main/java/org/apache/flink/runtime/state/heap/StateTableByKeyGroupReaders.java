@@ -60,9 +60,17 @@ class StateTableByKeyGroupReaders {
 			case 5:
 			case 6:
 				return createV2PlusReader(stateTable);
+			case 7:
+				return createV7(stateTable);
 			default:
 				throw new IllegalArgumentException("Unknown version: " + version);
 		}
+	}
+
+	private static <K, S, N> StateSnapshotKeyGroupReader createV7(StateTable<K, N, S> stateTable) {
+		return (in, keyGroupId) -> (in.readBoolean() ?
+			new StateSnapshotKeyGroupReaderV7<>(stateTable) :
+			createV2PlusReader(stateTable)).readMappingsInKeyGroup(in, keyGroupId);
 	}
 
 	private static <K, N, S> StateSnapshotKeyGroupReader createV2PlusReader(
