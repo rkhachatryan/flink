@@ -115,8 +115,8 @@ public class RegisteredKeyValueStateBackendMetaInfo<N, S> extends RegisteredStat
 		this.stateSerializerProvider = stateSerializerProvider;
 		this.stateSnapshotTransformFactory = stateSnapshotTransformFactory;
 		this.incrementalStateMetaInfo = stateSerializerProvider.getPreviousSerializerSnapshot() == null ?
-			IncrementalStateMetaInfo.noOp() :
-			fromStateDescriptor(stateType, stateSerializerProvider.getPreviousSerializerSnapshot().restoreSerializer());
+			IncrementalStateMetaInfo.replacing(stateSerializerProvider.currentSchemaSerializer()) : // todo: always use this + fromStateDesc?
+			fromStateDescriptor(stateType, stateSerializerProvider.getPreviousSerializerSnapshot().restoreSerializer(), name);
 	}
 
 	@Nonnull
