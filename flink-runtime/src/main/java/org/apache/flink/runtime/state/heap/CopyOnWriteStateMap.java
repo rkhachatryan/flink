@@ -20,9 +20,11 @@ package org.apache.flink.runtime.state.heap;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateTransformationFunction;
 import org.apache.flink.runtime.state.heap.inc.StateDiff;
+import org.apache.flink.runtime.state.heap.inc.StateDiffSerializer;
 import org.apache.flink.runtime.state.heap.inc.StateJournal;
 import org.apache.flink.runtime.state.heap.inc.StateJournalFactory;
 import org.apache.flink.runtime.state.internal.InternalKvState;
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
@@ -776,6 +779,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		return new CopyOnWriteStateMapSnapshot<>(this);
 	}
 
+	public IncrementalStateMapSnapshot<K, N, S> incrementalStateSnapshot() {
+		return new IncrementalStateMapSnapshot<>(this);
+	}
+
 	/**
 	 * Releases a snapshot for this {@link CopyOnWriteStateMap}. This method should be called once a snapshot is no more needed,
 	 * so that the {@link CopyOnWriteStateMap} can stop considering this snapshot for copy-on-write, thus avoiding unnecessary
@@ -931,6 +938,12 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		@Override
 		public final String toString() {
 			return "(" + key + "|" + namespace + ")=" + state;
+		}
+
+		public void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {
+			namespaceSerializer.serialize(this.getNamespace(), dov);
+			keySerializer.serialize(this.getKey(), dov);
+			diffSerializer.serialize(journal.getDiff(), dov);
 		}
 	}
 

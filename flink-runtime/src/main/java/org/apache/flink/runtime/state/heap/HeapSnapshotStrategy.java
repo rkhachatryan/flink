@@ -46,6 +46,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SupplierWithException;
 
 import javax.annotation.Nonnull;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -71,6 +72,7 @@ class HeapSnapshotStrategy<K>
 	private final KeyGroupRange keyGroupRange;
 	private final CloseableRegistry cancelStreamRegistry;
 	private final StateSerializerProvider<K> keySerializerProvider;
+	private long lastConfirmedCheckpoint = -1L;
 
 	HeapSnapshotStrategy(
 			SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait,
@@ -113,20 +115,23 @@ class HeapSnapshotStrategy<K>
 		final List<StateMetaInfoSnapshot> metaInfoSnapshots = new ArrayList<>(numStates);
 		final Map<StateUID, Integer> stateNamesToId = new HashMap<>(numStates);
 		final Map<StateUID, StateSnapshot> cowStateStableSnapshots = new HashMap<>(numStates);
+		final boolean incremental = checkpointId == lastConfirmedCheckpoint + 1;
 
 		processSnapshotMetaInfoForAllStates(
 			metaInfoSnapshots,
 			cowStateStableSnapshots,
 			stateNamesToId,
 			registeredKVStates,
-			StateMetaInfoSnapshot.BackendStateType.KEY_VALUE);
+			StateMetaInfoSnapshot.BackendStateType.KEY_VALUE,
+			incremental);
 
 		processSnapshotMetaInfoForAllStates(
 			metaInfoSnapshots,
 			cowStateStableSnapshots,
 			stateNamesToId,
 			registeredPQStates,
-			StateMetaInfoSnapshot.BackendStateType.PRIORITY_QUEUE);
+			StateMetaInfoSnapshot.BackendStateType.PRIORITY_QUEUE,
+			incremental);
 
 		final KeyedBackendSerializationProxy<K> serializationProxy =
 			new KeyedBackendSerializationProxy<>(
@@ -240,14 +245,15 @@ class HeapSnapshotStrategy<K>
 			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
 			Map<StateUID, Integer> stateNamesToId,
 			Map<String, ? extends StateSnapshotRestore> registeredStates,
-			StateMetaInfoSnapshot.BackendStateType stateType) {
+			StateMetaInfoSnapshot.BackendStateType stateType,
+			boolean incremental) {
 
 		for (Map.Entry<String, ? extends StateSnapshotRestore> kvState : registeredStates.entrySet()) {
 			final StateUID stateUid = StateUID.of(kvState.getKey(), stateType);
 			stateNamesToId.put(stateUid, stateNamesToId.size());
 			StateSnapshotRestore state = kvState.getValue();
 			if (null != state) {
-				final StateSnapshot stateSnapshot = state.stateSnapshot();
+				final StateSnapshot stateSnapshot = incremental ? state.stateSnapshot() : state.stateSnapshot();
 				metaInfoSnapshots.add(stateSnapshot.getMetaInfoSnapshot());
 				cowStateStableSnapshots.put(stateUid, stateSnapshot);
 			}
@@ -260,5 +266,9 @@ class HeapSnapshotStrategy<K>
 
 	public TypeSerializer<K> getKeySerializer() {
 		return keySerializerProvider.currentSchemaSerializer();
+	}
+
+	public void checkpointConfirmed(long id) {
+		lastConfirmedCheckpoint = Math.max(lastConfirmedCheckpoint, id);
 	}
 }
