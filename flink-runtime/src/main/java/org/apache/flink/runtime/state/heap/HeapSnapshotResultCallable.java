@@ -39,16 +39,20 @@ import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.state.CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult;
 
-class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
-	final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
+/**
+ * Async part of heap snapshot.
+ */
+public class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
+
+	protected final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
 	protected final KeyedBackendSerializationProxy<K> serializationProxy;
-	private final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
+	protected final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
 	private final Map<StateUID, Integer> stateNamesToId;
 	protected final KeyGroupRange keyGroupRange;
 	private final StreamCompressionDecorator keyGroupCompressionDecorator;
 	private final Consumer<Long> logAsyncSnapshotComplete;
 
-	HeapSnapshotResultCallable(
+	protected HeapSnapshotResultCallable(
 			SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier,
 			KeyedBackendSerializationProxy<K> serializationProxy,
 			Map<StateUID, StateSnapshot> cowStateStableSnapshots,

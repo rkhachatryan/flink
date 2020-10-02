@@ -22,6 +22,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateTransformationFunction;
+import org.apache.flink.runtime.state.heap.inc.StateDiff;
+import org.apache.flink.runtime.state.heap.inc.StateJournal;
+import org.apache.flink.runtime.state.heap.inc.StateJournalFactory;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.Preconditions;
@@ -143,7 +146,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * Empty entry that we use to bootstrap our {@link CopyOnWriteStateMap.StateEntryIterator}.
 	 */
 	private static final StateMapEntry<?, ?, ?> ITERATOR_BOOTSTRAP_ENTRY =
-		new StateMapEntry<>(new Object(), new Object(), new Object(), 0, null, 0, 0);
+		new StateMapEntry<>(new Object(), new Object(), new Object(), false, 0, null, 0, 0, /* todo: verify */ StateJournalFactory.noOp());
 
 	/**
 	 * Maintains an ordered set of version ids that are still in use by unreleased snapshots.
@@ -181,7 +184,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * The current version of this map. Used for copy-on-write mechanics.
 	 */
-	private int stateMapVersion;
+	protected int stateMapVersion;
 
 	/**
 	 * The highest version of this map that is still required by any unreleased snapshot.
@@ -207,13 +210,19 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 */
 	private int modCount;
 
+	private final StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory;
+
 	/**
 	 * Constructs a new {@code StateMap} with default capacity of {@code DEFAULT_CAPACITY}.
 	 *
 	 * @param stateSerializer the serializer of the key.
 	 */
 	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer) {
-		this(DEFAULT_CAPACITY, stateSerializer);
+		this(stateSerializer, /* todo: verify */ StateJournalFactory.noOp());
+	}
+
+	protected CopyOnWriteStateMap(TypeSerializer<S> stateSerializer, StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
+		this(DEFAULT_CAPACITY, stateSerializer, stateJournalFactory);
 	}
 
 	/**
@@ -225,7 +234,10 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 */
 	@SuppressWarnings("unchecked")
 	protected CopyOnWriteStateMap(
-		int capacity, TypeSerializer<S> stateSerializer) {
+			int capacity,
+			TypeSerializer<S> stateSerializer,
+			StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
+		this.stateJournalFactory = Preconditions.checkNotNull(stateJournalFactory);
 		this.stateSerializer = Preconditions.checkNotNull(stateSerializer);
 
 		// initialized maps to EMPTY_TABLE.
@@ -291,7 +303,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (e.entryVersion < requiredVersion) {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
-					e.setState(copyState(e), stateMapVersion);
+					e.setState(copyState(e), stateMapVersion, true, false);
 				}
 
 				return e.state;
@@ -330,8 +342,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	public void put(K key, N namespace, S value) {
 		final StateMapEntry<K, N, S> e = putEntry(key, namespace);
 
-		e.state = value;
-		e.stateVersion = stateMapVersion;
+		e.setState(value, stateMapVersion, false, true);
 	}
 
 	@Override
@@ -340,8 +351,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 		S oldState = getStateAndCopyIfNeeded(e);
 
-		e.state = state;
-		e.stateVersion = stateMapVersion;
+		e.setState(state, stateMapVersion, false, true);
 
 		return oldState;
 	}
@@ -373,10 +383,9 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		final StateMapEntry<K, N, S> entry = putEntry(key, namespace);
 
 		// copy-on-write check for state
-		entry.state = transformation.apply(
+		entry.setState(transformation.apply(
 			getStateAndCopyIfNeeded(entry),
-			value);
-		entry.stateVersion = stateMapVersion;
+			value), stateMapVersion, false, false /* todo: confirm that transformation can't store the resulting value */);
 	}
 
 	// Private implementation details of the API methods ---------------------------------------------------------------
@@ -384,7 +393,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * Helper method that is the basis for operations that add mappings.
 	 */
-	private StateMapEntry<K, N, S> putEntry(K key, N namespace) {
+	protected StateMapEntry<K, N, S> putEntry(K key, N namespace) {
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -413,7 +422,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * Helper method that is the basis for operations that remove mappings.
 	 */
-	private S removeEntry(K key, N namespace) {
+	protected S removeEntry(K key, N namespace) {
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -574,10 +583,12 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 			key,
 			namespace,
 			null,
+			false,
 			hash,
 			table[index],
 			stateMapVersion,
-			stateMapVersion);
+			stateMapVersion,
+			stateJournalFactory);
 		table[index] = newEntry;
 
 		if (table == primaryTable) {

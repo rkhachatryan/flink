@@ -58,7 +58,7 @@ public abstract class StateTable<K, N, S>
 	/**
 	 * Combined meta information such as name and serializers for this state.
 	 */
-	protected RegisteredKeyValueStateBackendMetaInfo<N, S> metaInfo;
+	public RegisteredKeyValueStateBackendMetaInfo<N, S> metaInfo;
 
 	/**
 	 * The serializer of the key.
@@ -289,7 +289,7 @@ public abstract class StateTable<K, N, S>
 	}
 
 	@VisibleForTesting
-	StateMap<K, N, S> getMapForKeyGroup(int keyGroupIndex) {
+	protected StateMap<K, N, S> getMapForKeyGroup(int keyGroupIndex) {
 		final int pos = indexToOffset(keyGroupIndex);
 		if (pos >= 0 && pos < keyGroupedStateMaps.length) {
 			return keyGroupedStateMaps[pos];

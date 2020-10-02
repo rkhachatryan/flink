@@ -40,13 +40,13 @@ public class CopyOnWriteStateTableSnapshot<K, N, S> extends AbstractStateTableSn
 	/**
 	 * The offset to the contiguous key groups.
 	 */
-	private final int keyGroupOffset;
+	protected final int keyGroupOffset;
 
 	/**
 	 * Snapshots of state partitioned by key-group.
 	 */
 	@Nonnull
-	private final List<CopyOnWriteStateMapSnapshot<K, N, S>> stateMapSnapshots;
+	protected final List<CopyOnWriteStateMapSnapshot<K, N, S>> stateMapSnapshots;
 
 	/**
 	 * Creates a new {@link CopyOnWriteStateTableSnapshot}.
@@ -70,7 +70,7 @@ public class CopyOnWriteStateTableSnapshot<K, N, S> extends AbstractStateTableSn
 	}
 
 	@Override
-	protected StateMapSnapshot<K, N, S, ? extends StateMap<K, N, S>> getStateMapSnapshotForKeyGroup(int keyGroup) {
+	protected CopyOnWriteStateMapSnapshot<K, N, S> getStateMapSnapshotForKeyGroup(int keyGroup) {
 		int indexOffset = keyGroup - keyGroupOffset;
 		CopyOnWriteStateMapSnapshot<K, N, S> stateMapSnapshot = null;
 		if (indexOffset >= 0 && indexOffset < stateMapSnapshots.size()) {
@@ -82,7 +82,7 @@ public class CopyOnWriteStateTableSnapshot<K, N, S> extends AbstractStateTableSn
 
 	@Override
 	public void release() {
-		for (CopyOnWriteStateMapSnapshot snapshot : stateMapSnapshots) {
+		for (CopyOnWriteStateMapSnapshot<K, N, S> snapshot : stateMapSnapshots) {
 			if (!snapshot.isReleased()) {
 				snapshot.release();
 			}

@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.ThrowingConsumer;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -64,7 +65,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 	 * on whether or not it was subject to copy-on-write operations by the {@link CopyOnWriteStateMap}.
 	 */
 	@Nonnull
-	private final StateMapEntry<K, N, S>[] snapshotData;
+	protected final StateMapEntry<K, N, S>[] snapshotData;
 
 	/** The number of (non-null) entries in snapshotData. */
 	@Nonnegative
@@ -80,7 +81,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 	 *
 	 * @param owningStateMap the {@link CopyOnWriteStateMap} for which this object represents a snapshot.
 	 */
-	CopyOnWriteStateMapSnapshot(CopyOnWriteStateMap<K, N, S> owningStateMap) {
+	protected CopyOnWriteStateMapSnapshot(CopyOnWriteStateMap<K, N, S> owningStateMap) {
 		super(owningStateMap);
 
 		this.snapshotData = owningStateMap.snapshotMapArrays();
@@ -105,25 +106,30 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 	 * Returns the internal version of the {@link CopyOnWriteStateMap} when this snapshot was created. This value must be used to
 	 * tell the {@link CopyOnWriteStateMap} when to release this snapshot.
 	 */
-	int getSnapshotVersion() {
+	public int getSnapshotVersion() {
 		return snapshotVersion;
 	}
 
 	@Override
 	public void writeState(
-		TypeSerializer<K> keySerializer,
-		TypeSerializer<N> namespaceSerializer,
-		TypeSerializer<S> stateSerializer,
-		@Nonnull DataOutputView dov,
-		@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
+			TypeSerializer<K> keySerializer,
+			TypeSerializer<N> namespaceSerializer,
+			TypeSerializer<S> stateSerializer,
+			@Nonnull DataOutputView dov,
+			@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
+		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov));
+	}
+
+	protected void iterate(
+			StateSnapshotTransformer<S> stateSnapshotTransformer,
+				ThrowingConsumer<Integer, IOException> sizeWriter,
+				ThrowingConsumer<StateMapEntry<K, N, S>, IOException> entryWriter) throws IOException {
 		SnapshotIterator<K, N, S> snapshotIterator = stateSnapshotTransformer == null ?
 			new NonTransformSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData) :
 			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
-
-		int size = snapshotIterator.size();
-		dov.writeInt(size);
+		sizeWriter.accept(snapshotIterator.size());
 		while (snapshotIterator.hasNext()) {
-			snapshotIterator.next().writeState(keySerializer, namespaceSerializer, stateSerializer, dov);
+			entryWriter.accept(snapshotIterator.next());
 		}
 	}
 

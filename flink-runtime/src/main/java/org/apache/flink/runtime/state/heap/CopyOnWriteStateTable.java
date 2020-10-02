@@ -25,6 +25,7 @@ import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * This implementation of {@link StateTable} uses {@link CopyOnWriteStateMap}. This implementation supports asynchronous snapshots.
@@ -51,7 +52,7 @@ public class CopyOnWriteStateTable<K, N, S> extends StateTable<K, N, S> {
 
 	@Override
 	protected CopyOnWriteStateMap<K, N, S> createStateMap() {
-		return new CopyOnWriteStateMap<>(getStateSerializer());
+		return new CopyOnWriteStateMap(getStateSerializer(), metaInfo.getIncrementalStateMetaInfo().getJournalFactory());
 	}
 
 	// Snapshotting ----------------------------------------------------------------------------------------------------
@@ -72,12 +73,14 @@ public class CopyOnWriteStateTable<K, N, S> extends StateTable<K, N, S> {
 			getMetaInfo().getStateSnapshotTransformFactory().createForDeserializedState().orElse(null));
 	}
 
-	@SuppressWarnings("unchecked")
 	List<CopyOnWriteStateMapSnapshot<K, N, S>> getStateMapSnapshotList() {
-		List<CopyOnWriteStateMapSnapshot<K, N, S>> snapshotList = new ArrayList<>(keyGroupedStateMaps.length);
-		for (int i = 0; i < keyGroupedStateMaps.length; i++) {
-			CopyOnWriteStateMap<K, N, S> stateMap = (CopyOnWriteStateMap<K, N, S>) keyGroupedStateMaps[i];
-			snapshotList.add(stateMap.stateSnapshot());
+		return getSnapshots(CopyOnWriteStateMap::stateSnapshot);
+	}
+
+	private <T> List<T> getSnapshots(Function<CopyOnWriteStateMap<K, N, S>, T> snapshot) {
+		List<T> snapshotList = new ArrayList<>(keyGroupedStateMaps.length);
+		for (StateMap<K, N, S> map : keyGroupedStateMaps) {
+			snapshotList.add(snapshot.apply((CopyOnWriteStateMap<K, N, S>) map));
 		}
 		return snapshotList;
 	}

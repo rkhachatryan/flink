@@ -48,13 +48,13 @@ public class StateMapEntry<K, N, S> implements StateEntry<K, N, S> {
 	 * The key. Assumed to be immumap and not null.
 	 */
 	@Nonnull
-	final K key;
+	public final K key;
 
 	/**
 	 * The namespace. Assumed to be immumap and not null.
 	 */
 	@Nonnull
-	final N namespace;
+	public final N namespace;
 
 	StateJournal<S, StateDiff<S>> journal;
 
@@ -62,26 +62,26 @@ public class StateMapEntry<K, N, S> implements StateEntry<K, N, S> {
 	 * The state. This is not final to allow exchanging the object for copy-on-write. Can be null.
 	 */
 	@Nullable
-	S state;
+	public S state;
 
 	/**
 	 * Link to another {@link StateMapEntry}. This is used to resolve collisions in the
 	 * {@link CopyOnWriteStateMap} through chaining.
 	 */
 	@Nullable
-	StateMapEntry<K, N, S> next;
+	public StateMapEntry<K, N, S> next;
 
 	final StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory;
 
 	/**
 	 * The version of this {@link StateMapEntry}. This is meta data for copy-on-write of the map structure.
 	 */
-	int entryVersion;
+	public int entryVersion;
 
 	/**
 	 * The version of the state object in this entry. This is meta data for copy-on-write of the state object itself.
 	 */
-	int stateVersion;
+	public int stateVersion;
 
 	/**
 	 * The computed secondary hash for the composite of key and namespace.
@@ -159,7 +159,7 @@ public class StateMapEntry<K, N, S> implements StateEntry<K, N, S> {
 		return "(" + key + "|" + namespace + ")=" + state;
 	}
 
-	void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {
+	public void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {
 		namespaceSerializer.serialize(this.getNamespace(), dov);
 		keySerializer.serialize(this.getKey(), dov);
 		diffSerializer.serialize(journal.getDiff(), dov);
