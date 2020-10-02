@@ -223,7 +223,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * @param stateSerializer the serializer of the key.
 	 */
 	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer) {
-		this(stateSerializer, StateJournalFactory.noOp());
+		this(stateSerializer, /* todo: verify */ StateJournalFactory.noOp());
 	}
 
 	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer, StateJournalFactory<S, StateDiff<S>, StateJournal<S, StateDiff<S>>> stateJournalFactory) {
