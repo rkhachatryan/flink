@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -328,6 +329,27 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 			", metaStateHandle=" + metaStateHandle +
 			", registered=" + (sharedStateRegistry != null) +
 			'}';
+	}
+
+	// todo: move to client?
+	public IncrementalRemoteKeyedStateHandle updated(
+			Map<StateHandleID, StreamStateHandle> newState,
+			long checkpointId,
+			StreamStateHandle newMetadataStateHandle) {
+		Map<StateHandleID, StreamStateHandle> sharedStateCopy = new HashMap<>(); // todo: use client-supplied map?
+		sharedState.keySet().forEach(k -> sharedStateCopy.put(k, new PlaceholderStreamStateHandle()));
+		for (Map.Entry<StateHandleID, StreamStateHandle> e : newState.entrySet()) {
+			Preconditions.checkArgument(!sharedState.containsKey(e.getKey()));
+			sharedStateCopy.put(e.getKey(), e.getValue());
+		}
+		return new IncrementalRemoteKeyedStateHandle(
+			getBackendIdentifier(),
+			getKeyGroupRange(),
+			checkpointId,
+			sharedStateCopy,
+			new HashMap<>(getPrivateState()),
+			newMetadataStateHandle
+		);
 	}
 }
 
