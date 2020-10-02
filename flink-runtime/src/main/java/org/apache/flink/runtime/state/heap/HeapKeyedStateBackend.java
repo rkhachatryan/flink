@@ -50,6 +50,7 @@ import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.StateSnapshotTransformers;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.heap.inc.IncrementalStateMetaInfo;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StateMigrationException;
@@ -231,6 +232,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			}
 
 			stateTable.setMetaInfo(restoredKvMetaInfo);
+			stateTable.getMetaInfo().setIncrementalStateMetaInfo(IncrementalStateMetaInfo.fromStateDescriptor(stateDesc));
 		} else {
 			RegisteredKeyValueStateBackendMetaInfo<N, V> newMetaInfo = new RegisteredKeyValueStateBackendMetaInfo<>(
 				stateDesc.getType(),
@@ -238,7 +240,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				namespaceSerializer,
 				newStateSerializer,
 				snapshotTransformFactory);
-
+			newMetaInfo.setIncrementalStateMetaInfo(IncrementalStateMetaInfo.fromStateDescriptor(stateDesc));
 			stateTable = snapshotStrategy.newStateTable(keyContext, newMetaInfo, keySerializer);
 			registeredKVStates.put(stateDesc.getName(), stateTable);
 		}
