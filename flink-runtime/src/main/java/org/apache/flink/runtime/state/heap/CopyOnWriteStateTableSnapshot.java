@@ -21,10 +21,14 @@ package org.apache.flink.runtime.state.heap;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
+import org.apache.flink.runtime.state.heap.IncrementalHeapSnapshotStrategy.StateMapVersions;
 
 import javax.annotation.Nonnull;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 
 /**
  * This class represents the snapshot of a {@link CopyOnWriteStateTable} and has a role in operator state checkpointing.
@@ -88,4 +92,16 @@ public class CopyOnWriteStateTableSnapshot<K, N, S> extends AbstractStateTableSn
 			}
 		}
 	}
+
+	public StateMapVersions collectVersions() {
+		final Map<Integer, Integer> versions = new HashMap<>();
+		final ListIterator<CopyOnWriteStateMapSnapshot<K, N, S>> i = stateMapSnapshots.listIterator();
+		while (i.hasNext()) {
+			versions.put(
+				i.nextIndex() + keyGroupOffset,
+				i.next().getSnapshotVersion());
+		}
+		return new StateMapVersions(versions);
+	}
+
 }
