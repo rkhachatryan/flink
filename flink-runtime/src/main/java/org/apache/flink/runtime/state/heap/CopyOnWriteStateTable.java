@@ -51,7 +51,7 @@ public class CopyOnWriteStateTable<K, N, S> extends StateTable<K, N, S> {
 
 	@Override
 	protected CopyOnWriteStateMap<K, N, S> createStateMap() {
-		return new CopyOnWriteStateMap<>(getStateSerializer());
+		return new CopyOnWriteStateMap(getStateSerializer(), metaInfo.getIncrementalStateMetaInfo().getJournalFactory());
 	}
 
 	// Snapshotting ----------------------------------------------------------------------------------------------------
