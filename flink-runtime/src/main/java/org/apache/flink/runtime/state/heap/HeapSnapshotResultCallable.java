@@ -30,6 +30,7 @@ import org.apache.flink.runtime.state.StateSnapshot;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.function.SupplierWithException;
+import org.apache.flink.util.function.ThrowingConsumer;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -39,11 +40,11 @@ import java.util.function.Consumer;
 import static org.apache.flink.runtime.state.CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult;
 
 class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
-	private final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
-	private final KeyedBackendSerializationProxy<K> serializationProxy;
+	final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
+	protected final KeyedBackendSerializationProxy<K> serializationProxy;
 	private final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
 	private final Map<StateUID, Integer> stateNamesToId;
-	private final KeyGroupRange keyGroupRange;
+	protected final KeyGroupRange keyGroupRange;
 	private final StreamCompressionDecorator keyGroupCompressionDecorator;
 	private final Consumer<Long> logAsyncSnapshotComplete;
 
@@ -66,7 +67,10 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 
 	@Override
 	protected SnapshotResult<KeyedStateHandle> callInternal() throws Exception {
+		return write(serializationProxy::write);
+	}
 
+	SnapshotResult<KeyedStateHandle> write(ThrowingConsumer<DataOutputViewStreamWrapper, IOException> headerWriter) throws Exception {
 		final CheckpointStreamWithResultProvider streamWithResultProvider = checkpointStreamSupplier.get();
 
 		snapshotCloseableRegistry.registerCloseable(streamWithResultProvider);
@@ -74,7 +78,7 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 		final CheckpointStateOutputStream localStream = streamWithResultProvider.getCheckpointOutputStream();
 
 		final DataOutputViewStreamWrapper outView = new DataOutputViewStreamWrapper(localStream);
-		serializationProxy.write(outView);
+		headerWriter.accept(outView);
 
 		final long[] keyGroupRangeOffsets = new long[keyGroupRange.getNumberOfKeyGroups()];
 
