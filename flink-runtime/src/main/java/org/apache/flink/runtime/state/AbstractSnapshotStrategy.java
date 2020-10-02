@@ -76,4 +76,7 @@ public abstract class AbstractSnapshotStrategy<T extends StateObject> implements
 	public String toString() {
 		return "SnapshotStrategy {" + description + "}";
 	}
+
+	public void checkpointConfirmed(long checkpointId) {
+	}
 }
