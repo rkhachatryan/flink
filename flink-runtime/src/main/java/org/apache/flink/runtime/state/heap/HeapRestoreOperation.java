@@ -19,8 +19,6 @@
 package org.apache.flink.runtime.state.heap;
 
 import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -64,7 +62,6 @@ import java.util.Map;
  * @param <K> The data type that the serializer serializes.
  */
 public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
-	private static final Logger LOG = LoggerFactory.getLogger(HeapRestoreOperation.class);
 
 	private final Collection<KeyedStateHandle> restoreStateHandles;
 	private final StateSerializerProvider<K> keySerializerProvider;
@@ -122,7 +119,6 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 	}
 
 	protected void restoreHandle(boolean isTheFirst, KeyedStateHandle keyedStateHandle) throws IOException, StateMigrationException {
-		LOG.warn("restore handle: {} (isTheFirst: {})", keyedStateHandle, isTheFirst);
 		if (!(keyedStateHandle instanceof KeyGroupsStateHandle)) {
 			throw new IllegalStateException("Unexpected state handle type, " +
 				"expected: " + KeyGroupsStateHandle.class +

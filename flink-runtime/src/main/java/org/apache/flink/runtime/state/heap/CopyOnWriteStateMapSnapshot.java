@@ -146,7 +146,7 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		sizeWriter.accept(entries.size());
 		for (StateEntry<K, N, S> entry: entries) {
 			CopyOnWriteStateMap.StateMapEntry<K, N, S> next = (CopyOnWriteStateMap.StateMapEntry<K, N, S>) entry;
-			LOG.debug("Write entry: {}/{} {}/{} {}", next.namespace, next.key, next.entryVersion, next.stateVersion, next);
+			LOG.debug("Write entry: {}", next);
 			entryWriter.accept(next);
 		}
 	}

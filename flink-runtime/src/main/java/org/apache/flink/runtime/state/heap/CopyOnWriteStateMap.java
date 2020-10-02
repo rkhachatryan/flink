@@ -938,7 +938,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
 		@Override
 		public final String toString() {
-			return "(" + key + "|" + namespace + ")=" + state;
+			return String.format("(%s|%s %d:%d)=%s (%s)", key, namespace, entryVersion, stateVersion, state, journal);
 		}
 
 		public void writeStateDiff(TypeSerializer<K> keySerializer, TypeSerializer<N> namespaceSerializer, StateDiffSerializer<S, StateDiff<S>> diffSerializer, DataOutputView dov) throws IOException {

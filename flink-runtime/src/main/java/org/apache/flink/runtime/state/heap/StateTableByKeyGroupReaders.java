@@ -89,13 +89,11 @@ class StateTableByKeyGroupReaders {
 					final K key = keySerializer.deserialize(in);
 					final StateDiff<S> diff = diffSerializer.deserialize(in);
 					StateMap<K, N, S> stateMap = stateTable.getMapForKeyGroup(keyGroupId);
-					LOG.warn("deserialized for {}/{} diff: {}", key, namespace, diff);
+					LOG.trace("deserialized for {}/{} diff: {}", key, namespace, diff);
 					S state = stateMap.get(key, namespace);
 					if (state == null) {
 						LOG.warn("no state for diff {}, key: {}, namespace: {}", diff, key, namespace);
-
 					}
-//					Preconditions.checkNotNull(state, "stateMap doesn't have %s/%s - can't apply diff (known keys in %s: %s)", key, namespace, namespace, stateMap.getKeys(namespace).collect(toList()));
 					stateMap.put(key, namespace, diff.apply(state)); // todo: use transform
 				}
 			}
