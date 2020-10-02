@@ -25,16 +25,20 @@ import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.ThrowingConsumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Optional;
 
 /**
  * This class represents the snapshot of a {@link CopyOnWriteStateMap}.
@@ -53,6 +57,7 @@ import java.util.Objects;
  */
 public class CopyOnWriteStateMapSnapshot<K, N, S>
 	extends StateMapSnapshot<K, N, S, CopyOnWriteStateMap<K, N, S>> {
+	private static final Logger LOG = LoggerFactory.getLogger(CopyOnWriteStateMapSnapshot.class);
 
 	/**
 	 * Version of the {@link CopyOnWriteStateMap} when this snapshot was created. This can be used to release the snapshot.
@@ -117,19 +122,32 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 			TypeSerializer<S> stateSerializer,
 			@Nonnull DataOutputView dov,
 			@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) throws IOException {
-		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov));
+		iterate(stateSnapshotTransformer, dov::writeInt, entry -> entry.writeState(keySerializer, namespaceSerializer, stateSerializer, dov), Optional.empty());
 	}
 
 	protected void iterate(
 			StateSnapshotTransformer<S> stateSnapshotTransformer,
-				ThrowingConsumer<Integer, IOException> sizeWriter,
-				ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter) throws IOException {
-		SnapshotIterator<K, N, S> snapshotIterator = stateSnapshotTransformer == null ?
-			new NonTransformSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData) :
-			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
-		sizeWriter.accept(snapshotIterator.size());
-		while (snapshotIterator.hasNext()) {
-			entryWriter.accept(snapshotIterator.next());
+			ThrowingConsumer<Integer, IOException> sizeWriter,
+			ThrowingConsumer<CopyOnWriteStateMap.StateMapEntry<K, N, S>, IOException> entryWriter,
+			Optional<Integer> minVersion) throws IOException {
+
+		Iterator<StateEntry<K, N, S>> snapshotIterator = stateSnapshotTransformer == null ?
+			new NonTransformSnapshotIterator<>(snapshotData, minVersion) :
+			new TransformedSnapshotIterator<>(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer, minVersion);
+
+		if (!snapshotIterator.hasNext()) {
+			sizeWriter.accept(0);
+			return;
+		}
+
+		// todo: optimize
+		ArrayList<StateEntry<K, N, S>> entries = org.apache.flink.shaded.guava18.com.google.common.collect.Lists.newArrayList(snapshotIterator);
+
+		sizeWriter.accept(entries.size());
+		for (StateEntry<K, N, S> entry: entries) {
+			CopyOnWriteStateMap.StateMapEntry<K, N, S> next = (CopyOnWriteStateMap.StateMapEntry<K, N, S>) entry;
+			LOG.debug("Write entry: {}/{} {}/{} {}", next.namespace, next.key, next.entryVersion, next.stateVersion, next);
+			entryWriter.accept(next);
 		}
 	}
 
@@ -198,53 +216,47 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		}
 	}
 
-	/**
-	 * Implementation of {@link SnapshotIterator} with no transform.
-	 */
-	static class NonTransformSnapshotIterator<K, N, S> extends SnapshotIterator<K, N, S> {
+	private static class NonTransformSnapshotIterator<K, N, S> implements Iterator<StateEntry<K, N, S>> {
+		private final CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData;
+		private final int minVersion;
+		private CopyOnWriteStateMap.StateMapEntry<K, N, S> nextEntry;
+		private int nextBucket = 0;
 
-		NonTransformSnapshotIterator(
-			int numberOfEntriesInSnapshotData,
-			CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData) {
-			super(numberOfEntriesInSnapshotData, snapshotData, null);
+		NonTransformSnapshotIterator(CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData, Optional<Integer> minVersion) {
+			this.snapshotData = snapshotData;
+			this.minVersion = minVersion.orElse(-1);
 		}
 
 		@Override
-		void transform(@Nullable StateSnapshotTransformer<S> stateSnapshotTransformer) {
+		public boolean hasNext() {
+			advanceGlobally();
+			return nextEntry != null;
 		}
 
 		@Override
-		public int size() {
-			return numberOfEntriesInSnapshotData;
+		public CopyOnWriteStateMap.StateMapEntry<K, N, S> next() {
+			advanceGlobally();
+			if (nextEntry == null) {
+				throw new NoSuchElementException();
+			}
+			CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = nextEntry;
+			nextEntry = nextEntry.next;
+			return entry;
 		}
 
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getChainIterator() {
-			return Arrays.stream(snapshotData).filter(Objects::nonNull).iterator();
+		private void advanceGlobally() {
+			advanceInChain();
+			while (nextEntry == null && nextBucket < snapshotData.length) {
+				nextEntry = snapshotData[nextBucket];
+				advanceInChain();
+				nextBucket++;
+			}
 		}
 
-		@Override
-		Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>> getEntryIterator(
-			final CopyOnWriteStateMap.StateMapEntry<K, N, S> stateMapEntry) {
-			return new Iterator<CopyOnWriteStateMap.StateMapEntry<K, N, S>>() {
-
-				CopyOnWriteStateMap.StateMapEntry<K, N, S> nextEntry = stateMapEntry;
-
-				@Override
-				public boolean hasNext() {
-					return nextEntry != null;
-				}
-
-				@Override
-				public CopyOnWriteStateMap.StateMapEntry<K, N, S> next() {
-					if (nextEntry == null) {
-						throw new NoSuchElementException();
-					}
-					CopyOnWriteStateMap.StateMapEntry<K, N, S> entry = nextEntry;
-					nextEntry = nextEntry.next;
-					return entry;
-				}
-			};
+		private void advanceInChain() {
+			while (nextEntry != null && nextEntry.stateVersion < minVersion) {
+				nextEntry = nextEntry.next;
+			}
 		}
 	}
 
@@ -256,8 +268,13 @@ public class CopyOnWriteStateMapSnapshot<K, N, S>
 		TransformedSnapshotIterator(
 			int numberOfEntriesInSnapshotData,
 			CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshotData,
-			@Nonnull StateSnapshotTransformer<S> stateSnapshotTransformer) {
+			@Nonnull StateSnapshotTransformer<S> stateSnapshotTransformer,
+			Optional<Integer> minVersion) {
 			super(numberOfEntriesInSnapshotData, snapshotData, stateSnapshotTransformer);
+			if (minVersion.isPresent()) {
+				// todo: fixme
+				throw new UnsupportedOperationException("TransformedSnapshotIterator doesn't support minVersion");
+			}
 		}
 
 		/**
