@@ -125,7 +125,7 @@ public abstract class AbstractKeyedStateBackend<K> implements
 		this.numberOfKeyGroups = keyContext.getNumberOfKeyGroups();
 		this.keyGroupRange = Preconditions.checkNotNull(keyContext.getKeyGroupRange());
 		Preconditions.checkArgument(numberOfKeyGroups >= 1, "NumberOfKeyGroups must be a positive number");
-		Preconditions.checkArgument(numberOfKeyGroups >= keyGroupRange.getNumberOfKeyGroups(), "The total number of key groups must be at least the number in the key group range assigned to this backend");
+		Preconditions.checkArgument(numberOfKeyGroups >= keyGroupRange.getNumberOfKeyGroups(), "The total number of key groups must be at least the number in the key group range assigned to this backend %s %s", numberOfKeyGroups, keyGroupRange.getNumberOfKeyGroups());
 
 		this.kvStateRegistry = kvStateRegistry;
 		this.keySerializer = keySerializer;
