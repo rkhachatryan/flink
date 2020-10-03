@@ -53,7 +53,7 @@ public class CopyOnWriteStateTableSnapshot<K, N, S> extends AbstractStateTableSn
 	 *
 	 * @param owningStateTable the {@link CopyOnWriteStateTable} for which this object represents a snapshot.
 	 */
-	CopyOnWriteStateTableSnapshot(
+	protected CopyOnWriteStateTableSnapshot(
 		CopyOnWriteStateTable<K, N, S> owningStateTable,
 		TypeSerializer<K> localKeySerializer,
 		TypeSerializer<N> localNamespaceSerializer,

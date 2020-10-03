@@ -226,7 +226,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 * @throws IllegalArgumentException when the capacity is less than zero.
 	 */
 	@SuppressWarnings("unchecked")
-	private CopyOnWriteStateMap(
+	protected CopyOnWriteStateMap(
 		int capacity, TypeSerializer<S> stateSerializer) {
 		this.stateSerializer = Preconditions.checkNotNull(stateSerializer);
 
