@@ -28,6 +28,8 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.heap.inc.IncrementalHeapRestoreOperation;
+import org.apache.flink.runtime.state.heap.inc.IncrementalHeapSnapshotStrategy;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
@@ -197,7 +199,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,
 		CloseableRegistry cancelStreamRegistry) {
 		SnapshotStrategySynchronicityBehavior<K> synchronicityTrait = asynchronousSnapshots ?
-			new AsyncSnapshotStrategySynchronicityBehavior<>() :
+			new AsyncSnapshotStrategySynchronicityBehavior<>(incrementalSnapshots) :
 			new SyncSnapshotStrategySynchronicityBehavior<>();
 
 		return asynchronousSnapshots && incrementalSnapshots ? // todo: validate and document this pairing
