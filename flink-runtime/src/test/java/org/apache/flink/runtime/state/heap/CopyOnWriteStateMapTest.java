@@ -151,7 +151,7 @@ public class CopyOnWriteStateMapTest extends TestLogger {
 		final Random random = new Random(42);
 
 		// holds snapshots from the map under test
-		CopyOnWriteStateMap.StateMapEntry<Integer, Integer, ArrayList<Integer>>[] snapshot = null;
+		StateMapEntry<Integer, Integer, ArrayList<Integer>>[] snapshot = null;
 		int snapshotSize = 0;
 
 		// holds a reference snapshot from our reference map that we compare against
@@ -416,11 +416,11 @@ public class CopyOnWriteStateMapTest extends TestLogger {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static <K, N, S> Tuple3<K, N, S>[] convert(CopyOnWriteStateMap.StateMapEntry<K, N, S>[] snapshot, int mapSize) {
+	private static <K, N, S> Tuple3<K, N, S>[] convert(StateMapEntry<K, N, S>[] snapshot, int mapSize) {
 
 		Tuple3<K, N, S>[] result = new Tuple3[mapSize];
 		int pos = 0;
-		for (CopyOnWriteStateMap.StateMapEntry<K, N, S> entry : snapshot) {
+		for (StateMapEntry<K, N, S> entry : snapshot) {
 			while (null != entry) {
 				result[pos++] = new Tuple3<>(entry.getKey(), entry.getNamespace(), entry.getState());
 				entry = entry.next;
