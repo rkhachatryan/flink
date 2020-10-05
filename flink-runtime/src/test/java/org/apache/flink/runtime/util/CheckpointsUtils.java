@@ -18,22 +18,12 @@
 
 package org.apache.flink.runtime.util;
 
-import java.util.concurrent.Executor;
-import org.apache.flink.runtime.checkpoint.CheckpointsCleaningRunner;
 import org.apache.flink.runtime.checkpoint.SerializableRunnable;
 
 public class CheckpointsUtils {
 	public static class NoOpCheckpointCleaningFinishedCallback implements SerializableRunnable {
 
 		@Override public void run() {
-		}
-	}
-
-	public static class NoOpCleanCheckpointCallback implements CheckpointsCleaningRunner {
-
-		@Override public void accept(Runnable cleanAction, Runnable postCleanAction,
-			Executor executor) {
-
 		}
 	}
 }

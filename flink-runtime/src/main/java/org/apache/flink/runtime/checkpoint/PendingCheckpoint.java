@@ -299,7 +299,7 @@ public class PendingCheckpoint {
 		return onCompletionPromise;
 	}
 
-	public CompletedCheckpoint finalizeCheckpoint(CheckpointsCleaningRunner cleanCallback) throws IOException {
+	public CompletedCheckpoint finalizeCheckpoint() throws IOException {
 
 		synchronized (lock) {
 			checkState(!isDiscarded(), "checkpoint is discarded");
@@ -324,9 +324,7 @@ public class PendingCheckpoint {
 						operatorStates,
 						masterStates,
 						props,
-						finalizedLocation,
-						cleanCallback,
-						cleanupFinishedCallback);
+						finalizedLocation);
 
 				onCompletionPromise.complete(completed);
 
