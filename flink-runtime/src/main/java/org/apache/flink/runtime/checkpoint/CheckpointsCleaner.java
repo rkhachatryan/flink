@@ -29,9 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Delegate class responsible for checkpoints cleaning and counting the number of checkpoints yet
  * to clean.
  */
-public class CheckpointsCleaner implements Serializable{
-	private final AtomicInteger numberOfCheckpointsToClean;
+public class CheckpointsCleaner implements Serializable {
 	private static final Logger LOG = LoggerFactory.getLogger(CheckpointsCleaner.class);
+
+	private final AtomicInteger numberOfCheckpointsToClean;
 
 	public CheckpointsCleaner() {
 		this.numberOfCheckpointsToClean = new AtomicInteger(0);
