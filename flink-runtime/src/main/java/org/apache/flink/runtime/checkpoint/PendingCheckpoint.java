@@ -31,6 +31,7 @@ import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +63,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>Note that the pending checkpoint, as well as the successful checkpoint keep the
  * state handles always as serialized values, never as actual values.
  */
-public class PendingCheckpoint {
+public class PendingCheckpoint implements Checkpoint {
 
 	/**
 	 * Result of the {@link PendingCheckpoint#acknowledgedTasks} method.
@@ -112,6 +113,8 @@ public class PendingCheckpoint {
 	private int numAcknowledgedTasks;
 
 	private boolean discarded;
+
+	private boolean stateDiscarded;
 
 	/** Optional stats tracker callback. */
 	@Nullable
@@ -164,7 +167,16 @@ public class PendingCheckpoint {
 		return jobId;
 	}
 
+	/**
+	 * @deprecated use {@link #getCheckpointID()}
+	 */
+	@Deprecated
 	public long getCheckpointId() {
+		return getCheckpointID();
+	}
+
+	@Override
+	public long getCheckpointID() {
 		return checkpointId;
 	}
 
@@ -512,29 +524,37 @@ public class PendingCheckpoint {
 		synchronized (lock) {
 			try {
 				numAcknowledgedTasks = -1;
-				if (!discarded && releaseState) {
-					Runnable cleanAction = () -> {
-						// discard the private states.
-						// unregistered shared states are still considered private at this point.
-						try {
-							StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
-							targetLocation.disposeOnFailure();
-						} catch (Throwable t) {
-							LOG.warn(
-								"Could not properly dispose the private states in the pending checkpoint {} of job {}.",
-								checkpointId, jobId, t);
-						} finally {
-							operatorStates.clear();
-						}
-					};
-					checkpointsCleaner.cleanCheckpoint(cleanAction, postCleanup, executor);
-				}
+				checkpointsCleaner.cleanCheckpoint(this, releaseState, postCleanup, executor);
 			} finally {
 				discarded = true;
 				notYetAcknowledgedTasks.clear();
 				acknowledgedTasks.clear();
 				cancelCanceller();
 			}
+		}
+	}
+
+	@Override
+	public void discard() {
+		synchronized (lock) {
+			if (stateDiscarded) {
+				Preconditions.checkState(discarded, "Checkpoint should be disposed before being discarded");
+				return;
+			} else {
+				stateDiscarded = true;
+			}
+		}
+		// discard the private states.
+		// unregistered shared states are still considered private at this point.
+		try {
+			StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
+			targetLocation.disposeOnFailure();
+		} catch (Throwable t) {
+			LOG.warn(
+				"Could not properly dispose the private states in the pending checkpoint {} of job {}.",
+				checkpointId, jobId, t);
+		} finally {
+			operatorStates.clear();
 		}
 	}
 
