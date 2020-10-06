@@ -26,19 +26,37 @@ under the License.
 
 	<parent>
 		<groupId>org.apache.flink</groupId>
-		<artifactId>flink-parent</artifactId>
+		<artifactId>flink-state-backends</artifactId>
 		<version>1.12-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
-	<artifactId>flink-state-backends</artifactId>
-	<name>Flink : State backends : </name>
+	<artifactId>flink-statebackend-dstl_${scala.binary.version}</artifactId>
+	<name>Flink : State backends : DSTL</name>
 
-	<packaging>pom</packaging>
+	<packaging>jar</packaging>
 
-	<modules>
-		<module>flink-statebackend-rocksdb</module>
-		<module>flink-statebackend-heap-spillable</module>
-		<module>flink-statebackend-dstl</module>
-	</modules>
+	<dependencies>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-core</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-runtime_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-test-utils-junit</artifactId>
+		</dependency>
+
+	</dependencies>
+
 </project>
