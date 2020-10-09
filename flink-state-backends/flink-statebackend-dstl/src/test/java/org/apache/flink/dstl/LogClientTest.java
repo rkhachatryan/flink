@@ -18,6 +18,8 @@
 package org.apache.flink.dstl;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.dstl.fs.FsLogClient;
 import org.apache.flink.dstl.inmemory.InMemoryLogClient;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -29,6 +31,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -58,7 +62,7 @@ public class LogClientTest {
 	}
 
 	@Test
-	public void testWriteAndRead() throws ExecutionException, InterruptedException {
+	public void testWriteAndRead() throws ExecutionException, InterruptedException, IOException {
 		OperatorID operatorID = new OperatorID();
 		int keyGroup = 0;
 		int keyLen = 10;
@@ -90,7 +94,7 @@ public class LogClientTest {
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testNoAppendAfterClose() {
+	public void testNoAppendAfterClose() throws IOException {
 		LogWriter writer = logClientType.createLogClient().createWriter(new OperatorID(), KeyGroupRange.of(0, 0));
 		writer.close();
 		writer.append(0, new byte[0], new byte[0], 0);
@@ -102,8 +106,14 @@ public class LogClientTest {
 			public LogClient createLogClient() {
 				return new InMemoryLogClient();
 			}
+		},
+		FILE {
+			@Override
+			public LogClient createLogClient() throws IOException {
+				return new FsLogClient(Path.fromLocalFile(File.createTempFile("file:///tmp/flink", null)), 100, 1, 100);
+			}
 		};
 
-		public abstract LogClient createLogClient();
+		public abstract LogClient createLogClient() throws IOException;
 	}
 }
