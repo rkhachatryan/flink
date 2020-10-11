@@ -117,7 +117,7 @@ public class StateTableSnapshotCompatibilityTest {
 		final DataInputViewStreamWrapper div = new DataInputViewStreamWrapper(in);
 
 		final StateSnapshotKeyGroupReader keyGroupReader =
-			StateTableByKeyGroupReaders.readerForVersion(stateTable, KeyedBackendSerializationProxy.VERSION);
+			StateTableByKeyGroupReaders.readerForVersion(stateTable, KeyedBackendSerializationProxy.VERSION, false);
 
 		for (Integer keyGroup : keyGroupRange) {
 			keyGroupReader.readMappingsInKeyGroup(div, keyGroup);

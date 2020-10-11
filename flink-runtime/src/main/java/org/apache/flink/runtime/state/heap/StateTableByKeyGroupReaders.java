@@ -23,6 +23,8 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.runtime.state.KeyGroupPartitioner;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
+import org.apache.flink.runtime.state.heap.inc.IncrementalCopyOnWriteStateTable;
+import org.apache.flink.runtime.state.heap.inc.StateSnapshotKeyGroupReaderV7;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -50,7 +52,8 @@ class StateTableByKeyGroupReaders {
 	 */
 	static <K, N, S> StateSnapshotKeyGroupReader readerForVersion(
 		StateTable<K, N, S> stateTable,
-		int version) {
+		int version,
+		boolean incremental) {
 		switch (version) {
 			case 1:
 				return new StateTableByKeyGroupReaderV1<>(stateTable);
@@ -60,6 +63,10 @@ class StateTableByKeyGroupReaders {
 			case 5:
 			case 6:
 				return createV2PlusReader(stateTable);
+			case 7:
+				return incremental ?
+					new StateSnapshotKeyGroupReaderV7<>((IncrementalCopyOnWriteStateTable<K, N, S>) stateTable) :
+					createV2PlusReader(stateTable);
 			default:
 				throw new IllegalArgumentException("Unknown version: " + version);
 		}

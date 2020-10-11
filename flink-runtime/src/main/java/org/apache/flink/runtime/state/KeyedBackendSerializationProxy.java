@@ -46,7 +46,7 @@ import static org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshotReade
  */
 public class KeyedBackendSerializationProxy<K> extends VersionedIOReadableWritable {
 
-	public static final int VERSION = 6;
+	public static final int VERSION = 7;
 
 	private static final Map<Integer, Integer> META_INFO_SNAPSHOT_FORMAT_VERSION_MAPPER = new HashMap<>();
 	static {
@@ -56,6 +56,7 @@ public class KeyedBackendSerializationProxy<K> extends VersionedIOReadableWritab
 		META_INFO_SNAPSHOT_FORMAT_VERSION_MAPPER.put(4, 4);
 		META_INFO_SNAPSHOT_FORMAT_VERSION_MAPPER.put(5, 5);
 		META_INFO_SNAPSHOT_FORMAT_VERSION_MAPPER.put(6, CURRENT_STATE_META_INFO_SNAPSHOT_VERSION);
+		META_INFO_SNAPSHOT_FORMAT_VERSION_MAPPER.put(7, CURRENT_STATE_META_INFO_SNAPSHOT_VERSION);
 	}
 
 	//TODO allow for more (user defined) compression formats + backwards compatibility story.
@@ -108,7 +109,7 @@ public class KeyedBackendSerializationProxy<K> extends VersionedIOReadableWritab
 
 	@Override
 	public int[] getCompatibleVersions() {
-		return new int[]{VERSION, 5, 4, 3, 2, 1};
+		return new int[]{VERSION, 6, 5, 4, 3, 2, 1};
 	}
 
 	@Override

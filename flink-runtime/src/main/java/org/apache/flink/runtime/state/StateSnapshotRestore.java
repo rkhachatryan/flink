@@ -43,5 +43,5 @@ public interface StateSnapshotRestore {
 	 * @return a reader that reads state by key-groups, for the given read version.
 	 */
 	@Nonnull
-	StateSnapshotKeyGroupReader keyGroupReader(int readVersionHint);
+	StateSnapshotKeyGroupReader keyGroupReader(int readVersionHint, boolean incremental);
 }

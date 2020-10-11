@@ -358,8 +358,8 @@ public abstract class StateTable<K, N, S>
 
 	@Nonnull
 	@Override
-	public StateSnapshotKeyGroupReader keyGroupReader(int readVersion) {
-		return StateTableByKeyGroupReaders.readerForVersion(this, readVersion);
+	public StateSnapshotKeyGroupReader keyGroupReader(int readVersion, boolean incremental) {
+		return StateTableByKeyGroupReaders.readerForVersion(this, readVersion, incremental);
 	}
 
 	public void confirmSnapshot(int keyGroup, int version) {

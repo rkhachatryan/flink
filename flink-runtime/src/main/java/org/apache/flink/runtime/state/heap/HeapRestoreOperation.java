@@ -292,7 +292,8 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 						stateMetaInfoSnapshot.getBackendStateType() + ".");
 			}
 
-			StateSnapshotKeyGroupReader keyGroupReader = registeredState.keyGroupReader(readVersion);
+			boolean incremental = readVersion >= 7 && inView.readBoolean();
+			StateSnapshotKeyGroupReader keyGroupReader = registeredState.keyGroupReader(readVersion, incremental);
 			keyGroupReader.readMappingsInKeyGroup(inView, keyGroupIndex);
 		}
 	}
