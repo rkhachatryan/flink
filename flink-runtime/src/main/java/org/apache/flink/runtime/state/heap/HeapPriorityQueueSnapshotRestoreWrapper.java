@@ -26,6 +26,7 @@ import org.apache.flink.runtime.state.RegisteredPriorityQueueStateBackendMetaInf
 import org.apache.flink.runtime.state.StateSnapshot;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
 import org.apache.flink.runtime.state.StateSnapshotRestore;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -78,7 +79,8 @@ public class HeapPriorityQueueSnapshotRestoreWrapper<T extends HeapPriorityQueue
 
 	@Nonnull
 	@Override
-	public StateSnapshotKeyGroupReader keyGroupReader(int readVersionHint) {
+	public StateSnapshotKeyGroupReader keyGroupReader(int readVersionHint, boolean incremental) {
+		Preconditions.checkArgument(!incremental);
 		final TypeSerializer<T> elementSerializer = metaInfo.getElementSerializer();
 		return KeyGroupPartitioner.createKeyGroupPartitionReader(
 			elementSerializer::deserialize, //we know that this does not deliver nulls, because we never write nulls

@@ -92,6 +92,7 @@ public class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<Snapsho
 				try (OutputStream kgCompressionOut = keyGroupCompressionDecorator.decorateWithCompression(localStream)) {
 					DataOutputViewStreamWrapper kgCompressionView = new DataOutputViewStreamWrapper(kgCompressionOut);
 					kgCompressionView.writeShort(stateNamesToId.get(stateSnapshot.getKey()));
+					kgCompressionView.writeBoolean(partitionedSnapshot.isIncremental());
 					writeSnapshot(keyGroupId, partitionedSnapshot, kgCompressionView, stateSnapshot.getKey());
 				} // this will just close the outer compression stream
 			}

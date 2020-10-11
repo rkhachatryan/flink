@@ -72,5 +72,9 @@ public interface StateSnapshot {
 		 * @throws IOException on write-related problems.
 		 */
 		void writeStateInKeyGroup(@Nonnull DataOutputView dov, @Nonnegative int keyGroupId) throws IOException;
+
+		default boolean isIncremental() {
+			return false;
+		}
 	}
 }
