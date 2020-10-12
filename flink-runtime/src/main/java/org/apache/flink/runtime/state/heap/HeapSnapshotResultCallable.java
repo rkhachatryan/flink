@@ -17,6 +17,7 @@
 
 package org.apache.flink.runtime.state.heap;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.state.AsyncSnapshotCallable;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
@@ -38,16 +39,20 @@ import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.state.CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult;
 
-class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
-	private final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
-	private final KeyedBackendSerializationProxy<K> serializationProxy;
-	private final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
+/**
+ * {@link AsyncSnapshotCallable} for heap backend.
+ */
+@Internal
+public class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
+	protected final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier;
+	protected final KeyedBackendSerializationProxy<K> serializationProxy;
+	protected final Map<StateUID, StateSnapshot> cowStateStableSnapshots;
 	private final Map<StateUID, Integer> stateNamesToId;
-	private final KeyGroupRange keyGroupRange;
+	protected final KeyGroupRange keyGroupRange;
 	private final StreamCompressionDecorator keyGroupCompressionDecorator;
 	private final Consumer<Long> logAsyncSnapshotComplete;
 
-	HeapSnapshotResultCallable(
+	protected HeapSnapshotResultCallable(
 			SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier,
 			KeyedBackendSerializationProxy<K> serializationProxy,
 			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
@@ -66,7 +71,6 @@ class HeapSnapshotResultCallable<K> extends AsyncSnapshotCallable<SnapshotResult
 
 	@Override
 	protected SnapshotResult<KeyedStateHandle> callInternal() throws Exception {
-
 		final CheckpointStreamWithResultProvider streamWithResultProvider = checkpointStreamSupplier.get();
 
 		snapshotCloseableRegistry.registerCloseable(streamWithResultProvider);

@@ -75,7 +75,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 	private final HeapSnapshotStrategy<K> snapshotStrategy;
 	private final InternalKeyContext<K> keyContext;
 
-	HeapRestoreOperation(
+	protected HeapRestoreOperation(
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
 		StateSerializerProvider<K> keySerializerProvider,
 		ClassLoader userCodeClassLoader,
