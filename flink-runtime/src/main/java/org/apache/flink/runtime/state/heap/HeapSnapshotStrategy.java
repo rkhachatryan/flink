@@ -118,14 +118,18 @@ public class HeapSnapshotStrategy<K>
 			cowStateStableSnapshots,
 			stateNamesToId,
 			registeredKVStates,
-			StateMetaInfoSnapshot.BackendStateType.KEY_VALUE);
+			StateMetaInfoSnapshot.BackendStateType.KEY_VALUE,
+			checkpointId,
+			checkpointOptions);
 
 		processSnapshotMetaInfoForAllStates(
 			metaInfoSnapshots,
 			cowStateStableSnapshots,
 			stateNamesToId,
 			registeredPQStates,
-			StateMetaInfoSnapshot.BackendStateType.PRIORITY_QUEUE);
+			StateMetaInfoSnapshot.BackendStateType.PRIORITY_QUEUE,
+			checkpointId,
+			checkpointOptions);
 
 		final KeyedBackendSerializationProxy<K> serializationProxy =
 			new KeyedBackendSerializationProxy<>(
@@ -150,16 +154,18 @@ public class HeapSnapshotStrategy<K>
 					primaryStreamFactory);
 
 		return finalizeSnapshotBeforeReturnHook(
-			getSnapshotCallable(primaryStreamFactory, stateNamesToId, cowStateStableSnapshots, serializationProxy, checkpointStreamSupplier)
+			getSnapshotCallable(checkpointId, primaryStreamFactory, stateNamesToId, cowStateStableSnapshots, serializationProxy, checkpointStreamSupplier, checkpointOptions)
 				.toAsyncSnapshotFutureTask(cancelStreamRegistry));
 	}
 
-	private AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> getSnapshotCallable(
+	protected AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> getSnapshotCallable(
+			long checkpointId,
 			CheckpointStreamFactory primaryStreamFactory,
 			Map<StateUID, Integer> stateNamesToId,
 			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
 			KeyedBackendSerializationProxy<K> serializationProxy,
-			SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier) {
+			SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier,
+			CheckpointOptions checkpointOptions) {
 		return new HeapSnapshotResultCallable<>(
 			checkpointStreamSupplier,
 			serializationProxy,
@@ -198,18 +204,24 @@ public class HeapSnapshotStrategy<K>
 			Map<StateUID, StateSnapshot> cowStateStableSnapshots,
 			Map<StateUID, Integer> stateNamesToId,
 			Map<String, ? extends StateSnapshotRestore> registeredStates,
-			StateMetaInfoSnapshot.BackendStateType stateType) {
+			StateMetaInfoSnapshot.BackendStateType stateType,
+			long checkpointId,
+			CheckpointOptions checkpointOptions) {
 
 		for (Map.Entry<String, ? extends StateSnapshotRestore> kvState : registeredStates.entrySet()) {
 			final StateUID stateUid = StateUID.of(kvState.getKey(), stateType);
 			stateNamesToId.put(stateUid, stateNamesToId.size());
 			StateSnapshotRestore state = kvState.getValue();
 			if (null != state) {
-				final StateSnapshot stateSnapshot = state.stateSnapshot();
+				final StateSnapshot stateSnapshot = getStateSnapshot(state, checkpointId, checkpointOptions);
 				metaInfoSnapshots.add(stateSnapshot.getMetaInfoSnapshot());
 				cowStateStableSnapshots.put(stateUid, stateSnapshot);
 			}
 		}
+	}
+
+	protected StateSnapshot getStateSnapshot(StateSnapshotRestore state, long checkpointId, CheckpointOptions checkpointOptions) {
+		return state.stateSnapshot();
 	}
 
 	private boolean hasRegisteredState() {
