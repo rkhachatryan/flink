@@ -51,35 +51,35 @@ public class StateMapEntry<K, N, S> implements StateEntry<K, N, S> {
 	 * The state. This is not final to allow exchanging the object for copy-on-write. Can be null.
 	 */
 	@Nullable
-	S state;
+	protected S state;
 
 	/**
 	 * Link to another {@link StateMapEntry}. This is used to resolve collisions in the
 	 * {@link CopyOnWriteStateMap} through chaining.
 	 */
 	@Nullable
-	StateMapEntry<K, N, S> next;
+	protected StateMapEntry<K, N, S> next;
 
 	/**
 	 * The version of this {@link StateMapEntry}. This is meta data for copy-on-write of the map structure.
 	 */
-	int entryVersion;
+	protected int entryVersion;
 
 	/**
 	 * The version of the state object in this entry. This is meta data for copy-on-write of the state object itself.
 	 */
-	int stateVersion;
+	protected int stateVersion;
 
 	/**
 	 * The computed secondary hash for the composite of key and namespace.
 	 */
-	final int hash;
+	protected final int hash;
 
-	StateMapEntry(StateMapEntry<K, N, S> other, int entryVersion) {
+	protected StateMapEntry(StateMapEntry<K, N, S> other, int entryVersion) {
 		this(other.key, other.namespace, other.state, other.hash, other.next, entryVersion, other.stateVersion);
 	}
 
-	StateMapEntry(
+	protected StateMapEntry(
 		@Nonnull K key,
 		@Nonnull N namespace,
 		@Nullable S state,

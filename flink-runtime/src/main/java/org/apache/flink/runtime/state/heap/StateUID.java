@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.heap;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 
 import javax.annotation.Nonnull;
@@ -26,7 +27,8 @@ import java.util.Objects;
 /**
  * Unique identifier for registered state in this backend.
  */
-final class StateUID {
+@Internal
+public final class StateUID {
 
 	@Nonnull
 	private final String stateName;

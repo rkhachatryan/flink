@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.heap;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -43,6 +44,7 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SupplierWithException;
 
 import javax.annotation.Nonnull;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,19 +58,20 @@ import java.util.concurrent.RunnableFuture;
  * Base class for the snapshots of the heap backend that outlines the algorithm and offers some hooks to realize
  * the concrete strategies. Subclasses must be threadsafe.
  */
-class HeapSnapshotStrategy<K>
+@Internal
+public class HeapSnapshotStrategy<K>
 	extends AbstractSnapshotStrategy<KeyedStateHandle> implements SnapshotStrategySynchronicityBehavior<K> {
 
-	private final SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait;
-	private final Map<String, StateTable<K, ?, ?>> registeredKVStates;
+	protected final SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait;
+	protected final Map<String, StateTable<K, ?, ?>> registeredKVStates;
 	private final Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates;
-	private final StreamCompressionDecorator keyGroupCompressionDecorator;
+	protected final StreamCompressionDecorator keyGroupCompressionDecorator;
 	private final LocalRecoveryConfig localRecoveryConfig;
-	private final KeyGroupRange keyGroupRange;
+	protected final KeyGroupRange keyGroupRange;
 	private final CloseableRegistry cancelStreamRegistry;
 	private final StateSerializerProvider<K> keySerializerProvider;
 
-	HeapSnapshotStrategy(
+	protected HeapSnapshotStrategy(
 			SnapshotStrategySynchronicityBehavior<K> snapshotStrategySynchronicityTrait,
 			Map<String, StateTable<K, ?, ?>> registeredKVStates,
 			Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,

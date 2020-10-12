@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.heap;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 
@@ -26,7 +27,8 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
  *
  * @param <K> The data type that the serializer serializes.
  */
-interface SnapshotStrategySynchronicityBehavior<K> {
+@Internal
+public interface SnapshotStrategySynchronicityBehavior<K> {
 
 	default void finalizeSnapshotBeforeReturnHook(Runnable runnable) {
 

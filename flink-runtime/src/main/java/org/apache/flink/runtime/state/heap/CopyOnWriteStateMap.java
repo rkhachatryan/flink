@@ -181,7 +181,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * The current version of this map. Used for copy-on-write mechanics.
 	 */
-	private int stateMapVersion;
+	protected int stateMapVersion;
 
 	/**
 	 * The highest version of this map that is still required by any unreleased snapshot.
@@ -212,7 +212,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	 *
 	 * @param stateSerializer the serializer of the key.
 	 */
-	CopyOnWriteStateMap(TypeSerializer<S> stateSerializer) {
+	protected CopyOnWriteStateMap(TypeSerializer<S> stateSerializer) {
 		this(DEFAULT_CAPACITY, stateSerializer);
 	}
 
@@ -388,7 +388,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * Helper method that is the basis for operations that add mappings.
 	 */
-	private StateMapEntry<K, N, S> putEntry(K key, N namespace) {
+	protected StateMapEntry<K, N, S> putEntry(K key, N namespace) {
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
@@ -417,7 +417,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 	/**
 	 * Helper method that is the basis for operations that remove mappings.
 	 */
-	private S removeEntry(K key, N namespace) {
+	protected S removeEntry(K key, N namespace) {
 
 		final int hash = computeHashForOperationAndDoIncrementalRehash(key, namespace);
 		final StateMapEntry<K, N, S>[] tab = selectActiveTable(hash);
