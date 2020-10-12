@@ -574,9 +574,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
         }
 
         int index = hash & (table.length - 1);
-        StateMapEntry<K, N, S> newEntry =
-                new StateMapEntry<>(
-                        key, namespace, null, hash, table[index], stateMapVersion, stateMapVersion);
+        StateMapEntry<K, N, S> newEntry = createEntry(namespace, key, hash, table[index]);
         table[index] = newEntry;
 
         if (table == primaryTable) {
@@ -587,6 +585,15 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
         return newEntry;
     }
 
+    protected StateMapEntry<K, N, S> createEntry(
+            N namespace, K key, int hash, StateMapEntry<K, N, S> next) {
+        return new StateMapEntry<>(
+                key, namespace, null, hash, next, stateMapVersion, stateMapVersion);
+    }
+
+    protected StateMapEntry<K, N, S> copyEntry(StateMapEntry<K, N, S> e) {
+        return new StateMapEntry<>(e, stateMapVersion);
+    }
     /**
      * Select the sub-table which is responsible for entries with the given hash code.
      *
@@ -594,6 +601,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
      * @return the index of the sub-table that is responsible for the entry with the given hash
      *     code.
      */
+
     private StateMapEntry<K, N, S>[] selectActiveTable(int hashCode) {
         return (hashCode & (primaryTable.length - 1)) >= rehashIndex
                 ? primaryTable
@@ -663,7 +671,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
             while (e != null) {
                 // copy-on-write check for entry
                 if (e.entryVersion < requiredVersion) {
-                    e = new StateMapEntry<>(e, stateMapVersion);
+                    e = copyEntry(e);
                 }
                 StateMapEntry<K, N, S> n = e.next;
                 int pos = e.hash & newMask;
@@ -704,7 +712,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
         StateMapEntry<K, N, S> copy;
 
         if (current.entryVersion < required) {
-            copy = new StateMapEntry<>(current, stateMapVersion);
+            copy = copyEntry(current);
             tab[mapIdx] = copy;
         } else {
             // nothing to do, just advance copy to current
@@ -719,7 +727,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 
             if (current.entryVersion < required) {
                 // copy and advance the current's copy
-                copy.next = new StateMapEntry<>(current, stateMapVersion);
+                copy.next = copyEntry(current);
                 copy = copy.next;
             } else {
                 // nothing to do, just advance copy to current
