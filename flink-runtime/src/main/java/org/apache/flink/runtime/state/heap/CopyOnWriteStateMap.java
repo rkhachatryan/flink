@@ -292,6 +292,8 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 						e = handleChainedEntryCopyOnWrite(tab, hash & (tab.length - 1), e);
 					}
 					setStateBeforeRead(e);
+				} else if (e.stateVersion < stateMapVersion) {
+					beforeFirstReadAfterSnapshot(e);
 				}
 
 				return e.state;
@@ -414,6 +416,12 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 		return addNewStateMapEntry(tab, key, namespace, hash);
 	}
 
+	// this can be overriden for example in incremental version to
+	protected void beforeFirstReadAfterSnapshot(StateMapEntry<K, N, S> e) {
+		// on write stateVersion is updated in setStateOnWrite
+		e.stateVersion = stateMapVersion;
+	}
+
 	/**
 	 * Helper method that is the basis for operations that remove mappings.
 	 */
@@ -432,6 +440,7 @@ public class CopyOnWriteStateMap<K, N, S> extends StateMap<K, N, S> {
 					if (prev.entryVersion < highestRequiredSnapshotVersion) {
 						prev = handleChainedEntryCopyOnWrite(tab, index, prev);
 					}
+					prev.entryVersion = stateMapVersion;
 					prev.next = e.next;
 				}
 				++modCount;
