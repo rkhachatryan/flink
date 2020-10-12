@@ -362,6 +362,9 @@ public abstract class StateTable<K, N, S>
 		return StateTableByKeyGroupReaders.readerForVersion(this, readVersion);
 	}
 
+	public void confirmSnapshot(int keyGroup, int version) {
+	}
+
 	// StateEntryIterator  ---------------------------------------------------------------------------------------------
 
 	class StateEntryIterator implements StateIncrementalVisitor<K, N, S> {
