@@ -17,6 +17,8 @@
 
 package org.apache.flink.dstl;
 
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.dstl.fs.FsLogClient;
 import org.apache.flink.dstl.inmemory.InMemoryLogClient;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -28,6 +30,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -139,6 +142,14 @@ public class LogClientTest {
 			@Override
 			public LogClient create(LogClientTest logClientTest) {
 				return new InMemoryLogClient();
+			}
+		},
+		FILE {
+			@Override
+			public LogClient create(LogClientTest logClientTest) throws IOException {
+				File folder = logClientTest.temporaryFolder.newFolder();
+				folder.deleteOnExit();
+				return new FsLogClient(Path.fromLocalFile(folder), 100, 1, 100);
 			}
 		};
 
