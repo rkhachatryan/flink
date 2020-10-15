@@ -19,6 +19,7 @@ package org.apache.flink.dstl;
 
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.dstl.fs.FsLogClient;
+import org.apache.flink.dstl.fs.RetryPolicy;
 import org.apache.flink.dstl.inmemory.InMemoryLogClient;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -149,7 +150,7 @@ public class LogClientTest {
 			public LogClient create(LogClientTest logClientTest) throws IOException {
 				File folder = logClientTest.temporaryFolder.newFolder();
 				folder.deleteOnExit();
-				return new FsLogClient(Path.fromLocalFile(folder), 100, 1, 100);
+				return new FsLogClient(Path.fromLocalFile(folder), 100, 100, 10, RetryPolicy.NONE);
 			}
 		};
 

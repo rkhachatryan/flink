@@ -38,23 +38,13 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.flink.core.fs.FileSystem.WriteMode.NO_OVERWRITE;
 
 class FsLogPersister {
 	private static final Logger LOG = LoggerFactory.getLogger(FsLogPersister.class);
-	private static final ThreadFactory THREAD_FACTORY = new ThreadFactory() {
-		private final AtomicInteger threadCounter = new AtomicInteger();
-
-		@Override
-		public Thread newThread(Runnable runnable) {
-			return new Thread(runnable, String.format("FsLogPersister-%d", threadCounter.incrementAndGet()));
-		}
-	};
 
 	private final ScheduledExecutorService executorService;
 	private final LogPathSerializer pathSerializer;
@@ -63,17 +53,25 @@ class FsLogPersister {
 	private final BlockingQueue<LogWriteRequest> requests;
 	private final AtomicBoolean queueDrainPending;
 	private final Path basePath;
+	private final RetryPolicy retryPolicy;
 	private volatile Throwable failure;
+	private final RetryingExecutor retryingExecutor;
 
-	// todo low: consider removing requestQueueCapacity argument
-	FsLogPersister(Path basePath, int threadPoolSize, long persistDelayMs, int requestQueueCapacity) throws IOException {
+	FsLogPersister(
+			Path basePath,
+			long persistDelayMs,
+			int requestQueueCapacity,
+			int threadPoolCoreSize,
+			RetryPolicy retryPolicy) throws IOException {
 		this.basePath = basePath;
 		this.fileSystem = basePath.getFileSystem();
 		this.scheduleDelayMs = persistDelayMs;
 		this.requests = new ArrayBlockingQueue<>(requestQueueCapacity, true); // todo low: use non-fair queue?
-		this.executorService = Executors.newScheduledThreadPool(threadPoolSize, THREAD_FACTORY); // todo medium: setup error handler?
+		this.executorService = Executors.newScheduledThreadPool(1); // todo medium: setup error handler?
 		this.queueDrainPending = new AtomicBoolean(false);
 		this.pathSerializer = new LogPathSerializer();
+		this.retryPolicy = retryPolicy;
+		this.retryingExecutor = new RetryingExecutor(threadPoolCoreSize); // todo low: use single executor?
 	}
 
 	CompletableFuture<LogPointer> persist(UuidLogId logId, List<Tuple2<SequenceNumber, List<LogFragment>>> data) {
@@ -132,12 +130,29 @@ class FsLogPersister {
 	private void executeBatch(List<LogWriteRequest> batch) throws Exception {
 		final String fileName = generateFileName();
 		LOG.debug("write {} requests to file: {}", batch.size(), fileName);
-		try (FSDataOutputStream os = fileSystem.create(new Path(basePath, fileName), NO_OVERWRITE)) { // todo low: inject entropy?
-			write(batch, os);
-		}
+		retryingExecutor.execute(() -> upload(batch, fileName), retryPolicy);
 		final byte[] passThroughData = pathSerializer.buildPassThroughData(fileName);
 		for (LogWriteRequest request : batch) {
 			request.completeWith(passThroughData);
+		}
+	}
+
+	private void upload(List<LogWriteRequest> requests, String fileName) throws IOException {
+		Path path = new Path(basePath, fileName);
+		try {
+			try (FSDataOutputStream os = fileSystem.create(path, NO_OVERWRITE)) { // todo low: inject entropy?
+				write(requests, os);
+			}
+		} catch (IOException e) {
+			if (fileSystem.exists(path) && retryPolicy.maxAttempts() > 1) {
+				if (fileSystem.isDistributedFS()) {
+					LOG.warn("exception caught while writing the log. Assuming success because path exists and using distributed FS.", e);
+				} else {
+					throw new IOException("exception caught while writing the log. Path exists on a local FS - consider not using retries & timeouts.", e);
+				}
+			} else {
+				throw e;
+			}
 		}
 	}
 

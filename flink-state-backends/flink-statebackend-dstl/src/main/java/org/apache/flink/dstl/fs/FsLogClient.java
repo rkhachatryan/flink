@@ -40,8 +40,13 @@ public class FsLogClient implements LogClient {
 	private final Path basePath;
 	private final FileSystem fileSystem;
 
-	public FsLogClient(Path basePath, long persistDelayMs, int threadPoolSize, int requestQueueCapacity) throws IOException {
-		this.persister = new FsLogPersister(basePath, threadPoolSize, persistDelayMs, requestQueueCapacity);
+	public FsLogClient(
+			Path basePath,
+			long persistDelayMs,
+			int requestQueueCapacity,
+			int threadPoolCoreSize,
+			RetryPolicy retryPolicy) throws IOException {
+		this.persister = new FsLogPersister(basePath, persistDelayMs, requestQueueCapacity, threadPoolCoreSize, retryPolicy);
 		this.basePath = basePath;
 		this.fileSystem = basePath.getFileSystem();
 	}
