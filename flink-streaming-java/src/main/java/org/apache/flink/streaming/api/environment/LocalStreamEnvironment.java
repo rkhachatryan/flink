@@ -54,11 +54,11 @@ public class LocalStreamEnvironment extends StreamExecutionEnvironment {
 	}
 
 	private static Configuration validateAndGetConfiguration(final Configuration configuration) {
-		if (!ExecutionEnvironment.areExplicitEnvironmentsAllowed()) {
-			throw new InvalidProgramException(
-					"The LocalStreamEnvironment cannot be used when submitting a program through a client, " +
-							"or running in a TestEnvironment context.");
-		}
+//		if (!ExecutionEnvironment.areExplicitEnvironmentsAllowed()) {
+//			throw new InvalidProgramException(
+//					"The LocalStreamEnvironment cannot be used when submitting a program through a client, " +
+//							"or running in a TestEnvironment context.");
+//		}
 		final Configuration effectiveConfiguration = new Configuration(checkNotNull(configuration));
 		effectiveConfiguration.set(DeploymentOptions.TARGET, "local");
 		effectiveConfiguration.set(DeploymentOptions.ATTACHED, true);

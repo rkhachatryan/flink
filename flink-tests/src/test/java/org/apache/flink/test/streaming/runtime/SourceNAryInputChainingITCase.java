@@ -21,13 +21,16 @@ package org.apache.flink.test.streaming.runtime;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
 import org.apache.flink.streaming.api.datastream.MultipleConnectedStreams;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
+import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator;
 import org.apache.flink.streaming.api.operators.AbstractInput;
@@ -93,11 +96,67 @@ public class SourceNAryInputChainingITCase extends TestLogger {
 	}
 
 	@Test
-	public void testMixedInputsChainCreation() throws Exception {
-		final DataStream<Long> stream = createProgramWithMixedInputs();
-		final JobGraph jobGraph = sinkAndCompileJobGraph(stream);
+	public void testUi() throws Exception {
+		Configuration conf = new Configuration();
+		StreamExecutionEnvironment executionEnvironment = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
 
-		assertEquals(3, jobGraph.getNumberOfVertices());
+		executionEnvironment.setParallelism(PARALLELISM);
+		executionEnvironment.getConfig().enableObjectReuse();
+
+		final DataStream<Long> source1 = executionEnvironment.fromSource(
+			new NumberSequenceSource(1L, 10L),
+			WatermarkStrategy.noWatermarks(),
+			"source-1");
+
+		final DataStream<Long> source2 = executionEnvironment.fromSource(
+			new NumberSequenceSource(11L, 20L),
+			WatermarkStrategy.noWatermarks(),
+			"source-2");
+
+		final DataStream<Long> source3 = executionEnvironment.fromSource(
+			new NumberSequenceSource(21L, 30L),
+			WatermarkStrategy.noWatermarks(),
+			"source-3");
+
+		final DataStream<Long> stream = nAryInputStreamOperation(source1, source2, source3);
+
+		DataStreamSink<Long> g = stream.map(x -> {
+			Thread.sleep(1000);
+			return x;
+		}).addSink(new PrintSinkFunction<>());
+		executionEnvironment.execute();
+	}
+
+	@Test
+	public void testMixedInputsChainCreation() throws Exception {
+		Configuration conf = new Configuration();
+		StreamExecutionEnvironment executionEnvironment = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+
+		executionEnvironment.setParallelism(PARALLELISM);
+		executionEnvironment.getConfig().enableObjectReuse();
+
+		final DataStream<Long> source1 = executionEnvironment.fromSource(
+			new NumberSequenceSource(1L, 10L),
+			WatermarkStrategy.noWatermarks(),
+			"source-1");
+
+		final DataStream<Long> source2 = executionEnvironment.fromSource(
+			new NumberSequenceSource(11L, 20L),
+			WatermarkStrategy.noWatermarks(),
+			"source-2");
+
+		final DataStream<Long> source3 = executionEnvironment.fromSource(
+			new NumberSequenceSource(21L, 30L),
+			WatermarkStrategy.noWatermarks(),
+			"source-3");
+
+		final DataStream<Long> stream = nAryInputStreamOperation(source1, source2, source3);
+
+		DataStreamSink<Long> g = stream.map(x -> {
+			Thread.sleep(1000);
+			return x;
+		}).addSink(new PrintSinkFunction<>());
+		executionEnvironment.execute();
 	}
 
 	@Test
