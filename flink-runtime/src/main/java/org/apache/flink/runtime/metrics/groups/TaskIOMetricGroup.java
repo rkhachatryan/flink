@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.metrics.groups;
 
-import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.SimpleCounter;
@@ -34,11 +34,11 @@ import java.util.List;
  */
 public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 
-	private final Counter numBytesIn;
-	private final Counter numBytesOut;
+	private final SimpleCounter numBytesIn;
+	private final SimpleCounter numBytesOut;
 	private final SumCounter numRecordsIn;
 	private final SumCounter numRecordsOut;
-	private final Counter numBuffersOut;
+	private final SimpleCounter numBuffersOut;
 
 	private final Meter numBytesInRate;
 	private final Meter numBytesOutRate;
@@ -50,8 +50,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 	public TaskIOMetricGroup(TaskMetricGroup parent) {
 		super(parent);
 
-		this.numBytesIn = counter(MetricNames.IO_NUM_BYTES_IN);
-		this.numBytesOut = counter(MetricNames.IO_NUM_BYTES_OUT);
+		this.numBytesIn = (SimpleCounter) counter(MetricNames.IO_NUM_BYTES_IN);
+		this.numBytesOut = (SimpleCounter) counter(MetricNames.IO_NUM_BYTES_OUT);
 		this.numBytesInRate = meter(MetricNames.IO_NUM_BYTES_IN_RATE, new MeterView(numBytesIn));
 		this.numBytesOutRate = meter(MetricNames.IO_NUM_BYTES_OUT_RATE, new MeterView(numBytesOut));
 
@@ -60,7 +60,7 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 		this.numRecordsInRate = meter(MetricNames.IO_NUM_RECORDS_IN_RATE, new MeterView(numRecordsIn));
 		this.numRecordsOutRate = meter(MetricNames.IO_NUM_RECORDS_OUT_RATE, new MeterView(numRecordsOut));
 
-		this.numBuffersOut = counter(MetricNames.IO_NUM_BUFFERS_OUT);
+		this.numBuffersOut = (SimpleCounter) counter(MetricNames.IO_NUM_BUFFERS_OUT);
 		this.numBuffersOutRate = meter(MetricNames.IO_NUM_BUFFERS_OUT_RATE, new MeterView(numBuffersOut));
 
 		this.idleTimePerSecond = meter(MetricNames.TASK_IDLE_TIME, new MeterView(new SimpleCounter()));
@@ -74,23 +74,23 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 	// Getters
 	// ============================================================================================
 
-	public Counter getNumBytesInCounter() {
+	public SimpleCounter getNumBytesInCounter() {
 		return numBytesIn;
 	}
 
-	public Counter getNumBytesOutCounter() {
+	public SimpleCounter getNumBytesOutCounter() {
 		return numBytesOut;
 	}
 
-	public Counter getNumRecordsInCounter() {
+	public SimpleCounter getNumRecordsInCounter() {
 		return numRecordsIn;
 	}
 
-	public Counter getNumRecordsOutCounter() {
+	public SimpleCounter getNumRecordsOutCounter() {
 		return numRecordsOut;
 	}
 
-	public Counter getNumBuffersOutCounter() {
+	public SimpleCounter getNumBuffersOutCounter() {
 		return numBuffersOut;
 	}
 
@@ -101,32 +101,32 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 	// ============================================================================================
 	// Metric Reuse
 	// ============================================================================================
-	public void reuseRecordsInputCounter(Counter numRecordsInCounter) {
+	public void reuseRecordsInputCounter(SimpleCounter numRecordsInCounter) {
 		this.numRecordsIn.addCounter(numRecordsInCounter);
 	}
 
-	public void reuseRecordsOutputCounter(Counter numRecordsOutCounter) {
+	public void reuseRecordsOutputCounter(SimpleCounter numRecordsOutCounter) {
 		this.numRecordsOut.addCounter(numRecordsOutCounter);
 	}
 
 	/**
-	 * A {@link SimpleCounter} that can contain other {@link Counter}s. A call to {@link SumCounter#getCount()} returns
+	 * A {@link SimpleCounter} that can contain other {@link SimpleCounter}s. A call to {@link SumCounter#getCount()} returns
 	 * the sum of this counters and all contained counters.
 	 */
 	private static class SumCounter extends SimpleCounter {
-		private final List<Counter> internalCounters = new ArrayList<>();
+		private final List<SimpleCounter> internalCounters = new ArrayList<>();
 
 		SumCounter() {
 		}
 
-		public void addCounter(Counter toAdd) {
+		public void addCounter(SimpleCounter toAdd) {
 			internalCounters.add(toAdd);
 		}
 
 		@Override
 		public long getCount() {
 			long sum = super.getCount();
-			for (Counter counter : internalCounters) {
+			for (SimpleCounter counter : internalCounters) {
 				sum += counter.getCount();
 			}
 			return sum;

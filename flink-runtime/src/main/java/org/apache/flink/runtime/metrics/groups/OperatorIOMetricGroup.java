@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.metrics.groups;
 
-import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.runtime.metrics.MetricNames;
@@ -29,8 +29,8 @@ import org.apache.flink.runtime.metrics.MetricNames;
  */
 public class OperatorIOMetricGroup extends ProxyMetricGroup<OperatorMetricGroup> {
 
-	private final Counter numRecordsIn;
-	private final Counter numRecordsOut;
+	private final SimpleCounter numRecordsIn;
+	private final SimpleCounter numRecordsOut;
 
 	private final Meter numRecordsInRate;
 	private final Meter numRecordsOutRate;
@@ -43,11 +43,11 @@ public class OperatorIOMetricGroup extends ProxyMetricGroup<OperatorMetricGroup>
 		numRecordsOutRate = parentMetricGroup.meter(MetricNames.IO_NUM_RECORDS_OUT_RATE, new MeterView(numRecordsOut));
 	}
 
-	public Counter getNumRecordsInCounter() {
+	public SimpleCounter getNumRecordsInCounter() {
 		return numRecordsIn;
 	}
 
-	public Counter getNumRecordsOutCounter() {
+	public SimpleCounter getNumRecordsOutCounter() {
 		return numRecordsOut;
 	}
 

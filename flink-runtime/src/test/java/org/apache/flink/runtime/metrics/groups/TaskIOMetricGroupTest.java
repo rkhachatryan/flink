@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.metrics.groups;
 
-import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.executiongraph.IOMetrics;
 
@@ -40,9 +39,9 @@ public class TaskIOMetricGroupTest {
 		assertNotNull(taskIO.getNumRecordsInCounter());
 		assertNotNull(taskIO.getNumRecordsOutCounter());
 
-		Counter c1 = new SimpleCounter();
+		SimpleCounter c1 = new SimpleCounter();
 		c1.inc(32L);
-		Counter c2 = new SimpleCounter();
+		SimpleCounter c2 = new SimpleCounter();
 		c2.inc(64L);
 
 		taskIO.reuseRecordsInputCounter(c1);

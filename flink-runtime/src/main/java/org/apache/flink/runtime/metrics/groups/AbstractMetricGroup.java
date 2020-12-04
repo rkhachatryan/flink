@@ -343,12 +343,12 @@ public abstract class AbstractMetricGroup<A extends AbstractMetricGroup<?>> impl
 	// -----------------------------------------------------------------------------------------------------------------
 
 	@Override
-	public Counter counter(int name) {
+	public SimpleCounter counter(int name) {
 		return counter(String.valueOf(name));
 	}
 
 	@Override
-	public Counter counter(String name) {
+	public SimpleCounter counter(String name) {
 		return counter(name, new SimpleCounter());
 	}
 

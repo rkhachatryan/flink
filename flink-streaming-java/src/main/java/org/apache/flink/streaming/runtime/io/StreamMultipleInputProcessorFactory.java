@@ -84,7 +84,7 @@ public class StreamMultipleInputProcessorFactory {
 		int inputsCount = operatorInputs.size();
 
 		StreamOneInputProcessor<?>[] inputProcessors = new StreamOneInputProcessor[inputsCount];
-		Counter networkRecordsIn = new SimpleCounter();
+		SimpleCounter networkRecordsIn = new SimpleCounter();
 		ioMetricGroup.reuseRecordsInputCounter(networkRecordsIn);
 
 		MultiStreamStreamStatusTracker streamStatusTracker = new MultiStreamStreamStatusTracker(inputsCount);

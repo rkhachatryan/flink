@@ -24,6 +24,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.memory.MemoryManager;
@@ -65,7 +66,7 @@ public class StreamTwoInputProcessorFactory {
 			Configuration jobConfig,
 			ExecutionConfig executionConfig,
 			ClassLoader userClassloader,
-			Counter numRecordsIn) {
+			SimpleCounter numRecordsIn) {
 
 		checkNotNull(endOfInputAware);
 

@@ -469,7 +469,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		);
 	}
 
-	protected Counter setupNumRecordsInCounter(StreamOperator streamOperator) {
+	protected SimpleCounter setupNumRecordsInCounter(StreamOperator streamOperator) {
 		try {
 			return ((OperatorMetricGroup) streamOperator.getMetricGroup()).getIOMetricGroup().getNumRecordsInCounter();
 		} catch (Exception e) {
