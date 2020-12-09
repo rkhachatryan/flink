@@ -129,10 +129,10 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 		final int numberOfInitialCheckpoints = initialCheckpoints.size();
 
 		LOG.info("Found {} checkpoints in {}.", numberOfInitialCheckpoints, checkpointStateHandleStore);
-		if (haveAllDownloaded(initialCheckpoints)) {
-			LOG.info("All {} checkpoints found are already downloaded.", numberOfInitialCheckpoints);
-			return;
-		}
+//		if (haveAllDownloaded(initialCheckpoints)) {
+//			LOG.info("All {} checkpoints found are already downloaded.", numberOfInitialCheckpoints);
+//			return;
+//		}
 
 		// Try and read the state handles from storage. We try until we either successfully read
 		// all of them or when we reach a stable state, i.e. when we successfully read the same set
@@ -287,6 +287,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 			List<Tuple2<RetrievableStateHandle<CompletedCheckpoint>,
 			String>> checkpointPointers) {
 		if (completedCheckpoints.size() != checkpointPointers.size()) {
+			LOG.warn("haveAllDownloaded NOT: {} != {}", completedCheckpoints.size(), checkpointPointers.size());
 			return false;
 		}
 		Set<Long> localIds = completedCheckpoints.stream()
@@ -294,6 +295,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 			.collect(Collectors.toSet());
 		for (Tuple2<RetrievableStateHandle<CompletedCheckpoint>, String> initialCheckpoint : checkpointPointers) {
 			if (!localIds.contains(completedCheckpointStoreUtil.nameToCheckpointID(initialCheckpoint.f1))) {
+//				LOG.warn("haveAllDownloaded NOT: {} != {}", completedCheckpoints.size(), checkpointPointers.size());
 				return false;
 			}
 		}
@@ -317,6 +319,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 
 		LOG.info("Trying to retrieve checkpoint {}.", checkpointId);
 
+		if (true) throw new RuntimeException("test check");
 		try {
 			return stateHandle.f0.retrieveState();
 		} catch (ClassNotFoundException cnfe) {
