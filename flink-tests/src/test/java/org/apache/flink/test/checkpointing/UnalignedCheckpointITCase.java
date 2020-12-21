@@ -38,7 +38,6 @@ import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction;
 import org.apache.flink.util.Collector;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -155,7 +154,6 @@ public class UnalignedCheckpointITCase extends UnalignedCheckpointTestBase {
 	}
 
 	@Test
-	@Ignore
 	public void execute() throws Exception {
 		execute(settings);
 	}
