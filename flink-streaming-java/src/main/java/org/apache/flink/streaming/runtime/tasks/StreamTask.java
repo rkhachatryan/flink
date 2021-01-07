@@ -91,6 +91,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -544,16 +545,31 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                                             "Unable to read channel state", e);
                                 }
                             });
+                    CompletableFuture.allOf(
+                                    Arrays.stream(getEnvironment().getAllInputGates())
+                                            .map(InputGate::getStateConsumedFuture)
+                                            .toArray(CompletableFuture[]::new))
+                            .thenRun(
+                                    () -> {
+                                        for (InputGate inputGate :
+                                                getEnvironment().getAllInputGates()) {
+                                            mainMailboxExecutor.execute(
+                                                    inputGate::requestPartitions, "rp");
+                                        }
+                                    });
 
-                    for (InputGate inputGate : getEnvironment().getAllInputGates()) {
-                        inputGate
-                                .getStateConsumedFuture()
-                                .thenRun(
-                                        () ->
-                                                mainMailboxExecutor.execute(
-                                                        inputGate::requestPartitions,
-                                                        "Input gate request partitions"));
-                    }
+                    //                    for (InputGate inputGate :
+                    // getEnvironment().getAllInputGates()) {
+                    //                        inputGate
+                    //                                .getStateConsumedFuture()
+                    //                                .thenRun(
+                    //                                        () ->
+                    //                                                mainMailboxExecutor.execute(
+                    //
+                    // inputGate::requestPartitions,
+                    //                                                        "Input gate request
+                    // partitions"));
+                    //                    }
                 });
 
         isRunning = true;
