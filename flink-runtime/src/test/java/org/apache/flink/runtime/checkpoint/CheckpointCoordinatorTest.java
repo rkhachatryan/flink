@@ -60,10 +60,10 @@ import org.apache.flink.runtime.state.memory.NonPersistentMetadataCheckpointStor
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
+import org.apache.flink.util.function.TriFunctionWithException;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterables;
 
-import org.apache.flink.util.function.TriFunctionWithException;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -123,6 +123,18 @@ import static org.mockito.Mockito.when;
 
 /** Tests for the checkpoint coordinator. */
 public class CheckpointCoordinatorTest extends TestLogger {
+
+    @Test
+    public void testAbortedCheckpointStatsUpdatedAfterFailure() throws Exception {
+        JobID jobID = new JobID();
+        testReportStatsAfterFailure(
+                jobID,
+                1L,
+                (coordinator, attemptID, metrics) -> {
+                    coordinator.reportStats(1L, attemptID, metrics);
+                    return null;
+                });
+    }
 
     @Test
     public void testCheckpointStatsUpdatedAfterFailure() throws Exception {
