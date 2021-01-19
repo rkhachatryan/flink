@@ -33,21 +33,26 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+/**
+ * A {@link RunnableWithException} executor that schedules a next attempt upon timeout based on
+ * {@link RetryPolicy}. Aimed to curb tail latencies
+ */
 class RetryingExecutor {
     private static final Logger LOG = LoggerFactory.getLogger(RetryingExecutor.class);
 
     private final ScheduledExecutorService executorService;
 
     RetryingExecutor(int threadPoolCoreSize) {
+        // todo: shutdown executor
         executorService = Executors.newScheduledThreadPool(threadPoolCoreSize);
     }
 
-    void execute(RunnableWithException action, RetryPolicy retryPolicy) throws Exception {
+    void execute(RetryPolicy retryPolicy, RunnableWithException action) throws Exception {
         LOG.debug("execute with retryPolicy: {}", retryPolicy);
-        Attempt initial = new Attempt(action, retryPolicy, executorService);
-        executorService.submit(initial);
+        RetriableTask task = new RetriableTask(action, retryPolicy, executorService);
+        executorService.submit(task);
         try {
-            initial.awaitCompletion();
+            task.awaitCompletion();
         } catch (ExecutionException e) {
             if (e.getCause() instanceof Exception) {
                 throw (Exception) e.getCause();
@@ -57,7 +62,7 @@ class RetryingExecutor {
         }
     }
 
-    private static final class Attempt implements Runnable {
+    private static final class RetriableTask implements Runnable {
         private final RunnableWithException runnable;
         private final ScheduledExecutorService executorService;
         private final CompletableFuture<Void> resultFuture;
@@ -65,14 +70,14 @@ class RetryingExecutor {
         private final RetryPolicy retryPolicy;
         private final AtomicBoolean attemptCompleted = new AtomicBoolean(false);
 
-        Attempt(
+        RetriableTask(
                 RunnableWithException runnable,
                 RetryPolicy retryPolicy,
                 ScheduledExecutorService executorService) {
             this(1, new CompletableFuture<>(), runnable, retryPolicy, executorService);
         }
 
-        private Attempt(
+        private RetriableTask(
                 int current,
                 CompletableFuture<Void> resultFuture,
                 RunnableWithException runnable,
@@ -92,7 +97,7 @@ class RetryingExecutor {
                 try {
                     runnable.run();
                     attemptCompleted.set(true);
-                    resultFuture.complete(null); // todo medium: executor for callbacks?
+                    resultFuture.complete(null); // todo: specify executor for callbacks?
                 } catch (Exception e) {
                     handleError(e);
                 } finally {
@@ -118,8 +123,9 @@ class RetryingExecutor {
             }
         }
 
-        private Attempt next() {
-            return new Attempt(current + 1, resultFuture, runnable, retryPolicy, executorService);
+        private RetriableTask next() {
+            return new RetriableTask(
+                    current + 1, resultFuture, runnable, retryPolicy, executorService);
         }
 
         void awaitCompletion() throws ExecutionException, InterruptedException {
@@ -132,14 +138,12 @@ class RetryingExecutor {
                     ? Optional.empty()
                     : Optional.of(
                             executorService.schedule(
-                                    () ->
-                                            handleError(
-                                                    new TimeoutException(
-                                                            String.format(
-                                                                    "Attempt %d timed out after %dms",
-                                                                    current, timeout))),
-                                    timeout,
-                                    MILLISECONDS));
+                                    () -> handleError(fmtError(timeout)), timeout, MILLISECONDS));
+        }
+
+        private TimeoutException fmtError(long timeout) {
+            return new TimeoutException(
+                    String.format("Attempt %d timed out after %dms", current, timeout));
         }
     }
 }

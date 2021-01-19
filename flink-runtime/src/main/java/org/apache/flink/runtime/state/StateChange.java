@@ -15,17 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.flink.changelog;
+package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
 
-/** Log client that allows to delete its fragments. */
+/** Change of state of a keyed operator. Used for generic incremental checkpoints. */
 @Internal
-public interface LogDeleteClient {
+public class StateChange {
 
-    /**
-     * @param after inclusive
-     * @param until exclusive
-     */
-    void delete(LogPointer logPointer, SequenceNumber after, SequenceNumber until);
+    private final int keyGroup;
+    private final byte[] change;
+
+    public StateChange(int keyGroup, byte[] change) {
+        Preconditions.checkArgument(keyGroup >= 0);
+        this.keyGroup = keyGroup;
+        this.change = Preconditions.checkNotNull(change);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("keyGroup=%d, dataSize=%d", keyGroup, change.length);
+    }
+
+    public int getKeyGroup() {
+        return keyGroup;
+    }
+
+    public byte[] getChange() {
+        return change;
+    }
 }

@@ -22,7 +22,7 @@ import org.apache.flink.annotation.Internal;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
-/** Retry policy to use by the state changelog. Aimed to curb tail latencies. */
+/** Retry policy to use by {@link RetryingExecutor}. */
 @Internal
 public interface RetryPolicy {
     /** @return timeout in millis. Zero or negative means no timeout. */
@@ -51,6 +51,10 @@ public interface RetryPolicy {
                 @Override
                 public int maxAttempts() {
                     return 1;
+                }
+
+                public String toString() {
+                    return "none";
                 }
             };
 
@@ -83,7 +87,7 @@ public interface RetryPolicy {
             } else if (exception instanceof TimeoutException) {
                 return 0L;
             } else if (exception instanceof IOException) {
-                return delayAfterFailure; // todo medium: handle request throttling
+                return delayAfterFailure; // todo: handle request throttling
             } else {
                 return -1L;
             }

@@ -17,14 +17,8 @@
 
 package org.apache.flink.changelog.inmemory;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.changelog.LogId;
-import org.apache.flink.changelog.LogPointer;
-import org.apache.flink.changelog.LogRecord;
-import org.apache.flink.changelog.LogWriter;
 import org.apache.flink.changelog.SequenceNumber;
-import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.util.CloseableIterator;
+import org.apache.flink.changelog.StateChangelogWriter;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -33,44 +27,32 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toMap;
+
 @NotThreadSafe
-class InMemoryStateChangelogWriter implements LogWriter {
+class InMemoryStateChangelogWriter implements StateChangelogWriter<InMemoryStateChangelogHandle> {
     private static final Logger LOG = LoggerFactory.getLogger(InMemoryStateChangelogWriter.class);
 
-    private final LogId logId;
-    private final Map<Integer, List<Tuple2<SequenceNumber, LogRecord>>> log = new HashMap<>();
+    private final Map<Integer, NavigableMap<SequenceNumber, byte[]>> changesByKeyGroup =
+            new HashMap<>();
     private long sqn = 0L;
     private boolean closed;
 
-    InMemoryStateChangelogWriter(LogId logId) {
-        this.logId = logId;
-    }
-
     @Override
-    public LogId logId() {
-        return logId;
-    }
-
-    @Override
-    public void append(int keyGroup, byte[] key, byte[] value, long timestamp) {
+    public void append(int keyGroup, byte[] value) {
         Preconditions.checkState(!closed, "LogWriter is closed");
-        LOG.trace(
-                "append to {}: keyGroup={}, timestamp={} {} bytes",
-                logId,
-                keyGroup,
-                timestamp,
-                value.length);
-        log.computeIfAbsent(keyGroup, unused -> new ArrayList<>())
-                .add(
-                        Tuple2.of(
-                                SequenceNumber.of(sqn++),
-                                LogRecord.of(keyGroup, timestamp, key, value)));
+        LOG.trace("append, keyGroup={}, {} bytes", keyGroup, value.length);
+        changesByKeyGroup
+                .computeIfAbsent(keyGroup, unused -> new TreeMap<>())
+                .put(SequenceNumber.of(sqn++), value);
     }
 
     @Override
@@ -79,33 +61,40 @@ class InMemoryStateChangelogWriter implements LogWriter {
     }
 
     @Override
-    public CompletableFuture<LogPointer> persistUntil(SequenceNumber after, SequenceNumber until) {
-        LOG.debug("persistUntil log {}: after={}, until={}", logId, after, until);
-        Preconditions.checkNotNull(after);
-        Preconditions.checkNotNull(until);
-        return CompletableFuture.completedFuture(LogPointer.of(logId));
+    public CompletableFuture<InMemoryStateChangelogHandle> persist(SequenceNumber from) {
+        LOG.debug("Persist after {}", from);
+        Preconditions.checkNotNull(from);
+        return completedFuture(new InMemoryStateChangelogHandle(collectChanges(from)));
+    }
+
+    private Map<Integer, List<byte[]>> collectChanges(SequenceNumber after) {
+        return changesByKeyGroup.entrySet().stream()
+                .collect(
+                        toMap(
+                                Map.Entry::getKey,
+                                kv ->
+                                        new ArrayList<>(
+                                                kv.getValue().tailMap(after, true).values())));
     }
 
     @Override
     public void close() {
-        LOG.debug("close log {}", logId);
         Preconditions.checkState(!closed);
         closed = true;
     }
 
-    CloseableIterator<LogRecord> replay(
-            SequenceNumber after, SequenceNumber until, KeyGroupRange keyGroupRange) {
-        Preconditions.checkArgument(after.compareTo(until) <= 0);
-        if (keyGroupRange.getNumberOfKeyGroups() == 0) {
-            return CloseableIterator.empty();
-        }
-        return CloseableIterator.adapterForIterator(
-                log.entrySet().stream()
-                        .filter(e -> keyGroupRange.contains(e.getKey()))
-                        .map(Map.Entry::getValue)
-                        .flatMap(Collection::stream)
-                        .filter(e -> SequenceNumber.contains(after, until, e.f0))
-                        .map(e -> e.f1)
-                        .iterator());
+    @Override
+    public void truncate(SequenceNumber before) {
+        changesByKeyGroup.forEach((k, v) -> {});
+    }
+
+    @Override
+    public void confirm(SequenceNumber from, SequenceNumber to) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void reset(SequenceNumber from, SequenceNumber to) {
+        throw new UnsupportedOperationException();
     }
 }

@@ -15,18 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.changelog.fs;
+package org.apache.flink.changelog.inmemory;
 
-import java.nio.charset.StandardCharsets;
+import org.apache.flink.changelog.StateChangelogClient;
+import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.KeyGroupRange;
 
-class LogPathSerializer {
-    byte[] buildPassThroughData(String fileName) {
-        // todo low: version
-        // todo low: home path?
-        return fileName.getBytes(StandardCharsets.UTF_8);
-    }
+/** An in-memory (non-production) implementation of {@link StateChangelogClient}. */
+public class InMemoryStateChangelogClient
+        implements StateChangelogClient<InMemoryStateChangelogHandle> {
 
-    String buildFileName(byte[] passThroughData) {
-        return new String(passThroughData, StandardCharsets.UTF_8);
+    @Override
+    public InMemoryStateChangelogWriter createWriter(
+            OperatorID operatorID, KeyGroupRange keyGroupRange) {
+        return new InMemoryStateChangelogWriter();
     }
 }

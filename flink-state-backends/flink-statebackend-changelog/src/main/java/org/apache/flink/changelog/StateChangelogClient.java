@@ -21,32 +21,17 @@ package org.apache.flink.changelog;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.util.CloseableIterator;
-
-import java.io.IOException;
+import org.apache.flink.runtime.state.StateChangelogHandle;
 
 /**
- * {@link LogWriter} factory and {@link LogRecord}s reader. Scoped to a single entity (e.g. a
- * SubTask or OperatorCoordinator).
+ * {@link StateChangelogWriter} factory. Scoped to a single entity (e.g. a SubTask or
+ * OperatorCoordinator).
  */
 @Internal
-public interface LogClient extends AutoCloseable {
+public interface StateChangelogClient<Handle extends StateChangelogHandle<?>>
+        extends AutoCloseable {
 
-    LogWriter createWriter(OperatorID operatorID, KeyGroupRange keyGroupRange);
-
-    /**
-     * keyGroupRange is used to filter out records on upscaling.
-     *
-     * @param after inclusive
-     * @param until exclusive
-     */
-    // todo high: add OperatorID?
-    CloseableIterator<LogRecord> replay(
-            LogPointer logPointer,
-            SequenceNumber after,
-            SequenceNumber until,
-            KeyGroupRange keyGroupRange)
-            throws IOException;
+    StateChangelogWriter<Handle> createWriter(OperatorID operatorID, KeyGroupRange keyGroupRange);
 
     @Override
     default void close() throws Exception {}

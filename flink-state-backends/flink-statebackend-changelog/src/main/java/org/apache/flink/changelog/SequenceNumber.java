@@ -22,14 +22,15 @@ import org.apache.flink.util.Preconditions;
 
 import java.util.Objects;
 
-/** Provider-dependent sequence number of a {@link LogRecord} (or multiple log records). */
+import static org.apache.flink.util.Preconditions.checkState;
+
+/**
+ * A logical timestamp to draw a boundary between the materialized and non-materialized changes.
+ * Maintained by the state backend but implementations may choose to move its generation to {@link
+ * StateChangelogClient} as an optimization.
+ */
 @Internal
 public interface SequenceNumber extends Comparable<SequenceNumber> {
-
-    // todo medium: unit-test
-    static boolean contains(SequenceNumber from, SequenceNumber to, SequenceNumber inQuestion) {
-        return from.compareTo(inQuestion) <= 0 && inQuestion.compareTo(to) < 0;
-    }
 
     SequenceNumber next();
 
@@ -66,7 +67,8 @@ public interface SequenceNumber extends Comparable<SequenceNumber> {
 
         @Override
         public SequenceNumber next() {
-            return SequenceNumber.of(number + 1); // todo low: handle overflow
+            checkState(number < Long.MAX_VALUE);
+            return SequenceNumber.of(number + 1);
         }
 
         @Override

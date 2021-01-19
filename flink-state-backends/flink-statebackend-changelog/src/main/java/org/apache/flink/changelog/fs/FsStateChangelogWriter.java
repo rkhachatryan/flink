@@ -18,101 +18,172 @@
 package org.apache.flink.changelog.fs;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.changelog.LogId;
-import org.apache.flink.changelog.LogId.UuidLogId;
-import org.apache.flink.changelog.LogPointer;
-import org.apache.flink.changelog.LogWriter;
 import org.apache.flink.changelog.SequenceNumber;
-import org.apache.flink.util.Preconditions;
+import org.apache.flink.changelog.StateChangelogWriter;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.StateChange;
+import org.apache.flink.runtime.state.StateChangelogHandleStreamImpl;
+import org.apache.flink.runtime.state.StreamStateHandle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.util.ArrayDeque;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.changelog.fs.StateChangeSet.Status.PENDING;
+import static org.apache.flink.runtime.concurrent.FutureUtils.combineAll;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 @NotThreadSafe
-class FsStateChangelogWriter implements LogWriter {
+class FsStateChangelogWriter implements StateChangelogWriter<StateChangelogHandleStreamImpl> {
     private static final Logger LOG = LoggerFactory.getLogger(FsStateChangelogWriter.class);
 
-    private final FsLogPersister persister;
-    private final UuidLogId logId;
-    private final Deque<Tuple2<SequenceNumber, List<LogFragment>>> sealed = new ArrayDeque<>();
-    private List<LogFragment> current = new ArrayList<>();
+    private final UUID logId;
+    private final KeyGroupRange keyGroupRange;
+    private final StateChangeStore store;
+    private final NavigableMap<SequenceNumber, StateChangeSet> changeSets = new TreeMap<>();
+    private List<StateChange> activeChangeSet = new ArrayList<>();
     private SequenceNumber currentSqn = SequenceNumber.of(0L);
     private boolean closed;
 
-    FsStateChangelogWriter(FsLogPersister persister, UuidLogId logId) {
-        this.persister = persister;
+    FsStateChangelogWriter(UUID logId, KeyGroupRange keyGroupRange, StateChangeStore store) {
         this.logId = logId;
+        this.keyGroupRange = keyGroupRange;
+        this.store = store;
     }
 
     @Override
-    public LogId logId() {
-        return logId;
-    }
-
-    @Override
-    public void append(int keyGroup, byte[] key, byte[] value, long timestamp) {
-        // todo medium: check size threshold and trigger persist if needed
-        Preconditions.checkState(!closed, "LogWriter is closed");
-        LOG.trace(
-                "append to {}: keyGroup={}, timestamp={} {} bytes",
-                logId,
-                keyGroup,
-                timestamp,
-                value.length);
-        current.add(new LogFragment(keyGroup, value));
+    public void append(int keyGroup, byte[] value) {
+        LOG.trace("append to {}: keyGroup={} {} bytes", logId, keyGroup, value.length);
+        checkState(!closed, "%s is closed", logId);
+        // todo: check size threshold and trigger persist if needed
+        activeChangeSet.add(new StateChange(keyGroup, value));
     }
 
     @Override
     public SequenceNumber lastAppendedSqn() {
-        SequenceNumber temp = currentSqn;
+        LOG.trace("query {} sqn: {}", logId, currentSqn);
+        SequenceNumber tmp = currentSqn;
         rollover();
-        return temp;
+        return tmp;
     }
 
     @Override
-    public CompletableFuture<LogPointer> persistUntil(SequenceNumber from, SequenceNumber to) {
-        LOG.debug("persist {} [{}..{}]", logId, from, to);
-        Preconditions.checkNotNull(from);
-        Preconditions.checkNotNull(to);
+    public CompletableFuture<StateChangelogHandleStreamImpl> persist(SequenceNumber from)
+            throws IOException {
+        LOG.debug("persist {} from {}", logId, from);
+        checkNotNull(from);
+        checkState(
+                changeSets.containsKey(from),
+                "sequence number %s to persist from not in range (%s:%s)",
+                from,
+                changeSets.firstKey(),
+                changeSets.lastKey());
         rollover();
-        return persister.persist(logId, snapshot(from, to));
-    }
 
-    // drop anything before from - will not be needed - todo medium: confirm
-    // drain and return everything between from and to
-    // keep everything from to
-    private List<Tuple2<SequenceNumber, List<LogFragment>>> snapshot(
-            SequenceNumber from, SequenceNumber to) {
-        List<Tuple2<SequenceNumber, List<LogFragment>>> result = new ArrayList<>();
-        while (!sealed.isEmpty() && sealed.peek().f0.compareTo(to) < 0) {
-            Tuple2<SequenceNumber, List<LogFragment>> element = sealed.poll();
-            if (element.f0.compareTo(from) >= 0) {
-                result.add(element);
-            }
-        }
-        return result;
+        Collection<StateChangeSet> upload = new ArrayList<>();
+        Collection<StateChangeSet> retry = new ArrayList<>();
+        Collection<StateChangeSet> snapshot = new ArrayList<>();
+        changeSets
+                .tailMap(from, true)
+                .values()
+                .forEach(
+                        changeSet -> {
+                            if (changeSet.isConfirmed()) {
+                                snapshot.add(changeSet);
+                            } else if (changeSet.setScheduled()) {
+                                upload.add(changeSet);
+                            } else {
+                                // we also re-upload any scheduled/uploading/uploaded changes
+                                // even if they were not sent to the JM yet because this can happen
+                                // in the meantime and then JM can decide to discard them
+                                retry.add(changeSet.forRetry());
+                            }
+                        });
+        upload.addAll(retry);
+        snapshot.addAll(upload);
+        retry.forEach(changeSet -> changeSets.put(changeSet.getSequenceNumber(), changeSet));
+        store.save(upload);
+        return asHandle(snapshot);
     }
 
     @Override
     public void close() {
-        LOG.debug("close log {}", logId);
-        Preconditions.checkState(!closed);
+        LOG.debug("close {}", logId);
+        checkState(!closed);
         closed = true;
-        sealed.clear();
-        current.clear();
+        changeSets.clear();
+        activeChangeSet.clear();
+        // todo: cancel active uploads
+    }
+
+    @Override
+    public void confirm(SequenceNumber from, SequenceNumber to) {
+        LOG.debug("confirm {} from {} to {}", logId, from, to);
+        changeSets.subMap(from, true, to, false).values().forEach(StateChangeSet::confirmed);
+    }
+
+    @Override
+    public void reset(SequenceNumber from, SequenceNumber to) {
+        LOG.debug("reset {} from {} to {}", logId, from, to);
+        // todo: cleanup if change to aborted succeeded
+        // For now, relying on manual cleanup.
+        // If a checkpoint that is aborted uses the changes uploaded for another checkpoint
+        // which was completed on JM but not confirmed to this TM
+        // then discarding those changes would invalidate that previously completed checkpoint.
+        // Solution:
+        // 1. pass last completed checkpoint id in barriers, trigger RPC, and abort RPC
+        // 2. confirm for the id above
+        // 3. make sure that at most 1 checkpoint in flight (CC config)
+        changeSets.subMap(from, to).forEach((key, value) -> value.aborted());
+    }
+
+    @Override
+    public void truncate(SequenceNumber to) {
+        LOG.debug("truncate {} to {}", logId, to);
+        rollover();
+        NavigableMap<SequenceNumber, StateChangeSet> headMap = changeSets.headMap(to, false);
+        headMap.values().forEach(StateChangeSet::truncated);
+        headMap.clear();
     }
 
     private void rollover() {
-        sealed.add(Tuple2.of(currentSqn, current));
-        current = new ArrayList<>();
-        currentSqn = currentSqn.next(); // todo high: review sqn increment cases
+        changeSets.put(currentSqn, new StateChangeSet(logId, currentSqn, activeChangeSet, PENDING));
+        activeChangeSet = new ArrayList<>();
+        currentSqn = currentSqn.next();
+    }
+
+    private CompletableFuture<StateChangelogHandleStreamImpl> asHandle(
+            Collection<StateChangeSet> snapshot) {
+        return combineAll(
+                        snapshot.stream()
+                                .map(StateChangeSet::getStoreResult)
+                                .collect(Collectors.toList()))
+                .thenApply(uploaded -> buildHandle(snapshot, uploaded));
+    }
+
+    private StateChangelogHandleStreamImpl buildHandle(
+            Collection<StateChangeSet> changes, Collection<StoreResult> results) {
+        List<Tuple2<StreamStateHandle, Long>> sorted =
+                results.stream()
+                        // can't assume order across different handles because of retries and aborts
+                        .sorted(Comparator.comparing(StoreResult::getSequenceNumber))
+                        .map(up -> Tuple2.of(up.getStreamStateHandle(), up.getOffset()))
+                        .collect(Collectors.toList());
+        changes.forEach(StateChangeSet::setSentToJm);
+        // todo: replace old handles with placeholders
+        return new StateChangelogHandleStreamImpl(sorted, keyGroupRange);
     }
 }

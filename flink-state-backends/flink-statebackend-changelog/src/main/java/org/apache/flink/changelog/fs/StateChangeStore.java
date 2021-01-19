@@ -17,20 +17,19 @@
 
 package org.apache.flink.changelog.fs;
 
-import org.apache.flink.util.Preconditions;
+import java.io.IOException;
+import java.util.Collection;
 
-class LogFragment {
-    final int keyGroup;
-    final byte[] data;
-
-    LogFragment(int keyGroup, byte[] data) {
-        Preconditions.checkArgument(keyGroup >= 0);
-        this.keyGroup = keyGroup;
-        this.data = Preconditions.checkNotNull(data);
-    }
-
-    @Override
-    public String toString() {
-        return String.format("keyGroup=%d, dataSize=%d", keyGroup, data.length);
-    }
+// todo: implement CheckpointStreamFactory / CheckpointStorageWorkerView - based store.
+// Considerations:
+// 0. need for checkpointId in the current API to resolve the location
+//   option a: pass checkpointId (race condition?)
+//   option b: pass location (race condition?)
+//   option c: add FsCheckpointStorageAccess.createSharedStateStream
+// 1. different settings for materialized/changelog (e.g. timeouts)
+// 2. re-use closeAndGetHandle
+// 3. re-use in-memory handles (.metadata)
+// 4. handle in-memory handles duplication
+interface StateChangeStore {
+    void save(Collection<StateChangeSet> changeSets) throws IOException;
 }
