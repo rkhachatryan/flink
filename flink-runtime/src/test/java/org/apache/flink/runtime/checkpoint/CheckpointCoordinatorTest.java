@@ -208,17 +208,28 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
         assertStatsEqual(
                 checkpointId,
+                lateReportVertex.getJobvertexId(),
+                0,
                 lateReportedMetrics,
                 statsTracker.createSnapshot().getHistory().getCheckpointById(checkpointId));
     }
 
     private void assertStatsEqual(
-            long checkpointId, CheckpointMetrics expected, AbstractCheckpointStats actual) {
+            long checkpointId,
+            JobVertexID jobVertexID,
+            int subtasIdx,
+            CheckpointMetrics expected,
+            AbstractCheckpointStats actual) {
         assertEquals(checkpointId, actual.getCheckpointId());
         assertEquals(CheckpointStatsStatus.FAILED, actual.getStatus());
-        assertEquals(1, actual.getNumberOfAcknowledgedSubtasks());
         assertEquals(expected.getTotalBytesPersisted(), actual.getStateSize());
-        SubtaskStateStats taskStats = actual.getLatestAcknowledgedSubtaskStats();
+        assertEquals(0, actual.getNumberOfAcknowledgedSubtasks());
+        SubtaskStateStats taskStats =
+                actual.getAllTaskStateStats().stream()
+                        .filter(s -> s.getJobVertexId().equals(jobVertexID))
+                        .findAny()
+                        .get()
+                        .getSubtaskStats()[subtasIdx];
         assertEquals(
                 expected.getAlignmentDurationNanos() / 1_000_000, taskStats.getAlignmentDuration());
         assertEquals(expected.getUnalignedCheckpoint(), taskStats.getUnalignedCheckpoint());
