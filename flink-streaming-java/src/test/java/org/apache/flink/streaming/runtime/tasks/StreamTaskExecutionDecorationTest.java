@@ -48,7 +48,7 @@ public class StreamTaskExecutionDecorationTest {
 
     @Test
     public void testAbortCheckpointOnBarrierIsDecorated() throws Exception {
-        task.abortCheckpointOnBarrier(1, null);
+        task.abortCheckpointOnBarrier(1, null, null);
         Assert.assertTrue("execution decorator was not called", decorator.wasCalled());
     }
 

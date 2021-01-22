@@ -63,9 +63,10 @@ public class RpcCheckpointResponder implements CheckpointResponder {
             JobID jobID,
             ExecutionAttemptID executionAttemptID,
             long checkpointId,
-            Throwable cause) {
+            Throwable cause,
+            CheckpointMetrics metrics) {
 
         checkpointCoordinatorGateway.declineCheckpoint(
-                new DeclineCheckpoint(jobID, executionAttemptID, checkpointId, cause));
+                new DeclineCheckpoint(jobID, executionAttemptID, checkpointId, cause, metrics));
     }
 }

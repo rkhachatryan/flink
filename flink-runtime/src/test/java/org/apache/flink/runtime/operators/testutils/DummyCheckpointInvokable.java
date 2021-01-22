@@ -34,5 +34,5 @@ public class DummyCheckpointInvokable extends DummyInvokable {
             CheckpointOptions checkpointOptions,
             CheckpointMetricsBuilder checkpointMetrics) {}
 
-    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) {}
+    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) {}
 }

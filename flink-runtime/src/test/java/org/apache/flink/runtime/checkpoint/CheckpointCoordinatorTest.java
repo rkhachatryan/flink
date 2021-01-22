@@ -3315,13 +3315,13 @@ public class CheckpointCoordinatorTest extends TestLogger {
             final JobID jobId,
             final CheckpointCoordinator coordinator,
             final ExecutionAttemptID attemptID,
-            final Throwable reason) {
+            final Throwable reason) throws CheckpointException {
 
         final long checkpointId =
                 coordinator.getPendingCheckpoints().entrySet().iterator().next().getKey();
         final PendingCheckpoint checkpoint = coordinator.getPendingCheckpoints().get(checkpointId);
         coordinator.receiveDeclineMessage(
-                new DeclineCheckpoint(jobId, attemptID, checkpointId, reason),
+                new DeclineCheckpoint(jobId, attemptID, checkpointId, reason, null),
                 TASK_MANAGER_LOCATION_INFO);
         return checkpoint;
     }

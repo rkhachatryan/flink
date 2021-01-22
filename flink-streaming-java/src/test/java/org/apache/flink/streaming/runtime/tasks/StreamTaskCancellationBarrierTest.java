@@ -88,7 +88,7 @@ public class StreamTaskCancellationBarrierTest {
                         argThat(
                                 new CheckpointExceptionMatcher(
                                         CheckpointFailureReason
-                                                .CHECKPOINT_DECLINED_ON_CANCELLATION_BARRIER)));
+                                                .CHECKPOINT_DECLINED_ON_CANCELLATION_BARRIER)), null);
 
         // a cancellation barrier should be downstream
         Object result = testHarness.getOutput().poll();
@@ -141,7 +141,7 @@ public class StreamTaskCancellationBarrierTest {
                         argThat(
                                 new AlignedControllerTest.CheckpointExceptionMatcher(
                                         CheckpointFailureReason
-                                                .CHECKPOINT_DECLINED_ON_CANCELLATION_BARRIER)));
+                                                .CHECKPOINT_DECLINED_ON_CANCELLATION_BARRIER)), null);
 
         // a cancellation barrier should be downstream
         Object result = testHarness.getOutput().poll();

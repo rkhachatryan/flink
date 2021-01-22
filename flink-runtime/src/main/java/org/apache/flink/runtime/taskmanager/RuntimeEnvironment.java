@@ -292,8 +292,8 @@ public class RuntimeEnvironment implements Environment {
     }
 
     @Override
-    public void declineCheckpoint(long checkpointId, Throwable cause) {
-        checkpointResponder.declineCheckpoint(jobId, executionId, checkpointId, cause);
+    public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics metrics) {
+        checkpointResponder.declineCheckpoint(jobId, executionId, checkpointId, cause, metrics);
     }
 
     @Override

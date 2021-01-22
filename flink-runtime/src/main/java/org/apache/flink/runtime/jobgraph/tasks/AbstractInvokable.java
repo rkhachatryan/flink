@@ -59,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * <p>Any subclass that supports recoverable state and participates in checkpointing needs to
  * override {@link #triggerCheckpointAsync(CheckpointMetaData, CheckpointOptions, boolean)}, {@link
  * #triggerCheckpointOnBarrier(CheckpointMetaData, CheckpointOptions, CheckpointMetricsBuilder)},
- * {@link #abortCheckpointOnBarrier(long, Throwable)} and {@link
+ * {@link #abortCheckpointOnBarrier(long, Throwable, CheckpointMetricsBuilder)} and {@link
  * #notifyCheckpointCompleteAsync(long)}.
  */
 public abstract class AbstractInvokable {
@@ -249,11 +249,11 @@ public abstract class AbstractInvokable {
      *
      * <p>This requires implementing tasks to forward a {@link
      * org.apache.flink.runtime.io.network.api.CancelCheckpointMarker} to their outputs.
-     *
-     * @param checkpointId The ID of the checkpoint to be aborted.
+     *  @param checkpointId The ID of the checkpoint to be aborted.
      * @param cause The reason why the checkpoint was aborted during alignment
+     * @param checkpointMetrics
      */
-    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) throws IOException {
+    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) throws IOException {
         throw new UnsupportedOperationException(
                 String.format(
                         "abortCheckpointOnBarrier not supported by %s", this.getClass().getName()));

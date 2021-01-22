@@ -968,8 +968,8 @@ public class UnalignedControllerTest {
         }
 
         @Override
-        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) {
-            super.abortCheckpointOnBarrier(checkpointId, cause);
+        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) {
+            super.abortCheckpointOnBarrier(checkpointId, cause, checkpointMetrics);
             nextExpectedCheckpointId = -1;
         }
     }
@@ -997,7 +997,7 @@ public class UnalignedControllerTest {
         protected void processInput(MailboxDefaultAction.Controller controller) {}
 
         @Override
-        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause)
+        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics)
                 throws IOException {
             abortedCheckpointId = checkpointId;
         }

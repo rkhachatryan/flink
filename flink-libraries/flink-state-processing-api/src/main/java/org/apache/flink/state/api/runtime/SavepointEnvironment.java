@@ -245,7 +245,7 @@ public class SavepointEnvironment implements Environment {
     }
 
     @Override
-    public void declineCheckpoint(long checkpointId, Throwable cause) {
+    public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
         throw new UnsupportedOperationException(ERROR_MSG);
     }
 

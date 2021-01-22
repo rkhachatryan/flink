@@ -353,7 +353,7 @@ public class JobMasterTest extends TestLogger {
             RpcCheckpointResponder rpcCheckpointResponder =
                     new RpcCheckpointResponder(jobMasterGateway);
             rpcCheckpointResponder.declineCheckpoint(
-                    jobGraph.getJobID(), new ExecutionAttemptID(), 1, userException);
+                    jobGraph.getJobID(), new ExecutionAttemptID(), 1, userException, null);
 
             Throwable throwable =
                     declineCheckpointMessageFuture.get(

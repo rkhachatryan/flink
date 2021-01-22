@@ -350,8 +350,8 @@ public class StreamMockEnvironment implements Environment {
     }
 
     @Override
-    public void declineCheckpoint(long checkpointId, Throwable cause) {
-        checkpointResponder.declineCheckpoint(jobID, executionAttemptID, checkpointId, cause);
+    public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
+        checkpointResponder.declineCheckpoint(jobID, executionAttemptID, checkpointId, cause, null);
     }
 
     @Override

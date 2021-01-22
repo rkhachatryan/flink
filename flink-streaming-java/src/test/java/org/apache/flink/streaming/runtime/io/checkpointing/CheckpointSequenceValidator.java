@@ -79,7 +79,7 @@ class CheckpointSequenceValidator extends AbstractInvokable {
     }
 
     @Override
-    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) {
+    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) {
         assertTrue(
                 "Unexpected abortCheckpointOnBarrier(" + checkpointId + ")",
                 i < checkpointIDs.length);

@@ -23,6 +23,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
+import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.CheckpointMetricsBuilder;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
@@ -109,7 +110,7 @@ public class AsyncCheckpointRunnableTest {
         }
 
         @Override
-        public void declineCheckpoint(long checkpointId, Throwable cause) {
+        public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
             this.cause = cause;
         }
 

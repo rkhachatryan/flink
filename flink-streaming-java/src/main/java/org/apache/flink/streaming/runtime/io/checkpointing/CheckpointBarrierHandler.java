@@ -124,8 +124,15 @@ public abstract class CheckpointBarrierHandler implements Closeable {
     }
 
     protected void notifyAbort(long checkpointId, CheckpointException cause) throws IOException {
+        markAlignmentEnd();
+        CheckpointMetricsBuilder checkpointMetrics =
+            new CheckpointMetricsBuilder()
+                .setAlignmentDurationNanos(latestAlignmentDurationNanos)
+                .setBytesProcessedDuringAlignment(latestBytesProcessedDuringAlignment)
+                .setCheckpointStartDelayNanos(latestCheckpointStartDelayNanos);
         resetAlignment();
-        toNotifyOnCheckpoint.abortCheckpointOnBarrier(checkpointId, cause);
+
+        toNotifyOnCheckpoint.abortCheckpointOnBarrier(checkpointId, cause, checkpointMetrics);
     }
 
     protected void markAlignmentStartAndEnd(long checkpointCreationTimestamp) {

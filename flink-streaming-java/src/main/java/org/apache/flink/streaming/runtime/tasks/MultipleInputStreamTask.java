@@ -250,12 +250,12 @@ public class MultipleInputStreamTask<OUT>
     }
 
     @Override
-    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) throws IOException {
+    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) throws IOException {
         CompletableFuture<Boolean> resultFuture =
                 pendingCheckpointCompletedFutures.remove(checkpointId);
         if (resultFuture != null) {
             resultFuture.completeExceptionally(cause);
         }
-        super.abortCheckpointOnBarrier(checkpointId, cause);
+        super.abortCheckpointOnBarrier(checkpointId, cause, checkpointMetrics);
     }
 }

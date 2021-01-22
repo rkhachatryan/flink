@@ -961,7 +961,7 @@ public class CheckpointCoordinator {
      * @param message Checkpoint decline from the task manager
      * @param taskManagerLocationInfo The location info of the decline checkpoint message's sender
      */
-    public void receiveDeclineMessage(DeclineCheckpoint message, String taskManagerLocationInfo) {
+    public void receiveDeclineMessage(DeclineCheckpoint message, String taskManagerLocationInfo) throws CheckpointException {
         if (shutdown || message == null) {
             return;
         }
@@ -1035,6 +1035,7 @@ public class CheckpointCoordinator {
                             reason);
                 }
             }
+            reportStats(checkpointId, message.getTaskExecutionId(), message.getMetrics());
         }
     }
 
@@ -1843,7 +1844,7 @@ public class CheckpointCoordinator {
 
     public void reportStats(long id, ExecutionAttemptID attemptId, CheckpointMetrics metrics)
             throws CheckpointException {
-        if (statsTracker != null) {
+        if (statsTracker != null && metrics != null) {
             getVertex(attemptId)
                     .ifPresent(ev -> statsTracker.reportIncompleteStats(id, ev, metrics));
         }

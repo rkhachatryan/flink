@@ -213,7 +213,7 @@ public class DummyEnvironment implements Environment {
             TaskStateSnapshot subtaskState) {}
 
     @Override
-    public void declineCheckpoint(long checkpointId, Throwable cause) {
+    public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
         throw new UnsupportedOperationException();
     }
 

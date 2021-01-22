@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.messages.checkpoint;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.SerializedThrowable;
 
@@ -37,19 +38,23 @@ public class DeclineCheckpoint extends AbstractCheckpointMessage implements java
     /** The reason why the checkpoint was declined. */
     @Nullable private final SerializedThrowable reason;
 
+    private final CheckpointMetrics metrics; // todo: pull up?
+
     public DeclineCheckpoint(JobID job, ExecutionAttemptID taskExecutionId, long checkpointId) {
-        this(job, taskExecutionId, checkpointId, null);
+        this(job, taskExecutionId, checkpointId, null, null);
     }
 
     public DeclineCheckpoint(
             JobID job,
             ExecutionAttemptID taskExecutionId,
             long checkpointId,
-            @Nullable Throwable reason) {
+            @Nullable Throwable reason,
+            @Nullable CheckpointMetrics metrics) {
         super(job, taskExecutionId, checkpointId);
 
         // some other exception. replace with a serialized throwable, to be on the safe side
         this.reason = reason == null ? null : new SerializedThrowable(reason);
+        this.metrics = metrics;
     }
 
     // --------------------------------------------------------------------------------------------
@@ -61,6 +66,10 @@ public class DeclineCheckpoint extends AbstractCheckpointMessage implements java
      */
     public SerializedThrowable getReason() {
         return reason;
+    }
+
+    public CheckpointMetrics getMetrics() {
+        return metrics;
     }
 
     // --------------------------------------------------------------------------------------------

@@ -290,7 +290,7 @@ public class TaskAsyncCallTest extends TestLogger {
         }
 
         @Override
-        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) {
+        public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) {
             throw new UnsupportedOperationException("Should not be called");
         }
 

@@ -1311,7 +1311,7 @@ public class Task
                     checkpointID,
                     new CheckpointException(
                             "Task name with subtask : " + taskNameWithSubtask,
-                            CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY));
+                            CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY), null);
         }
     }
 

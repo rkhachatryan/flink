@@ -272,10 +272,10 @@ public class TaskCheckpointingBehaviourTest extends TestLogger {
 
         @Override
         public void declineCheckpoint(
-                JobID jobID,
-                ExecutionAttemptID executionAttemptID,
-                long checkpointId,
-                Throwable cause) {
+            JobID jobID,
+            ExecutionAttemptID executionAttemptID,
+            long checkpointId,
+            Throwable cause, CheckpointMetrics metrics) {
 
             declinedLatch.trigger();
         }

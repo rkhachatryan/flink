@@ -2158,7 +2158,7 @@ public class StreamTaskTest extends TestLogger {
         }
 
         @Override
-        public void declineCheckpoint(long checkpointId, Throwable cause) {
+        public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
             throw failingCause;
         }
 
@@ -2180,7 +2180,7 @@ public class StreamTaskTest extends TestLogger {
         }
 
         @Override
-        public void declineCheckpoint(long checkpointId, Throwable cause) {
+        public void declineCheckpoint(long checkpointId, Throwable cause, CheckpointMetrics build) {
             this.lastDeclinedCheckpointId = checkpointId;
             this.lastDeclinedCheckpointCause = cause;
         }

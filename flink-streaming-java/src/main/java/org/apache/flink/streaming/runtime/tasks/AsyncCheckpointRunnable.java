@@ -262,7 +262,7 @@ final class AsyncCheckpointRunnable implements Runnable, Closeable {
                             checkpointMetaData.getCheckpointId(),
                             new CheckpointException(
                                     CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION,
-                                    checkpointException));
+                                    checkpointException), null);
                 } catch (Exception unhandled) {
                     AsynchronousException asyncException = new AsynchronousException(unhandled);
                     asyncExceptionHandler.handleAsyncException(

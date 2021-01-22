@@ -196,7 +196,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 
     @Override
     public void abortCheckpointOnBarrier(
-            long checkpointId, Throwable cause, OperatorChain<?, ?> operatorChain)
+        long checkpointId, Throwable cause, OperatorChain<?, ?> operatorChain, CheckpointMetricsBuilder checkpointMetrics)
             throws IOException {
         LOG.debug("Aborting checkpoint via cancel-barrier {} for task {}", checkpointId, taskName);
         lastCheckpointId = Math.max(lastCheckpointId, checkpointId);
@@ -215,7 +215,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
         channelStateWriter.abort(checkpointId, cause, true);
 
         // notify the coordinator that we decline this checkpoint
-        env.declineCheckpoint(checkpointId, cause);
+        env.declineCheckpoint(checkpointId, cause, checkpointMetrics.build());
 
         // notify all downstream operators that they should not wait for a barrier from us
         actionExecutor.runThrowing(
@@ -548,7 +548,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
                         checkpointMetaData.getCheckpointId(),
                         new CheckpointException(
                                 "Task Name" + taskName,
-                                CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_CLOSING));
+                                CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_CLOSING), null);
                 return false;
             }
         }

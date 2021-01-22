@@ -32,7 +32,7 @@ public enum NoOpCheckpointResponder implements CheckpointResponder {
             JobID j, ExecutionAttemptID e, long i, CheckpointMetrics c, TaskStateSnapshot s) {}
 
     @Override
-    public void declineCheckpoint(JobID j, ExecutionAttemptID e, long l, Throwable t) {}
+    public void declineCheckpoint(JobID j, ExecutionAttemptID e, long l, Throwable t, CheckpointMetrics metrics) {}
 
     @Override
     public void reportCheckpointMetrics(

@@ -50,7 +50,7 @@ public interface SubtaskCheckpointCoordinator extends Closeable {
     CheckpointStorageWorkerView getCheckpointStorage();
 
     void abortCheckpointOnBarrier(
-            long checkpointId, Throwable cause, OperatorChain<?, ?> operatorChain)
+        long checkpointId, Throwable cause, OperatorChain<?, ?> operatorChain, CheckpointMetricsBuilder checkpointMetrics)
             throws IOException;
 
     /** Must be called after {@link #initCheckpoint(long, CheckpointOptions)}. */

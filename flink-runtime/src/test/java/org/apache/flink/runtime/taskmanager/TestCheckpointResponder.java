@@ -69,10 +69,10 @@ public class TestCheckpointResponder implements CheckpointResponder {
 
     @Override
     public void declineCheckpoint(
-            JobID jobID,
-            ExecutionAttemptID executionAttemptID,
-            long checkpointId,
-            Throwable cause) {
+        JobID jobID,
+        ExecutionAttemptID executionAttemptID,
+        long checkpointId,
+        Throwable cause, CheckpointMetrics metrics) {
 
         DeclineReport declineReport =
                 new DeclineReport(jobID, executionAttemptID, checkpointId, cause);

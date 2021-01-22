@@ -980,8 +980,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     @Override
-    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause) throws IOException {
-        subtaskCheckpointCoordinator.abortCheckpointOnBarrier(checkpointId, cause, operatorChain);
+    public void abortCheckpointOnBarrier(long checkpointId, Throwable cause, CheckpointMetricsBuilder checkpointMetrics) throws IOException {
+        subtaskCheckpointCoordinator.abortCheckpointOnBarrier(checkpointId, cause, operatorChain, checkpointMetrics);
     }
 
     private boolean performCheckpoint(
@@ -1042,7 +1042,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                         checkpointId,
                         new CheckpointException(
                                 "Task Name" + getName(),
-                                CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY));
+                                CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_READY), null);
     }
 
     public final ExecutorService getAsyncOperationsThreadPool() {

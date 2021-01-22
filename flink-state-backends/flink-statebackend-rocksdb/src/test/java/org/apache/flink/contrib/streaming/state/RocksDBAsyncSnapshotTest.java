@@ -194,10 +194,10 @@ public class RocksDBAsyncSnapshotTest extends TestLogger {
 
                     @Override
                     public void declineCheckpoint(
-                            JobID jobID,
-                            ExecutionAttemptID executionAttemptID,
-                            long checkpointId,
-                            Throwable cause) {}
+                        JobID jobID,
+                        ExecutionAttemptID executionAttemptID,
+                        long checkpointId,
+                        Throwable cause, CheckpointMetrics metrics) {}
                 };
 
         JobID jobID = new JobID();
