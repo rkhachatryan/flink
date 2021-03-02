@@ -29,6 +29,9 @@ import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.CloseableIterator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -41,6 +44,7 @@ import java.util.stream.Collectors;
 public final class ChangelogStateHandleStreamImpl implements ChangelogStateHandle {
 
     private static final long serialVersionUID = -8070326169926626355L;
+    private static final Logger LOG = LoggerFactory.getLogger(ChangelogStateHandleStreamImpl.class);
 
     private final KeyGroupRange keyGroupRange;
     /** NOTE: order is important as it reflects the order of changes. */
