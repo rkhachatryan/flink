@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.state.changelog;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.runtime.state.KeyGroupRange;
 
+import java.io.IOException;
 import java.io.Serializable;
 
 /**
@@ -37,4 +39,7 @@ public interface StateChangelogStorage<Handle extends ChangelogStateHandle>
 
     @Override
     default void close() throws Exception {}
+
+    /** Configure this factory. Should be called at most once. */
+    void configure(ReadableConfig config) throws IOException;
 }

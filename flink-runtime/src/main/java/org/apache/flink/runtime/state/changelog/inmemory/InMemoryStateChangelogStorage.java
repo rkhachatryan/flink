@@ -17,6 +17,7 @@
 
 package org.apache.flink.runtime.state.changelog.inmemory;
 
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.changelog.StateChangelogHandleReader;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
@@ -34,6 +35,9 @@ public class InMemoryStateChangelogStorage
             String operatorID, KeyGroupRange keyGroupRange) {
         return new InMemoryStateChangelogWriter();
     }
+
+    @Override
+    public void configure(ReadableConfig config) {}
 
     @Override
     public StateChangelogHandleReader<InMemoryChangelogStateHandle> createReader() {

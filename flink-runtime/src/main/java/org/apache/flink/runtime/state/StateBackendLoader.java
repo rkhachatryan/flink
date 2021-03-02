@@ -24,7 +24,6 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.StateBackendOptions;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage;
 import org.apache.flink.runtime.state.delegate.DelegatingStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackendFactory;
@@ -53,6 +52,9 @@ public class StateBackendLoader {
     /** Used for Loading ChangelogStateBackend. */
     private static final String CHANGELOG_STATE_BACKEND =
             "org.apache.flink.state.changelog.ChangelogStateBackend";
+
+    private static final String CHANGELOG_FS_WRITER_FACTORY =
+            "org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage";
 
     /** Used for loading RocksDBStateBackend. */
     private static final String ROCKSDB_STATE_BACKEND_FACTORY =
@@ -226,7 +228,7 @@ public class StateBackendLoader {
                 "expecting non-delegating state backend");
 
         if (config.get(CheckpointingOptions.ENABLE_STATE_CHANGE_LOG) && (backend != null)) {
-            return loadChangelogStateBackend(backend, classLoader);
+            return loadChangelogStateBackend(backend, classLoader, config);
         } else {
             return backend;
         }
@@ -340,7 +342,7 @@ public class StateBackendLoader {
 
         if (config.get(CheckpointingOptions.ENABLE_STATE_CHANGE_LOG)
                 && !(fromApplication instanceof DelegatingStateBackend)) {
-            return loadChangelogStateBackend(backend, classLoader);
+            return loadChangelogStateBackend(backend, classLoader, config);
         } else {
             return backend;
         }
@@ -387,7 +389,8 @@ public class StateBackendLoader {
     }
 
     private static StateBackend loadChangelogStateBackend(
-            StateBackend backend, ClassLoader classLoader) throws DynamicCodeLoadingException {
+            StateBackend backend, ClassLoader classLoader, ReadableConfig cfg)
+            throws DynamicCodeLoadingException, IOException {
 
         // ChangelogStateBackend resides in a separate module, load it using reflection
         try {
@@ -395,7 +398,14 @@ public class StateBackendLoader {
                     Class.forName(CHANGELOG_STATE_BACKEND, false, classLoader)
                             .asSubclass(DelegatingStateBackend.class)
                             .getConstructor(StateBackend.class, StateChangelogStorage.class);
-            return constructor.newInstance(backend, new InMemoryStateChangelogStorage());
+
+            StateChangelogStorage<?> factory =
+                    Class.forName(CHANGELOG_FS_WRITER_FACTORY, false, classLoader)
+                            .asSubclass(StateChangelogStorage.class)
+                            .getConstructor()
+                            .newInstance();
+            factory.configure(cfg);
+            return constructor.newInstance(backend, factory);
         } catch (ClassNotFoundException e) {
             throw new DynamicCodeLoadingException(
                     "Cannot find DelegateStateBackend class: " + CHANGELOG_STATE_BACKEND, e);

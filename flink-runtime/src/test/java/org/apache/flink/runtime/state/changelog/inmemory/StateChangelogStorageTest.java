@@ -136,4 +136,8 @@ public class StateChangelogStorageTest<T extends ChangelogStateHandle> {
     protected StateChangelogStorage<T> getFactory() {
         return (StateChangelogStorage<T>) new InMemoryStateChangelogStorage();
     }
+
+    protected Object getContext() {
+        return null;
+    }
 }
