@@ -49,6 +49,7 @@ import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
+import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
@@ -334,12 +335,18 @@ class ChangelogKeyedStateBackend<K>
         return stateFactory.create(
                 keyedStateBackend.createInternalState(
                         namespaceSerializer, stateDesc, snapshotTransformFactory),
+                stateChangelogWriter,
+                keyedStateBackend,
                 ++lastCreatedStateId);
     }
 
     // Factory function interface
     private interface StateFactory {
         <K, N, SV, S extends State, IS extends S> IS create(
-                InternalKvState<K, N, SV> kvState, short stateId) throws Exception;
+                InternalKvState<K, N, SV> kvState,
+                StateChangelogWriter<?> stateChangelogWriter,
+                InternalReadOnlyKeyContext<K> keyContext,
+                short stateId)
+                throws Exception;
     }
 }

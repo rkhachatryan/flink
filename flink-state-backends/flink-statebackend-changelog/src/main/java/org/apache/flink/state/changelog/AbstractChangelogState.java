@@ -34,13 +34,16 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 abstract class AbstractChangelogState<K, N, V, S extends InternalKvState<K, N, V>>
         implements InternalKvState<K, N, V> {
     protected final S delegatedState;
+    protected N currentNamespace;
+    protected StateChangeLogger<V, N> changeLogger;
     protected final short stateId;
 
-    AbstractChangelogState(S state, short stateId) {
+    AbstractChangelogState(S state, StateChangeLogger<V, N> changeLogger, short stateId) {
         checkArgument(!(state instanceof AbstractChangelogState));
         checkArgument(stateId >= 0);
         this.stateId = stateId;
         this.delegatedState = state;
+        this.changeLogger = changeLogger;
     }
 
     public S getDelegatedState() {
@@ -64,6 +67,7 @@ abstract class AbstractChangelogState<K, N, V, S extends InternalKvState<K, N, V
 
     @Override
     public void setCurrentNamespace(N namespace) {
+        currentNamespace = namespace;
         delegatedState.setCurrentNamespace(namespace);
     }
 

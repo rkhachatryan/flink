@@ -21,6 +21,8 @@ package org.apache.flink.state.changelog;
 import org.apache.flink.api.common.state.ReducingState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.runtime.state.changelog.StateChange;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
+import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalReducingState;
 
@@ -38,12 +40,35 @@ class ChangelogReducingState<K, N, V>
         extends AbstractChangelogState<K, N, V, InternalReducingState<K, N, V>>
         implements InternalReducingState<K, N, V> {
 
-    ChangelogReducingState(InternalReducingState<K, N, V> delegatedState, short stateId) {
-        super(delegatedState, stateId);
+    ChangelogReducingState(
+            InternalReducingState<K, N, V> delegatedState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
+        this(
+                delegatedState,
+                new StateChangeLoggerImpl<>(
+                        delegatedState.getKeySerializer(),
+                        delegatedState.getNamespaceSerializer(),
+                        delegatedState.getValueSerializer(),
+                        keyContext,
+                        stateChangelogWriter,
+                        stateId),
+                stateId);
+    }
+
+    ChangelogReducingState(
+            InternalReducingState<K, N, V> delegatedState,
+            StateChangeLogger<V, N> changeLogger,
+            short stateId) {
+        super(delegatedState, changeLogger, stateId);
     }
 
     @Override
     public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
+        // do not simply store the new value for the target namespace
+        // because old namespaces need to be removed
+        changeLogger.stateMerged(target, sources);
         delegatedState.mergeNamespaces(target, sources);
     }
 
@@ -54,6 +79,7 @@ class ChangelogReducingState<K, N, V>
 
     @Override
     public void updateInternal(V valueToStore) throws Exception {
+        changeLogger.stateUpdated(valueToStore, currentNamespace);
         delegatedState.updateInternal(valueToStore);
     }
 
@@ -65,18 +91,26 @@ class ChangelogReducingState<K, N, V>
     @Override
     public void add(V value) throws Exception {
         delegatedState.add(value);
+        changeLogger.stateUpdated(delegatedState.get(), currentNamespace);
     }
 
     @Override
     public void clear() {
+        changeLogger.stateCleared(currentNamespace);
         delegatedState.clear();
     }
 
     @SuppressWarnings("unchecked")
     static <K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> reducingState, short stateId) {
+            InternalKvState<K, N, SV> reducingState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
         return (IS)
                 new ChangelogReducingState<>(
-                        (InternalReducingState<K, N, SV>) reducingState, stateId);
+                        (InternalReducingState<K, N, SV>) reducingState,
+                        stateChangelogWriter,
+                        keyContext,
+                        stateId);
     }
 }

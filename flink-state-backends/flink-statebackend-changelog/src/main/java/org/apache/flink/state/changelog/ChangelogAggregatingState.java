@@ -21,6 +21,8 @@ package org.apache.flink.state.changelog;
 import org.apache.flink.api.common.state.AggregatingState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.runtime.state.changelog.StateChange;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
+import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
 import org.apache.flink.runtime.state.internal.InternalAggregatingState;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 
@@ -41,8 +43,27 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
         implements InternalAggregatingState<K, N, IN, ACC, OUT> {
 
     ChangelogAggregatingState(
-            InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState, short stateId) {
-        super(delegatedState, stateId);
+            InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
+        this(
+                delegatedState,
+                new StateChangeLoggerImpl<>(
+                        delegatedState.getKeySerializer(),
+                        delegatedState.getNamespaceSerializer(),
+                        delegatedState.getValueSerializer(),
+                        keyContext,
+                        stateChangelogWriter,
+                        stateId),
+                stateId);
+    }
+
+    ChangelogAggregatingState(
+            InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState,
+            StateChangeLogger<ACC, N> changeLogger,
+            short stateId) {
+        super(delegatedState, changeLogger, stateId);
     }
 
     @Override
@@ -77,9 +98,15 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
 
     @SuppressWarnings("unchecked")
     static <T, K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> aggregatingState, short stateId) {
+            InternalKvState<K, N, SV> aggregatingState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
         return (IS)
                 new ChangelogAggregatingState<>(
-                        (InternalAggregatingState<K, N, T, SV, ?>) aggregatingState, stateId);
+                        (InternalAggregatingState<K, N, T, SV, ?>) aggregatingState,
+                        stateChangelogWriter,
+                        keyContext,
+                        stateId);
     }
 }

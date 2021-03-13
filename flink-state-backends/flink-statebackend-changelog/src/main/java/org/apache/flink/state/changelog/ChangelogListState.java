@@ -20,12 +20,17 @@ package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.State;
+import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.runtime.state.changelog.StateChange;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
+import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalListState;
 
 import java.util.Collection;
 import java.util.List;
+
+import static java.util.Collections.singletonList;
 
 /**
  * Delegated partitioned {@link ListState} that forwards changes to {@link StateChange} upon {@link
@@ -39,53 +44,102 @@ class ChangelogListState<K, N, V>
         extends AbstractChangelogState<K, N, List<V>, InternalListState<K, N, V>>
         implements InternalListState<K, N, V> {
 
-    ChangelogListState(InternalListState<K, N, V> delegatedState, short stateId) {
-        super(delegatedState, stateId);
+    ChangelogListState(
+            InternalListState<K, N, V> delegatedState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
+        this(
+                delegatedState,
+                new StateChangeLoggerImpl<>(
+                        delegatedState.getKeySerializer(),
+                        delegatedState.getNamespaceSerializer(),
+                        delegatedState.getValueSerializer(),
+                        keyContext,
+                        stateChangelogWriter,
+                        stateId),
+                stateId);
+    }
+
+    ChangelogListState(
+            InternalListState<K, N, V> delegatedState,
+            StateChangeLogger<List<V>, N> changeLogger,
+            short stateId) {
+        super(delegatedState, changeLogger, stateId);
     }
 
     @Override
     public void update(List<V> values) throws Exception {
+        changeLogger.stateUpdated(values, currentNamespace);
         delegatedState.update(values);
     }
 
     @Override
     public void addAll(List<V> values) throws Exception {
+        changeLogger.stateAdded(values, currentNamespace);
         delegatedState.addAll(values);
     }
 
     @Override
     public void updateInternal(List<V> valueToStore) throws Exception {
+        changeLogger.stateUpdated(valueToStore, currentNamespace);
         delegatedState.updateInternal(valueToStore);
     }
 
     @Override
     public void add(V value) throws Exception {
+        if (getValueSerializer() instanceof ListSerializer) {
+            changeLogger.stateElementChanged(
+                    w ->
+                            ((ListSerializer<V>) getValueSerializer())
+                                    .getElementSerializer()
+                                    .serialize(value, w),
+                    currentNamespace);
+        } else {
+            changeLogger.stateAdded(singletonList(value), currentNamespace);
+        }
         delegatedState.add(value);
     }
 
     @Override
     public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
+        // do not simply store the new value for the target namespace
+        // because old namespaces need to be removed
+        changeLogger.stateMerged(target, sources);
         delegatedState.mergeNamespaces(target, sources);
     }
 
     @Override
     public List<V> getInternal() throws Exception {
+        // NOTE: Both heap and rocks return copied state. But in RocksDB, changes to the returned
+        // value will not get into the snapshot.
         return delegatedState.getInternal();
     }
 
     @Override
     public Iterable<V> get() throws Exception {
+        // NOTE: Both heap and rocks return copied state. But in RocksDB, changes to the returned
+        // value will not get into the snapshot.
         return delegatedState.get();
     }
 
     @Override
     public void clear() {
+        changeLogger.stateCleared(currentNamespace);
         delegatedState.clear();
     }
 
     @SuppressWarnings("unchecked")
     static <K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> listState, short stateId) {
-        return (IS) new ChangelogListState<>((InternalListState<K, N, SV>) listState, stateId);
+            InternalKvState<K, N, SV> listState,
+            StateChangelogWriter<?> stateChangelogWriter,
+            InternalReadOnlyKeyContext<K> keyContext,
+            short stateId) {
+        return (IS)
+                new ChangelogListState<>(
+                        (InternalListState<K, N, SV>) listState,
+                        stateChangelogWriter,
+                        keyContext,
+                        stateId);
     }
 }
