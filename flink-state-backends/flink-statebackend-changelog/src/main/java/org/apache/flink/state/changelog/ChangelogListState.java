@@ -19,8 +19,8 @@
 package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.state.ListState;
-import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.state.State;
+import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
