@@ -26,6 +26,8 @@ import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
 
+import java.io.IOException;
+
 /** Tests for {@link ChangelogStateBackend} delegating {@link EmbeddedRocksDBStateBackend}. */
 public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
         extends EmbeddedRocksDBStateBackendTest {
@@ -40,10 +42,15 @@ public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        getStateBackend(), new InMemoryStateChangelogWriterFactory()),
+                        super.getStateBackend(), new InMemoryStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
                 env);
+    }
+
+    @Override
+    protected ChangelogStateBackend getStateBackend() throws IOException {
+        return new ChangelogStateBackend(super.getStateBackend(), new InMemoryStateChangelogWriterFactory());
     }
 }

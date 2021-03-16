@@ -38,10 +38,15 @@ public class ChangelogDelegateHashMapTest extends HashMapStateBackendTest {
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        getStateBackend(), new InMemoryStateChangelogWriterFactory()),
+                        super.getStateBackend(), new InMemoryStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
                 env);
+    }
+
+    @Override
+    protected ChangelogStateBackend getStateBackend() {
+        return new ChangelogStateBackend(super.getStateBackend(), new InMemoryStateChangelogWriterFactory());
     }
 }

@@ -165,7 +165,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 
     private MockEnvironment env;
 
-    protected abstract B getStateBackend() throws Exception;
+    protected abstract ConfigurableStateBackend getStateBackend() throws Exception;
 
     protected CheckpointStorage getCheckpointStorage() throws Exception {
         StateBackend stateBackend = getStateBackend();
@@ -230,19 +230,19 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
         return backend;
     }
 
-    protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(
+    protected <K> CheckpointableKeyedStateBackend<K> restoreKeyedBackend(
             TypeSerializer<K> keySerializer, KeyedStateHandle state) throws Exception {
         return restoreKeyedBackend(keySerializer, state, env);
     }
 
-    protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(
+    protected <K> CheckpointableKeyedStateBackend<K> restoreKeyedBackend(
             TypeSerializer<K> keySerializer, KeyedStateHandle state, Environment env)
             throws Exception {
         return restoreKeyedBackend(
                 keySerializer, 10, new KeyGroupRange(0, 9), Collections.singletonList(state), env);
     }
 
-    protected <K> AbstractKeyedStateBackend<K> restoreKeyedBackend(
+    protected <K> CheckpointableKeyedStateBackend<K> restoreKeyedBackend(
             TypeSerializer<K> keySerializer,
             int numberOfKeyGroups,
             KeyGroupRange keyGroupRange,
@@ -250,22 +250,19 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
             Environment env)
             throws Exception {
 
-        AbstractKeyedStateBackend<K> backend =
-                getStateBackend()
-                        .createKeyedStateBackend(
-                                env,
-                                new JobID(),
-                                "test_op",
-                                keySerializer,
-                                numberOfKeyGroups,
-                                keyGroupRange,
-                                env.getTaskKvStateRegistry(),
-                                TtlTimeProvider.DEFAULT,
-                                new UnregisteredMetricsGroup(),
-                                state,
-                                new CloseableRegistry());
-
-        return backend;
+        return getStateBackend()
+                .createKeyedStateBackend(
+                        env,
+                        new JobID(),
+                        "test_op",
+                        keySerializer,
+                        numberOfKeyGroups,
+                        keyGroupRange,
+                        env.getTaskKvStateRegistry(),
+                        TtlTimeProvider.DEFAULT,
+                        new UnregisteredMetricsGroup(),
+                        state,
+                        new CloseableRegistry());
     }
 
     @Test

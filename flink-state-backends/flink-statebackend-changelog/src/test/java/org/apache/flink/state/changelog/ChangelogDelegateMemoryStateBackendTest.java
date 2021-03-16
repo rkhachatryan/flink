@@ -21,6 +21,7 @@ package org.apache.flink.state.changelog;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
+import org.apache.flink.runtime.state.ConfigurableStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.MemoryStateBackendTest;
 import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
@@ -39,10 +40,15 @@ public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendT
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        getStateBackend(), new InMemoryStateChangelogWriterFactory()),
+                        super.getStateBackend(), new InMemoryStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
                 env);
+    }
+
+    @Override
+    protected ConfigurableStateBackend getStateBackend() {
+        return new ChangelogStateBackend(super.getStateBackend(), new InMemoryStateChangelogWriterFactory());
     }
 }
