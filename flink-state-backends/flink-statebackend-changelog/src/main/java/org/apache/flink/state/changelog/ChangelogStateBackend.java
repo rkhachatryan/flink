@@ -34,6 +34,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.changelog.StateChangelogHandle;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
 import org.apache.flink.runtime.state.delegate.DelegatingStateBackend;
@@ -53,10 +54,10 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
     private static final long serialVersionUID = 1000L;
 
     private final StateBackend delegatedStateBackend;
-    private final StateChangelogWriterFactory<?> stateChangelogWriterFactory;
+    private final StateChangelogWriterFactory<StateChangelogHandle<?>> stateChangelogWriterFactory;
 
     public ChangelogStateBackend(
-            StateBackend stateBackend, StateChangelogWriterFactory<?> stateChangelogWriterFactory) {
+            StateBackend stateBackend, StateChangelogWriterFactory<StateChangelogHandle<?>> stateChangelogWriterFactory) {
         this.delegatedStateBackend = Preconditions.checkNotNull(stateBackend);
         this.stateChangelogWriterFactory = stateChangelogWriterFactory;
 
@@ -93,9 +94,9 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                 metricGroup,
                                 stateHandles,
                                 cancelStreamRegistry);
-        StateChangelogWriter<?> stateChangelogWriter =
+        StateChangelogWriter<StateChangelogHandle<?>> stateChangelogWriter =
                 stateChangelogWriterFactory.createWriter(operatorIdentifier, keyGroupRange);
-        return new ChangelogKeyedStateBackend<>(
+        return new ChangelogKeyedStateBackend<K>(
                 keyedStateBackend, env.getExecutionConfig(), ttlTimeProvider, stateChangelogWriter);
     }
 
@@ -131,7 +132,7 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                 cancelStreamRegistry,
                                 managedMemoryFraction);
 
-        StateChangelogWriter<?> stateChangelogWriter =
+        StateChangelogWriter<StateChangelogHandle<?>> stateChangelogWriter =
                 stateChangelogWriterFactory.createWriter(operatorIdentifier, keyGroupRange);
         return new ChangelogKeyedStateBackend<>(
                 keyedStateBackend, env.getExecutionConfig(), ttlTimeProvider, stateChangelogWriter);

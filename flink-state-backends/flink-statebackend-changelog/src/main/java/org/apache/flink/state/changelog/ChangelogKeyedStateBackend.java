@@ -45,8 +45,11 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.PriorityComparable;
 import org.apache.flink.runtime.state.SavepointResources;
 import org.apache.flink.runtime.state.SnapshotResult;
+import org.apache.flink.runtime.state.Snapshotable;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
+import org.apache.flink.runtime.state.changelog.SequenceNumber;
+import org.apache.flink.runtime.state.changelog.StateChangelogHandle;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
@@ -56,11 +59,16 @@ import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -110,7 +118,11 @@ class ChangelogKeyedStateBackend<K>
 
     private final TtlTimeProvider ttlTimeProvider;
 
-    private final StateChangelogWriter<?> stateChangelogWriter;
+    private final StateChangelogWriter<StateChangelogHandle<?>> stateChangelogWriter;
+
+    private final PeriodicStateMaterializer<SnapshotResult<KeyedStateHandle>> materializer;
+
+    @Nullable private SnapshotResult<KeyedStateHandle> baseSnapshot;
 
     /** last accessed partitioned state. */
     @SuppressWarnings("rawtypes")
@@ -119,16 +131,30 @@ class ChangelogKeyedStateBackend<K>
     /** For caching the last accessed partitioned state. */
     private String lastName;
 
+    private SequenceNumber sqn;
+
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
             ExecutionConfig executionConfig,
             TtlTimeProvider ttlTimeProvider,
-            StateChangelogWriter<?> stateChangelogWriter) {
+            StateChangelogWriter<StateChangelogHandle<?>> stateChangelogWriter) {
         this.keyedStateBackend = keyedStateBackend;
         this.executionConfig = executionConfig;
         this.ttlTimeProvider = ttlTimeProvider;
         this.keyValueStatesByName = new HashMap<>();
         this.stateChangelogWriter = stateChangelogWriter;
+        // todo: run in task thread
+        this.materializer =
+                new PeriodicStateMaterializer<>(
+                        // todo: run in task thread
+                        ChangelogKeyedStateBackend.this,
+                        snapshotResult -> {
+                            // todo: run in task thread
+                            baseSnapshot = snapshotResult;
+                        },
+                        null,
+                    // todo: read from config
+                    123);
     }
 
     // -------------------- CheckpointableKeyedStateBackend --------------------------------
@@ -140,6 +166,7 @@ class ChangelogKeyedStateBackend<K>
     @Override
     public void close() throws IOException {
         keyedStateBackend.close();
+        materializer.shutdown();
     }
 
     @Override
@@ -243,8 +270,27 @@ class ChangelogKeyedStateBackend<K>
             @Nonnull CheckpointStreamFactory streamFactory,
             @Nonnull CheckpointOptions checkpointOptions)
             throws Exception {
-        return keyedStateBackend.snapshot(
-                checkpointId, timestamp, streamFactory, checkpointOptions);
+        if (!materializer.isStarted()) {
+            materializer.start();
+        }
+
+        RunnableFuture<SnapshotResult<KeyedStateHandle>> future =
+                toRunnableFuture(
+                        stateChangelogWriter
+                                .persist(sqn)
+                                .thenApply(this::getStateHandleSnapshotResult));
+        sqn = stateChangelogWriter.lastAppendedSequenceNumber();
+        return future;
+    }
+
+    // 2. pass args to it
+    // 3. write meta (init?)
+    // 4. build snapshot
+
+    private SnapshotResult<KeyedStateHandle> getStateHandleSnapshotResult(
+            StateChangelogHandle<?> x) {
+        // todo
+        return SnapshotResult.of(x);
     }
 
     @Nonnull
@@ -343,5 +389,46 @@ class ChangelogKeyedStateBackend<K>
                 StateChangelogWriter<?> stateChangelogWriter,
                 InternalReadOnlyKeyContext<K> keyContext)
                 throws Exception;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public AbstractChangelogState getStateById(String id) {
+        return (AbstractChangelogState) keyValueStatesByName.get(id); // todo: pq states
+    }
+
+    // todo: find existing?
+    private static <T> RunnableFuture<T> toRunnableFuture(CompletableFuture<T> persist) {
+        return new RunnableFuture<T>() {
+            @Override
+            public void run() {
+                persist.join();
+            }
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                return persist.cancel(mayInterruptIfRunning);
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return persist.isCancelled();
+            }
+
+            @Override
+            public boolean isDone() {
+                return persist.isDone();
+            }
+
+            @Override
+            public T get() throws InterruptedException, ExecutionException {
+                return persist.get();
+            }
+
+            @Override
+            public T get(long timeout, TimeUnit unit)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                return persist.get(timeout, unit);
+            }
+        };
     }
 }
