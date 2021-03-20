@@ -38,8 +38,8 @@ class ChangelogValueState<K, N, V>
         extends AbstractChangelogState<K, N, V, InternalValueState<K, N, V>>
         implements InternalValueState<K, N, V> {
 
-    ChangelogValueState(InternalValueState<K, N, V> delegatedState) {
-        super(delegatedState);
+    ChangelogValueState(InternalValueState<K, N, V> delegatedState, short stateId) {
+        super(delegatedState, stateId);
     }
 
     @Override
@@ -59,7 +59,7 @@ class ChangelogValueState<K, N, V>
 
     @SuppressWarnings("unchecked")
     static <K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> valueState) {
-        return (IS) new ChangelogValueState<>((InternalValueState<K, N, SV>) valueState);
+            InternalKvState<K, N, SV> valueState, short stateId) {
+        return (IS) new ChangelogValueState<>((InternalValueState<K, N, SV>) valueState, stateId);
     }
 }

@@ -38,8 +38,8 @@ class ChangelogReducingState<K, N, V>
         extends AbstractChangelogState<K, N, V, InternalReducingState<K, N, V>>
         implements InternalReducingState<K, N, V> {
 
-    ChangelogReducingState(InternalReducingState<K, N, V> delegatedState) {
-        super(delegatedState);
+    ChangelogReducingState(InternalReducingState<K, N, V> delegatedState, short stateId) {
+        super(delegatedState, stateId);
     }
 
     @Override
@@ -74,7 +74,9 @@ class ChangelogReducingState<K, N, V>
 
     @SuppressWarnings("unchecked")
     static <K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> reducingState) {
-        return (IS) new ChangelogReducingState<>((InternalReducingState<K, N, SV>) reducingState);
+            InternalKvState<K, N, SV> reducingState, short stateId) {
+        return (IS)
+                new ChangelogReducingState<>(
+                        (InternalReducingState<K, N, SV>) reducingState, stateId);
     }
 }

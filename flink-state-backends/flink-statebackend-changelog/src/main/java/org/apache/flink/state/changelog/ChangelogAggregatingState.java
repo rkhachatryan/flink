@@ -40,8 +40,9 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
         extends AbstractChangelogState<K, N, ACC, InternalAggregatingState<K, N, IN, ACC, OUT>>
         implements InternalAggregatingState<K, N, IN, ACC, OUT> {
 
-    ChangelogAggregatingState(InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState) {
-        super(delegatedState);
+    ChangelogAggregatingState(
+            InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState, short stateId) {
+        super(delegatedState, stateId);
     }
 
     @Override
@@ -76,9 +77,9 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
 
     @SuppressWarnings("unchecked")
     static <T, K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> aggregatingState) {
+            InternalKvState<K, N, SV> aggregatingState, short stateId) {
         return (IS)
                 new ChangelogAggregatingState<>(
-                        (InternalAggregatingState<K, N, T, SV, ?>) aggregatingState);
+                        (InternalAggregatingState<K, N, T, SV, ?>) aggregatingState, stateId);
     }
 }

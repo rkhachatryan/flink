@@ -115,6 +115,8 @@ class ChangelogKeyedStateBackend<K>
     /** For caching the last accessed partitioned state. */
     private String lastName;
 
+    private short lastCreatedStateId = -1;
+
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
             ExecutionConfig executionConfig,
@@ -326,12 +328,13 @@ class ChangelogKeyedStateBackend<K>
 
         return stateFactory.create(
                 keyedStateBackend.createInternalState(
-                        namespaceSerializer, stateDesc, snapshotTransformFactory));
+                        namespaceSerializer, stateDesc, snapshotTransformFactory),
+                ++lastCreatedStateId);
     }
 
     // Factory function interface
     private interface StateFactory {
-        <K, N, SV, S extends State, IS extends S> IS create(InternalKvState<K, N, SV> kvState)
-                throws Exception;
+        <K, N, SV, S extends State, IS extends S> IS create(
+                InternalKvState<K, N, SV> kvState, short stateId) throws Exception;
     }
 }

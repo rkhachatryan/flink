@@ -40,8 +40,8 @@ class ChangelogMapState<K, N, UK, UV>
         extends AbstractChangelogState<K, N, Map<UK, UV>, InternalMapState<K, N, UK, UV>>
         implements InternalMapState<K, N, UK, UV> {
 
-    ChangelogMapState(InternalMapState<K, N, UK, UV> delegatedState) {
-        super(delegatedState);
+    ChangelogMapState(InternalMapState<K, N, UK, UV> delegatedState, short stateId) {
+        super(delegatedState, stateId);
     }
 
     @Override
@@ -101,7 +101,7 @@ class ChangelogMapState<K, N, UK, UV>
 
     @SuppressWarnings("unchecked")
     static <UK, UV, K, N, SV, S extends State, IS extends S> IS create(
-            InternalKvState<K, N, SV> mapState) {
-        return (IS) new ChangelogMapState<>((InternalMapState<K, N, UK, UV>) mapState);
+            InternalKvState<K, N, SV> mapState, short stateId) {
+        return (IS) new ChangelogMapState<>((InternalMapState<K, N, UK, UV>) mapState, stateId);
     }
 }
