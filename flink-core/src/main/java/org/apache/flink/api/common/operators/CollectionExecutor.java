@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.Plan;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
@@ -192,14 +193,16 @@ public class CollectionExecutor {
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics)
+                                    metrics,
+                                    new JobID())
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics);
+                                    metrics,
+                                    new JobID());
         } else {
             ctx = null;
         }
@@ -227,14 +230,16 @@ public class CollectionExecutor {
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics)
+                                    metrics,
+                                    new JobID())
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics);
+                                    metrics,
+                                    new JobID());
         } else {
             ctx = null;
         }
@@ -269,14 +274,16 @@ public class CollectionExecutor {
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics)
+                                    metrics,
+                                    new JobID())
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics);
+                                    metrics,
+                                    new JobID());
 
             for (Map.Entry<String, Operator<?>> bcInputs :
                     operator.getBroadcastInputs().entrySet()) {
@@ -329,14 +336,16 @@ public class CollectionExecutor {
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics)
+                                    metrics,
+                                    new JobID())
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
                                     executionConfig,
                                     cachedFiles,
                                     accumulators,
-                                    metrics);
+                                    metrics,
+                                    new JobID());
 
             for (Map.Entry<String, Operator<?>> bcInputs :
                     operator.getBroadcastInputs().entrySet()) {
@@ -625,8 +634,9 @@ public class CollectionExecutor {
                 ExecutionConfig executionConfig,
                 Map<String, Future<Path>> cpTasks,
                 Map<String, Accumulator<?, ?>> accumulators,
-                MetricGroup metrics) {
-            super(taskInfo, classloader, executionConfig, cpTasks, accumulators, metrics);
+                MetricGroup metrics,
+                JobID jobID) {
+            super(taskInfo, classloader, executionConfig, cpTasks, accumulators, metrics, jobID);
         }
 
         @Override

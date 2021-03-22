@@ -25,7 +25,7 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rex.RexNode
 import org.apache.calcite.sql.`type`.SqlTypeName._
 import org.apache.calcite.tools.Programs
-import org.apache.flink.api.common.TaskInfo
+import org.apache.flink.api.common.{JobID, TaskInfo}
 import org.apache.flink.api.common.accumulators.Accumulator
 import org.apache.flink.api.common.functions._
 import org.apache.flink.api.common.functions.util.RuntimeUDFContext
@@ -156,7 +156,8 @@ abstract class ExpressionTestBase {
         context._3.getConfig,
         new util.HashMap[String, Future[Path]](),
         new util.HashMap[String, Accumulator[_, _]](),
-        null)
+        null,
+        new JobID())
       richMapper.setRuntimeContext(t)
       richMapper.open(new Configuration())
     }

@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.operators.base;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.CoGroupFunction;
@@ -88,7 +89,8 @@ public class CoGroupOperatorCollectionTest implements Serializable {
                             executionConfig,
                             cpTasks,
                             accumulators,
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             {
                 SumCoGroup udf1 = new SumCoGroup();

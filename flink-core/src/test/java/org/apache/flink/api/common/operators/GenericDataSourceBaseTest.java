@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.operators;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.util.RuntimeUDFContext;
@@ -96,7 +97,8 @@ public class GenericDataSourceBaseTest implements java.io.Serializable {
                                     executionConfig,
                                     cpTasks,
                                     accumulatorMap,
-                                    new UnregisteredMetricsGroup()),
+                                    new UnregisteredMetricsGroup(),
+                                    new JobID()),
                             executionConfig);
 
             assertEquals(true, in.hasBeenClosed());
@@ -115,7 +117,8 @@ public class GenericDataSourceBaseTest implements java.io.Serializable {
                                     executionConfig,
                                     cpTasks,
                                     accumulatorMap,
-                                    new UnregisteredMetricsGroup()),
+                                    new UnregisteredMetricsGroup(),
+                                    new JobID()),
                             executionConfig);
 
             assertEquals(true, in.hasBeenClosed());

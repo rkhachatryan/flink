@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.functions.util;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.functions.BroadcastVariableInitializer;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
@@ -50,7 +51,8 @@ public class RuntimeUDFContextTest {
                             new ExecutionConfig(),
                             new HashMap<>(),
                             new HashMap<>(),
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             assertFalse(ctx.hasBroadcastVariable("some name"));
 
@@ -90,7 +92,8 @@ public class RuntimeUDFContextTest {
                             new ExecutionConfig(),
                             new HashMap<>(),
                             new HashMap<>(),
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             ctx.setBroadcastVariable("name1", Arrays.asList(1, 2, 3, 4));
             ctx.setBroadcastVariable("name2", Arrays.asList(1.0, 2.0, 3.0, 4.0));
@@ -133,7 +136,8 @@ public class RuntimeUDFContextTest {
                             new ExecutionConfig(),
                             new HashMap<>(),
                             new HashMap<>(),
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             ctx.setBroadcastVariable("name", Arrays.asList(1, 2, 3, 4));
 
@@ -167,7 +171,8 @@ public class RuntimeUDFContextTest {
                             new ExecutionConfig(),
                             new HashMap<>(),
                             new HashMap<>(),
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             ctx.setBroadcastVariable("name", Arrays.asList(1, 2, 3, 4));
 
@@ -198,7 +203,8 @@ public class RuntimeUDFContextTest {
                             new ExecutionConfig(),
                             new HashMap<>(),
                             new HashMap<>(),
-                            new UnregisteredMetricsGroup());
+                            new UnregisteredMetricsGroup(),
+                            new JobID());
 
             ctx.setBroadcastVariable("name", Arrays.asList(1, 2, 3, 4));
 

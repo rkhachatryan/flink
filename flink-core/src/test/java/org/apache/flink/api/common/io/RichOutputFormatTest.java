@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.io;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.util.RuntimeUDFContext;
@@ -48,7 +49,8 @@ public class RichOutputFormatTest {
                         new ExecutionConfig(),
                         new HashMap<String, Future<Path>>(),
                         new HashMap<String, Accumulator<?, ?>>(),
-                        new UnregisteredMetricsGroup()));
+                        new UnregisteredMetricsGroup(),
+                        new JobID()));
 
         assertEquals(inputFormat.getRuntimeContext().getIndexOfThisSubtask(), 1);
         assertEquals(inputFormat.getRuntimeContext().getNumberOfParallelSubtasks(), 3);

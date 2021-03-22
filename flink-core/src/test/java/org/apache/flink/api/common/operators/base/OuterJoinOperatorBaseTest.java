@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.operators.base;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.FlatJoinFunction;
@@ -89,7 +90,8 @@ public class OuterJoinOperatorBaseTest implements Serializable {
                         executionConfig,
                         cpTasks,
                         accumulatorMap,
-                        new UnregisteredMetricsGroup());
+                        new UnregisteredMetricsGroup(),
+                        new JobID());
     }
 
     @Test

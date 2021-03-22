@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.operators.base;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.functions.GroupReduceFunction;
 import org.apache.flink.api.common.functions.RichGroupReduceFunction;
@@ -197,7 +198,8 @@ public class GroupReduceOperatorTest implements java.io.Serializable {
                                     executionConfig,
                                     new HashMap<>(),
                                     new HashMap<>(),
-                                    new UnregisteredMetricsGroup()),
+                                    new UnregisteredMetricsGroup(),
+                                    new JobID()),
                             executionConfig);
 
             executionConfig.enableObjectReuse();
@@ -210,7 +212,8 @@ public class GroupReduceOperatorTest implements java.io.Serializable {
                                     executionConfig,
                                     new HashMap<>(),
                                     new HashMap<>(),
-                                    new UnregisteredMetricsGroup()),
+                                    new UnregisteredMetricsGroup(),
+                                    new JobID()),
                             executionConfig);
 
             Set<Tuple2<String, Integer>> resultSetMutableSafe = new HashSet<>(resultMutableSafe);

@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.operators.base;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.functions.FlatMapFunction;
@@ -90,7 +91,8 @@ public class FlatMapOperatorCollectionTest implements Serializable {
                                         executionConfig,
                                         new HashMap<String, Future<Path>>(),
                                         new HashMap<String, Accumulator<?, ?>>(),
-                                        new UnregisteredMetricsGroup()),
+                                        new UnregisteredMetricsGroup(),
+                                        new JobID()),
                                 executionConfig);
 
         Assert.assertEquals(input.size(), result.size());

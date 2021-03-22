@@ -33,7 +33,6 @@ import org.apache.flink.util.SimpleUserCodeClassLoader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
 
@@ -44,6 +43,7 @@ public class RuntimeUDFContext extends AbstractRuntimeUDFContext {
     private final HashMap<String, Object> initializedBroadcastVars = new HashMap<>();
 
     private final HashMap<String, List<?>> uninitializedBroadcastVars = new HashMap<>();
+    private final JobID jobID;
 
     public RuntimeUDFContext(
             TaskInfo taskInfo,
@@ -51,7 +51,8 @@ public class RuntimeUDFContext extends AbstractRuntimeUDFContext {
             ExecutionConfig executionConfig,
             Map<String, Future<Path>> cpTasks,
             Map<String, Accumulator<?, ?>> accumulators,
-            MetricGroup metrics) {
+            MetricGroup metrics,
+            JobID jobID) {
         super(
                 taskInfo,
                 SimpleUserCodeClassLoader.create(userCodeClassLoader),
@@ -59,6 +60,7 @@ public class RuntimeUDFContext extends AbstractRuntimeUDFContext {
                 accumulators,
                 cpTasks,
                 metrics);
+        this.jobID = jobID;
     }
 
     @Override
@@ -117,8 +119,8 @@ public class RuntimeUDFContext extends AbstractRuntimeUDFContext {
     }
 
     @Override
-    public Optional<JobID> getJobId() {
-        return Optional.empty();
+    public JobID getJobId() {
+        return jobID;
     }
 
     @Override
