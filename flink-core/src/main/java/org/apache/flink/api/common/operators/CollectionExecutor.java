@@ -111,7 +111,7 @@ public class CollectionExecutor {
         initCache(program.getCachedFiles());
         Collection<? extends GenericDataSinkBase<?>> sinks = program.getDataSinks();
         for (Operator<?> sink : sinks) {
-            execute(sink);
+            execute(sink, program.getJobId());
         }
 
         long endTime = System.currentTimeMillis();
@@ -127,11 +127,11 @@ public class CollectionExecutor {
         }
     };
 
-    private List<?> execute(Operator<?> operator) throws Exception {
-        return execute(operator, 0);
+    private List<?> execute(Operator<?> operator, JobID jobID) throws Exception {
+        return execute(operator, 0, jobID);
     }
 
-    private List<?> execute(Operator<?> operator, int superStep) throws Exception {
+    private List<?> execute(Operator<?> operator, int superStep, JobID jobID) throws Exception {
         List<?> result = this.intermediateResults.get(operator);
 
         // if it has already been computed, use the cached variant
@@ -140,20 +140,28 @@ public class CollectionExecutor {
         }
 
         if (operator instanceof BulkIterationBase) {
-            result = executeBulkIteration((BulkIterationBase<?>) operator);
+            result = executeBulkIteration((BulkIterationBase<?>) operator, jobID);
         } else if (operator instanceof DeltaIterationBase) {
-            result = executeDeltaIteration((DeltaIterationBase<?, ?>) operator);
-        } else if (operator instanceof SingleInputOperator) {
-            result = executeUnaryOperator((SingleInputOperator<?, ?, ?>) operator, superStep);
-        } else if (operator instanceof DualInputOperator) {
-            result = executeBinaryOperator((DualInputOperator<?, ?, ?, ?>) operator, superStep);
-        } else if (operator instanceof GenericDataSourceBase) {
-            result = executeDataSource((GenericDataSourceBase<?, ?>) operator, superStep);
-        } else if (operator instanceof GenericDataSinkBase) {
-            executeDataSink((GenericDataSinkBase<?>) operator, superStep);
-            result = Collections.emptyList();
+            result = executeDeltaIteration((DeltaIterationBase<?, ?>) operator, jobID);
         } else {
-            throw new RuntimeException("Cannot execute operator " + operator.getClass().getName());
+            if (operator instanceof SingleInputOperator) {
+                result =
+                        executeUnaryOperator(
+                                (SingleInputOperator<?, ?, ?>) operator, superStep, jobID);
+            } else if (operator instanceof DualInputOperator) {
+                result =
+                        executeBinaryOperator(
+                                (DualInputOperator<?, ?, ?, ?>) operator, superStep, jobID);
+            } else if (operator instanceof GenericDataSourceBase) {
+                result =
+                        executeDataSource((GenericDataSourceBase<?, ?>) operator, superStep, jobID);
+            } else if (operator instanceof GenericDataSinkBase) {
+                executeDataSink((GenericDataSinkBase<?>) operator, superStep, jobID);
+                result = Collections.emptyList();
+            } else {
+                throw new RuntimeException(
+                        "Cannot execute operator " + operator.getClass().getName());
+            }
         }
 
         this.intermediateResults.put(operator, result);
@@ -165,14 +173,15 @@ public class CollectionExecutor {
     //  Operator class specific execution methods
     // --------------------------------------------------------------------------------------------
 
-    private <IN> void executeDataSink(GenericDataSinkBase<?> sink, int superStep) throws Exception {
+    private <IN> void executeDataSink(GenericDataSinkBase<?> sink, int superStep, JobID jobID)
+            throws Exception {
         Operator<?> inputOp = sink.getInput();
         if (inputOp == null) {
             throw new InvalidProgramException("The data sink " + sink.getName() + " has no input.");
         }
 
         @SuppressWarnings("unchecked")
-        List<IN> input = (List<IN>) execute(inputOp);
+        List<IN> input = (List<IN>) execute(inputOp, jobID);
 
         @SuppressWarnings("unchecked")
         GenericDataSinkBase<IN> typedSink = (GenericDataSinkBase<IN>) sink;
@@ -194,7 +203,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID())
+                                    jobID)
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
@@ -202,7 +211,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID());
+                                    jobID);
         } else {
             ctx = null;
         }
@@ -210,8 +219,8 @@ public class CollectionExecutor {
         typedSink.executeOnCollections(input, ctx, executionConfig);
     }
 
-    private <OUT> List<OUT> executeDataSource(GenericDataSourceBase<?, ?> source, int superStep)
-            throws Exception {
+    private <OUT> List<OUT> executeDataSource(
+            GenericDataSourceBase<?, ?> source, int superStep, JobID jobID) throws Exception {
         @SuppressWarnings("unchecked")
         GenericDataSourceBase<OUT, ?> typedSource = (GenericDataSourceBase<OUT, ?>) source;
         // build the runtime context and compute broadcast variables, if necessary
@@ -231,7 +240,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID())
+                                    jobID)
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
@@ -239,7 +248,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID());
+                                    jobID);
         } else {
             ctx = null;
         }
@@ -247,7 +256,7 @@ public class CollectionExecutor {
     }
 
     private <IN, OUT> List<OUT> executeUnaryOperator(
-            SingleInputOperator<?, ?, ?> operator, int superStep) throws Exception {
+            SingleInputOperator<?, ?, ?> operator, int superStep, JobID jobID) throws Exception {
         Operator<?> inputOp = operator.getInput();
         if (inputOp == null) {
             throw new InvalidProgramException(
@@ -255,7 +264,7 @@ public class CollectionExecutor {
         }
 
         @SuppressWarnings("unchecked")
-        List<IN> inputData = (List<IN>) execute(inputOp, superStep);
+        List<IN> inputData = (List<IN>) execute(inputOp, superStep, jobID);
 
         @SuppressWarnings("unchecked")
         SingleInputOperator<IN, OUT, ?> typedOp = (SingleInputOperator<IN, OUT, ?>) operator;
@@ -275,7 +284,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID())
+                                    jobID)
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
@@ -283,11 +292,11 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID());
+                                    jobID);
 
             for (Map.Entry<String, Operator<?>> bcInputs :
                     operator.getBroadcastInputs().entrySet()) {
-                List<?> bcData = execute(bcInputs.getValue());
+                List<?> bcData = execute(bcInputs.getValue(), jobID);
                 ctx.setBroadcastVariable(bcInputs.getKey(), bcData);
             }
         } else {
@@ -298,7 +307,7 @@ public class CollectionExecutor {
     }
 
     private <IN1, IN2, OUT> List<OUT> executeBinaryOperator(
-            DualInputOperator<?, ?, ?, ?> operator, int superStep) throws Exception {
+            DualInputOperator<?, ?, ?, ?> operator, int superStep, JobID jobID) throws Exception {
         Operator<?> inputOp1 = operator.getFirstInput();
         Operator<?> inputOp2 = operator.getSecondInput();
 
@@ -313,9 +322,9 @@ public class CollectionExecutor {
 
         // compute inputs
         @SuppressWarnings("unchecked")
-        List<IN1> inputData1 = (List<IN1>) execute(inputOp1, superStep);
+        List<IN1> inputData1 = (List<IN1>) execute(inputOp1, superStep, jobID);
         @SuppressWarnings("unchecked")
-        List<IN2> inputData2 = (List<IN2>) execute(inputOp2, superStep);
+        List<IN2> inputData2 = (List<IN2>) execute(inputOp2, superStep, jobID);
 
         @SuppressWarnings("unchecked")
         DualInputOperator<IN1, IN2, OUT, ?> typedOp =
@@ -337,7 +346,7 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID())
+                                    jobID)
                             : new IterationRuntimeUDFContext(
                                     taskInfo,
                                     userCodeClassLoader,
@@ -345,11 +354,11 @@ public class CollectionExecutor {
                                     cachedFiles,
                                     accumulators,
                                     metrics,
-                                    new JobID());
+                                    jobID);
 
             for (Map.Entry<String, Operator<?>> bcInputs :
                     operator.getBroadcastInputs().entrySet()) {
-                List<?> bcData = execute(bcInputs.getValue());
+                List<?> bcData = execute(bcInputs.getValue(), jobID);
                 ctx.setBroadcastVariable(bcInputs.getKey(), bcData);
             }
         } else {
@@ -360,7 +369,8 @@ public class CollectionExecutor {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> List<T> executeBulkIteration(BulkIterationBase<?> iteration) throws Exception {
+    private <T> List<T> executeBulkIteration(BulkIterationBase<?> iteration, JobID jobID)
+            throws Exception {
         Operator<?> inputOp = iteration.getInput();
         if (inputOp == null) {
             throw new InvalidProgramException(
@@ -375,7 +385,7 @@ public class CollectionExecutor {
                             + " has no next partial solution defined (is not closed).");
         }
 
-        List<T> inputData = (List<T>) execute(inputOp);
+        List<T> inputData = (List<T>) execute(inputOp, jobID);
 
         // get the operators that are iterative
         Set<Operator<?>> dynamics = new LinkedHashSet<Operator<?>>();
@@ -408,11 +418,11 @@ public class CollectionExecutor {
             iterationSuperstep = superstep;
 
             // grab the current iteration result
-            currentResult = (List<T>) execute(iteration.getNextPartialSolution(), superstep);
+            currentResult = (List<T>) execute(iteration.getNextPartialSolution(), superstep, jobID);
 
             // evaluate the termination criterion
             if (iteration.getTerminationCriterion() != null) {
-                execute(iteration.getTerminationCriterion(), superstep);
+                execute(iteration.getTerminationCriterion(), superstep, jobID);
             }
 
             // evaluate the aggregator convergence criterion
@@ -442,7 +452,8 @@ public class CollectionExecutor {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> List<T> executeDeltaIteration(DeltaIterationBase<?, ?> iteration) throws Exception {
+    private <T> List<T> executeDeltaIteration(DeltaIterationBase<?, ?> iteration, JobID jobID)
+            throws Exception {
         Operator<?> solutionInput = iteration.getInitialSolutionSet();
         Operator<?> worksetInput = iteration.getInitialWorkset();
         if (solutionInput == null) {
@@ -466,8 +477,8 @@ public class CollectionExecutor {
                             + " has no workset defined (is not closed).");
         }
 
-        List<T> solutionInputData = (List<T>) execute(solutionInput);
-        List<T> worksetInputData = (List<T>) execute(worksetInput);
+        List<T> solutionInputData = (List<T>) execute(solutionInput, jobID);
+        List<T> worksetInputData = (List<T>) execute(worksetInput, jobID);
 
         // get the operators that are iterative
         Set<Operator<?>> dynamics = new LinkedHashSet<Operator<?>>();
@@ -520,7 +531,7 @@ public class CollectionExecutor {
 
             // grab the current iteration result
             List<T> solutionSetDelta =
-                    (List<T>) execute(iteration.getSolutionSetDelta(), superstep);
+                    (List<T>) execute(iteration.getSolutionSetDelta(), superstep, jobID);
             this.intermediateResults.put(iteration.getSolutionSetDelta(), solutionSetDelta);
 
             // update the solution
@@ -529,7 +540,7 @@ public class CollectionExecutor {
                 solutionMap.put(wrapper, delta);
             }
 
-            currentWorkset = execute(iteration.getNextWorkset(), superstep);
+            currentWorkset = execute(iteration.getNextWorkset(), superstep, jobID);
 
             if (currentWorkset.isEmpty()) {
                 break;
