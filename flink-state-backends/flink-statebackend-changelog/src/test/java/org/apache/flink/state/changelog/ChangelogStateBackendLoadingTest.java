@@ -20,12 +20,15 @@ package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.changelog.fs.FsStateChangelogOptions;
+import org.apache.flink.changelog.fs.FsStateChangelogWriterFactory;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
@@ -42,7 +45,7 @@ import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
 import org.apache.flink.runtime.state.delegate.DelegatingStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
@@ -55,6 +58,7 @@ import org.junit.rules.TemporaryFolder;
 
 import javax.annotation.Nonnull;
 
+import java.io.IOException;
 import java.util.Collection;
 
 import static org.junit.Assert.assertSame;
@@ -99,8 +103,7 @@ public class ChangelogStateBackendLoadingTest {
     @Test
     public void testApplicationDefinedChangelogStateBackend() throws Exception {
         final StateBackend appBackend =
-                new ChangelogStateBackend(
-                        new MockStateBackend(), new InMemoryStateChangelogWriterFactory());
+                new ChangelogStateBackend(new MockStateBackend(), getStateChangelogWriterFactory());
         // "rocksdb" should not take effect
         final StateBackend backend =
                 StateBackendLoader.fromApplicationOrConfigOrDefault(
@@ -120,8 +123,8 @@ public class ChangelogStateBackendLoadingTest {
         final StateBackend appBackend =
                 new ChangelogStateBackend(
                         new ChangelogStateBackend(
-                                new MockStateBackend(), new InMemoryStateChangelogWriterFactory()),
-                        new InMemoryStateChangelogWriterFactory());
+                                new MockStateBackend(), getStateChangelogWriterFactory()),
+                        getStateChangelogWriterFactory());
 
         StateBackendLoader.fromApplicationOrConfigOrDefault(
                 appBackend, config("rocksdb"), cl, null);
@@ -188,16 +191,18 @@ public class ChangelogStateBackendLoadingTest {
                 false);
     }
 
-    private Configuration config(String stateBackend) {
+    private Configuration config(String stateBackend) throws IOException {
         final Configuration config = config();
         config.setString(backendKey, stateBackend);
+        config.set(FsStateChangelogOptions.BASE_PATH, tmp.newFolder().toString());
 
         return config;
     }
 
-    private Configuration config() {
+    private Configuration config() throws IOException {
         final Configuration config = new Configuration();
         config.setBoolean(CheckpointingOptions.ENABLE_STATE_CHANGE_LOG, true);
+        config.set(FsStateChangelogOptions.BASE_PATH, tmp.newFolder().toString());
 
         return config;
     }
@@ -284,5 +289,9 @@ public class ChangelogStateBackendLoadingTest {
         boolean isConfigUpdated() {
             return configUpdated;
         }
+    }
+
+    private StateChangelogWriterFactory getStateChangelogWriterFactory() throws IOException {
+        return new FsStateChangelogWriterFactory(Path.fromLocalFile(tmp.newFolder()), false);
     }
 }

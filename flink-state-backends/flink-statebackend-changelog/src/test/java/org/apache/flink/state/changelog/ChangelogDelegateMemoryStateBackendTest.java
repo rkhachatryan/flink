@@ -19,16 +19,25 @@
 package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.changelog.fs.FsStateChangelogWriterFactory;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.ConfigurableStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.MemoryStateBackendTest;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
+
+import org.junit.Rule;
+import org.junit.rules.TemporaryFolder;
+
+import java.io.IOException;
 
 /** Tests for {@link ChangelogStateBackend} delegating {@link MemoryStateBackend}. */
 public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendTest {
+
+    @Rule public final TemporaryFolder tmp = new TemporaryFolder();
 
     @Override
     protected <K> CheckpointableKeyedStateBackend<K> createKeyedBackend(
@@ -40,7 +49,7 @@ public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendT
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        super.getStateBackend(), new InMemoryStateChangelogWriterFactory()),
+                        super.getStateBackend(), getStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
@@ -48,7 +57,11 @@ public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendT
     }
 
     @Override
-    protected ConfigurableStateBackend getStateBackend() {
-        return new ChangelogStateBackend(super.getStateBackend(), new InMemoryStateChangelogWriterFactory());
+    protected ConfigurableStateBackend getStateBackend() throws IOException {
+        return new ChangelogStateBackend(super.getStateBackend(), getStateChangelogWriterFactory());
+    }
+
+    private StateChangelogWriterFactory getStateChangelogWriterFactory() throws IOException {
+        return new FsStateChangelogWriterFactory(Path.fromLocalFile(tmp.newFolder()), false);
     }
 }

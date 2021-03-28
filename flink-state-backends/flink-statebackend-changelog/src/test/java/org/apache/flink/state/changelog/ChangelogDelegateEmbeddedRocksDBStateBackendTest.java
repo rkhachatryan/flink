@@ -19,12 +19,14 @@
 package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.changelog.fs.FsStateChangelogWriterFactory;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendTest;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
 
 import java.io.IOException;
 
@@ -42,7 +44,7 @@ public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        super.getStateBackend(), new InMemoryStateChangelogWriterFactory()),
+                        super.getStateBackend(), getStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
@@ -51,6 +53,10 @@ public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
 
     @Override
     protected ChangelogStateBackend getStateBackend() throws IOException {
-        return new ChangelogStateBackend(super.getStateBackend(), new InMemoryStateChangelogWriterFactory());
+        return new ChangelogStateBackend(super.getStateBackend(), getStateChangelogWriterFactory());
+    }
+
+    private StateChangelogWriterFactory getStateChangelogWriterFactory() throws IOException {
+        return new FsStateChangelogWriterFactory(Path.fromLocalFile(TEMP_FOLDER.newFolder()), false);
     }
 }
