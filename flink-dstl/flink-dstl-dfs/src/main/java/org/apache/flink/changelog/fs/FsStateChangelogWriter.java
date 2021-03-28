@@ -23,7 +23,7 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.changelog.SequenceNumber;
 import org.apache.flink.runtime.state.changelog.StateChange;
-import org.apache.flink.runtime.state.changelog.StateChangelogHandleStreamImpl;
+import org.apache.flink.runtime.state.changelog.ChangelogStateHandleStreamImpl;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 
 import org.slf4j.Logger;
@@ -50,7 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 @NotThreadSafe
-class FsStateChangelogWriter implements StateChangelogWriter<StateChangelogHandleStreamImpl> {
+class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandleStreamImpl> {
     private static final Logger LOG = LoggerFactory.getLogger(FsStateChangelogWriter.class);
 
     private final UUID logId;
@@ -102,7 +102,7 @@ class FsStateChangelogWriter implements StateChangelogWriter<StateChangelogHandl
     }
 
     @Override
-    public CompletableFuture<StateChangelogHandleStreamImpl> persist(SequenceNumber from)
+    public CompletableFuture<ChangelogStateHandleStreamImpl> persist(SequenceNumber from)
             throws IOException {
         LOG.debug(
                 "persist {} starting from sqn {} (incl.), active sqn: {}",
@@ -241,7 +241,7 @@ class FsStateChangelogWriter implements StateChangelogWriter<StateChangelogHandl
         activeChangeSet = new ArrayList<>();
     }
 
-    private StateChangelogHandleStreamImpl buildHandle(Collection<StoreResult> results) {
+    private ChangelogStateHandleStreamImpl buildHandle(Collection<StoreResult> results) {
         List<Tuple3<StreamStateHandle, Long, Long>> sorted =
                 results.stream()
                         // can't assume order across different handles because of retries and aborts
@@ -254,7 +254,7 @@ class FsStateChangelogWriter implements StateChangelogWriter<StateChangelogHandl
                                                 up.getSize()))
                         .collect(toList());
         // todo in MVP: replace old handles with placeholders (but maybe in the backend)
-        return new StateChangelogHandleStreamImpl(sorted, keyGroupRange);
+        return new ChangelogStateHandleStreamImpl(sorted, keyGroupRange);
     }
 
     @VisibleForTesting

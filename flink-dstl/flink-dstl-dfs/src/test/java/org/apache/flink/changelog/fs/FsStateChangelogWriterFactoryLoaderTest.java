@@ -18,8 +18,8 @@
 package org.apache.flink.changelog.fs;
 
 import org.apache.flink.core.plugin.DefaultPluginManager;
-import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
-import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactoryLoader;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 
 import org.junit.Test;
 
@@ -29,17 +29,17 @@ import java.util.Iterator;
 import static org.junit.Assert.fail;
 
 /**
- * {@link StateChangelogWriterFactoryLoader} test for {@link FsStateChangelogWriterFactory} case.
+ * {@link StateChangelogStorageLoader} test for {@link FsStateChangelogWriterFactory} case.
  */
 public class FsStateChangelogWriterFactoryLoaderTest {
 
     @Test
     @SuppressWarnings("rawtypes")
     public void testLoaded() {
-        StateChangelogWriterFactoryLoader loader =
-                new StateChangelogWriterFactoryLoader(
+        StateChangelogStorageLoader loader =
+                new StateChangelogStorageLoader(
                         new DefaultPluginManager(Collections.emptyList(), new String[0]));
-        for (Iterator<StateChangelogWriterFactory> it = loader.load(); it.hasNext(); ) {
+        for (Iterator<StateChangelogStorage> it = loader.load(); it.hasNext(); ) {
             if (it.next() instanceof FsStateChangelogWriterFactory) {
                 return; // found
             }

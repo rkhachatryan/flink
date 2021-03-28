@@ -19,12 +19,15 @@
 package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.changelog.fs.FsStateChangelogWriterFactory;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
-import org.apache.flink.runtime.state.ConfigurableStateBackend;
 import org.apache.flink.runtime.state.HashMapStateBackendTest;
 import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
+
+import java.io.IOException;
 
 /** Tests for {@link ChangelogStateBackend} delegating {@link HashMapStateBackendTest}. */
 public class ChangelogDelegateHashMapTest extends HashMapStateBackendTest {
@@ -49,16 +52,20 @@ public class ChangelogDelegateHashMapTest extends HashMapStateBackendTest {
 
         return ChangelogStateBackendTestUtils.createKeyedBackend(
                 new ChangelogStateBackend(
-                        super.getStateBackend(), new InMemoryStateChangelogStorage()),
+                        super.getStateBackend(), getStateChangelogWriterFactory()),
                 keySerializer,
                 numberOfKeyGroups,
                 keyGroupRange,
                 env);
     }
 
+    private StateChangelogStorage getStateChangelogWriterFactory() throws IOException {
+        return new FsStateChangelogWriterFactory(
+                Path.fromLocalFile(TEMP_FOLDER.newFolder()), false);
+    }
+
     @Override
-    protected ConfigurableStateBackend getStateBackend() {
-        return new ChangelogStateBackend(
-                super.getStateBackend(), new InMemoryStateChangelogStorage());
+    protected ChangelogStateBackend getStateBackend() throws IOException {
+        return new ChangelogStateBackend(super.getStateBackend(), getStateChangelogWriterFactory());
     }
 }

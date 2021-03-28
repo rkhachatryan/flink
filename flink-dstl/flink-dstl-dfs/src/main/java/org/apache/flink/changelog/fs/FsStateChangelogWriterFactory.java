@@ -22,9 +22,10 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.changelog.StateChangelogHandleStreamImpl;
+import org.apache.flink.runtime.state.changelog.ChangelogStateHandleStreamImpl;
+import org.apache.flink.runtime.state.changelog.StateChangelogHandleReader;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
-import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -38,10 +39,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.apache.flink.changelog.fs.FsStateChangelogOptions.APPEND_PERSIST_THRESHOLD;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** Filesystem-based implementation of {@link StateChangelogWriterFactory}. */
+/** Filesystem-based implementation of {@link StateChangelogStorage}. */
 @Experimental
 public class FsStateChangelogWriterFactory
-        implements StateChangelogWriterFactory<StateChangelogHandleStreamImpl>, Serializable {
+        implements StateChangelogStorage<ChangelogStateHandleStreamImpl>, Serializable {
     private static final Logger LOG = LoggerFactory.getLogger(FsStateChangelogWriterFactory.class);
     private static final long serialVersionUID = 1L;
 
@@ -128,6 +129,11 @@ public class FsStateChangelogWriterFactory
         LOG.info("createWriter for operator {}/{}: {}", operatorID, keyGroupRange, logId);
         return new FsStateChangelogWriter(
                 logId, keyGroupRange, store, config.get(APPEND_PERSIST_THRESHOLD).getBytes());
+    }
+
+    @Override
+    public StateChangelogHandleReader<ChangelogStateHandleStreamImpl> createReader() {
+        throw new UnsupportedOperationException(); // todo: fixme ASAP
     }
 
     @Override

@@ -23,8 +23,8 @@ import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.state.SnappyStreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.changelog.ChangelogStateHandleStreamImpl;
 import org.apache.flink.runtime.state.changelog.StateChange;
-import org.apache.flink.runtime.state.changelog.StateChangelogHandleStreamImpl;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -48,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** Serialization format for state changes. */
 @Internal
-public class StateChangeFormat implements StateChangelogHandleStreamImpl.StateChangeStreamReader {
+public class StateChangeFormat implements ChangelogStateHandleStreamImpl.StateChangeStreamReader {
     private static final Logger LOG = LoggerFactory.getLogger(StateChangeFormat.class);
 
     Map<StateChangeSetUpload, Long> write(

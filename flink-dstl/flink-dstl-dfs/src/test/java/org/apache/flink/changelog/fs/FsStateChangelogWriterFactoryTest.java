@@ -18,8 +18,8 @@
 package org.apache.flink.changelog.fs;
 
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
-import org.apache.flink.runtime.state.changelog.inmemory.StateChangelogWriterFactoryTest;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.inmemory.StateChangelogStorageTest;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -28,7 +28,7 @@ import java.io.IOException;
 
 /** {@link FsStateChangelogWriterFactory} test. */
 @RunWith(Parameterized.class)
-public class FsStateChangelogWriterFactoryTest extends StateChangelogWriterFactoryTest {
+public class FsStateChangelogWriterFactoryTest extends StateChangelogStorageTest {
     @Parameterized.Parameter public boolean compression;
 
     @Parameterized.Parameters(name = "use compression = {0}")
@@ -37,7 +37,7 @@ public class FsStateChangelogWriterFactoryTest extends StateChangelogWriterFacto
     }
 
     @Override
-    protected StateChangelogWriterFactory<?> getFactory() throws IOException {
+    protected StateChangelogStorage<?> getFactory() throws IOException {
         return new FsStateChangelogWriterFactory(
                 Path.fromLocalFile(temporaryFolder.newFolder()), compression);
     }
