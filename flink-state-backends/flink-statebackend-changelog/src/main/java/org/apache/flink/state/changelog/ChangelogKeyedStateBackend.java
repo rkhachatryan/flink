@@ -255,6 +255,7 @@ class ChangelogKeyedStateBackend<K>
             KeyGroupedInternalPriorityQueue<T> create(
                     @Nonnull String stateName,
                     @Nonnull TypeSerializer<T> byteOrderedElementSerializer) {
+        new RegisteredPriorityQueueStateBackendMetaInfo(stateName, byteOrderedElementSerializer);
         return new ChangelogKeyGroupedPriorityQueue<T>(
                 keyedStateBackend.create(stateName, byteOrderedElementSerializer));
     }
@@ -331,13 +332,50 @@ class ChangelogKeyedStateBackend<K>
                             stateDesc.getClass(), this.getClass());
             throw new FlinkRuntimeException(message);
         }
+        RegisteredKeyValueStateBackendMetaInfo<N, S> meta =
+                new RegisteredKeyValueStateBackendMetaInfo(
+                        stateDesc.getType(),
+                        stateDesc.getName(),
+                        namespaceSerializer,
+                        stateDesc.getSerializer(),
+                        snapshotTransformFactory);
+
+        stateMappings.put((short) stateMappings.size(), stateDesc.getName()); // todo: overflow
 
         return stateFactory.create(
                 keyedStateBackend.createInternalState(
                         namespaceSerializer, stateDesc, snapshotTransformFactory),
                 stateChangelogWriter,
                 keyedStateBackend,
-                ++lastCreatedStateId);
+                (short) stateMappings.size(),
+                meta);
+    }
+
+    // todo
+    public <T> void completeRestore(Collection<ChangelogStateBackendHandle<T>> stateHandles)
+            throws IOException {
+        if (!stateHandles.isEmpty()) {
+            for (ChangelogStateBackendHandle h : stateHandles) {
+                if (h != null) {
+                    base.addAll(h.getBasePart());
+                    prevDelta.addAll(h.getDeltaPart());
+                }
+            }
+        }
+        //        keyValueStatesByName.clear();
+        //        lastName = null;
+        //        lastState = null;
+
+        //        MapSerializer<Short, String> mapSerializer =
+        //                new MapSerializer<>(new ShortSerializer(), new StringSerializer());
+        //        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+        //                DataOutputViewStreamWrapper target = new DataOutputViewStreamWrapper(out))
+        // {
+        //            target.writeInt(0); // version
+        //            mapSerializer.serialize(stateMappings, target);
+        //            stateChangelogWriter.append(
+        //                    getKeyGroupRange().getStartKeyGroup() /* todo*/, out.toByteArray());
+        //        }
     }
 
     // Factory function interface
@@ -345,8 +383,9 @@ class ChangelogKeyedStateBackend<K>
         <K, N, SV, S extends State, IS extends S> IS create(
                 InternalKvState<K, N, SV> kvState,
                 StateChangelogWriter<?> stateChangelogWriter,
-                InternalReadOnlyKeyContext<K> keyContext,
-                short stateId)
+                InternalKeyContext<K> keyContext,
+                short stateId,
+                RegisteredKeyValueStateBackendMetaInfo<N, S> metaInfo)
                 throws Exception;
     }
 }

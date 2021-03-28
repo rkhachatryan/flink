@@ -45,8 +45,9 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
     ChangelogAggregatingState(
             InternalAggregatingState<K, N, IN, ACC, OUT> delegatedState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo<N, OUT> metaInfo) {
         this(
                 delegatedState,
                 new StateChangeLoggerImpl<>(
@@ -100,13 +101,21 @@ class ChangelogAggregatingState<K, N, IN, ACC, OUT>
     static <T, K, N, SV, S extends State, IS extends S> IS create(
             InternalKvState<K, N, SV> aggregatingState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo metaInfo) {
         return (IS)
                 new ChangelogAggregatingState<>(
                         (InternalAggregatingState<K, N, T, SV, ?>) aggregatingState,
                         stateChangelogWriter,
                         keyContext,
-                        stateId);
+                        stateId,
+                        metaInfo);
+    }
+
+    @Override
+    public StateChangeLogReader.ChangeApplier<K, N> getChangeApplier(
+            ChangelogApplierFactory factory) {
+        return factory.forAggregating(delegatedState, keyContext);
     }
 }

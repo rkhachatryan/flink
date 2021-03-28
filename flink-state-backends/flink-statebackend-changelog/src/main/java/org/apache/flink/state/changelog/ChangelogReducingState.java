@@ -20,6 +20,8 @@ package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.state.ReducingState;
 import org.apache.flink.api.common.state.State;
+import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
+import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
@@ -43,8 +45,9 @@ class ChangelogReducingState<K, N, V>
     ChangelogReducingState(
             InternalReducingState<K, N, V> delegatedState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredStateMetaInfoBase metaInfo) {
         this(
                 delegatedState,
                 new StateChangeLoggerImpl<>(
@@ -53,7 +56,8 @@ class ChangelogReducingState<K, N, V>
                         delegatedState.getValueSerializer(),
                         keyContext,
                         stateChangelogWriter,
-                        stateId),
+                        metaInfo),
+                keyContext,
                 stateId);
     }
 
@@ -104,13 +108,21 @@ class ChangelogReducingState<K, N, V>
     static <K, N, SV, S extends State, IS extends S> IS create(
             InternalKvState<K, N, SV> reducingState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo<N, S> metaInfo) {
         return (IS)
                 new ChangelogReducingState<>(
                         (InternalReducingState<K, N, SV>) reducingState,
                         stateChangelogWriter,
                         keyContext,
-                        stateId);
+                        stateId,
+                        metaInfo);
+    }
+
+    @Override
+    public StateChangeLogReader.ChangeApplier<K, N> getChangeApplier(
+            ChangelogApplierFactory factory) {
+        return factory.forReducing(delegatedState, keyContext);
     }
 }

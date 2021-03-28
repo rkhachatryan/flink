@@ -22,6 +22,7 @@ import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
+import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
@@ -54,8 +55,9 @@ class ChangelogMapState<K, N, UK, UV>
     ChangelogMapState(
             InternalMapState<K, N, UK, UV> delegatedState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo<N, Map<UK, UV>> metaInfo) {
         this(
                 delegatedState,
                 new StateChangeLoggerImpl<>(
@@ -64,7 +66,8 @@ class ChangelogMapState<K, N, UK, UV>
                         delegatedState.getValueSerializer(),
                         keyContext,
                         stateChangelogWriter,
-                        stateId),
+                        metaInfo),
+                keyContext,
                 stateId);
     }
 
@@ -210,13 +213,20 @@ class ChangelogMapState<K, N, UK, UV>
     static <UK, UV, K, N, SV, S extends State, IS extends S> IS create(
             InternalKvState<K, N, SV> mapState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo metaInfo) {
         return (IS)
                 new ChangelogMapState<>(
                         (InternalMapState<K, N, UK, UV>) mapState,
                         stateChangelogWriter,
                         keyContext,
-                        stateId);
+                        stateId,
+                        metaInfo);
+    }
+
+    @Override
+    public ChangeApplier<K, N> getChangeApplier(ChangelogApplierFactory factory) {
+        return factory.forMap(delegatedState, keyContext);
     }
 }

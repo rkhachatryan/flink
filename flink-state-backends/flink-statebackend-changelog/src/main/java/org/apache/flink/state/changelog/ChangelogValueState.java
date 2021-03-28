@@ -20,6 +20,7 @@ package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
@@ -43,8 +44,9 @@ class ChangelogValueState<K, N, V>
     ChangelogValueState(
             InternalValueState<K, N, V> state,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo<N, V> metaInfo) {
         this(
                 state,
                 new StateChangeLoggerImpl<>(
@@ -53,7 +55,8 @@ class ChangelogValueState<K, N, V>
                         state.getValueSerializer(),
                         keyContext,
                         stateChangelogWriter,
-                        stateId),
+                        metaInfo),
+                keyContext,
                 stateId);
     }
 
@@ -85,13 +88,15 @@ class ChangelogValueState<K, N, V>
     static <K, N, SV, S extends State, IS extends S> IS create(
             InternalKvState<K, N, SV> valueState,
             StateChangelogWriter<?> stateChangelogWriter,
-            InternalReadOnlyKeyContext<K> keyContext,
-            short stateId) {
+            InternalKeyContext<K> keyContext,
+            short stateId,
+            RegisteredKeyValueStateBackendMetaInfo metaInfo) {
         return (IS)
                 new ChangelogValueState<>(
                         (InternalValueState<K, N, SV>) valueState,
                         stateChangelogWriter,
                         keyContext,
-                        stateId);
+                        stateId,
+                        metaInfo);
     }
 }
