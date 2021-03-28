@@ -34,10 +34,12 @@ import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.contrib.streaming.state.RocksDBOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.state.AbstractStateBackend;
+import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.state.changelog.ChangelogStateBackend;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.windowing.RichWindowFunction;
@@ -99,7 +101,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
     @Rule public TestName name = new TestName();
 
-    private AbstractStateBackend stateBackend;
+    private StateBackend stateBackend;
 
     @Parameterized.Parameter public StateBackendEnum stateBackendEnum;
 
@@ -110,6 +112,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
         ROCKSDB_INCREMENTAL,
         ROCKSDB_INCREMENTAL_ZK,
         MEM_ASYNC,
+        CL_MEM_ASYNC,
         FILE_ASYNC
     }
 
@@ -165,6 +168,11 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
                     this.stateBackend = new FsStateBackend("file://" + backups, false);
                     break;
                 }
+            case CL_MEM_ASYNC:
+                this.stateBackend =
+                    new ChangelogStateBackend(new MemoryStateBackend(MAX_MEM_STATE_SIZE, true),
+                        new InMemoryStateChangelogWriterFactory());
+                break;
             case MEM_ASYNC:
                 this.stateBackend = new MemoryStateBackend(MAX_MEM_STATE_SIZE, true);
                 break;
@@ -263,7 +271,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
     // ------------------------------------------------------------------------
 
     @Test
-    public void testTumblingTimeWindow() {
+    public void testTumblingTimeWindow() throws Exception {
         final int numElementsPerKey = numElementsPerKey();
         final int windowSize = windowSize();
         final int numKeys = numKeys();
@@ -336,22 +344,21 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
             env.execute("Tumbling Window Test");
         } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            throw e;
         }
     }
 
     @Test
-    public void testTumblingTimeWindowWithKVStateMinMaxParallelism() {
+    public void testTumblingTimeWindowWithKVStateMinMaxParallelism() throws Exception {
         doTestTumblingTimeWindowWithKVState(PARALLELISM);
     }
 
     @Test
-    public void testTumblingTimeWindowWithKVStateMaxMaxParallelism() {
+    public void testTumblingTimeWindowWithKVStateMaxMaxParallelism() throws Exception {
         doTestTumblingTimeWindowWithKVState(1 << 15);
     }
 
-    public void doTestTumblingTimeWindowWithKVState(int maxParallelism) {
+    public void doTestTumblingTimeWindowWithKVState(int maxParallelism) throws Exception {
         final int numElementsPerKey = numElementsPerKey();
         final int windowSize = windowSize();
         final int numKeys = numKeys();
@@ -431,13 +438,12 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
             env.execute("Tumbling Window Test");
         } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            throw e;
         }
     }
 
     @Test
-    public void testSlidingTimeWindow() {
+    public void testSlidingTimeWindow() throws Exception {
         final int numElementsPerKey = numElementsPerKey();
         final int windowSize = windowSize();
         final int windowSlide = windowSlide();
@@ -513,13 +519,14 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
             env.execute("Tumbling Window Test");
         } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            throw e;
+//            e.printStackTrace();
+//            fail(e.getMessage());
         }
     }
 
     @Test
-    public void testPreAggregatedTumblingTimeWindow() {
+    public void testPreAggregatedTumblingTimeWindow() throws Exception {
         final int numElementsPerKey = numElementsPerKey();
         final int windowSize = windowSize();
         final int numKeys = numKeys();
@@ -594,13 +601,12 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
             env.execute("Tumbling Window Test");
         } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            throw e;
         }
     }
 
     @Test
-    public void testPreAggregatedSlidingTimeWindow() {
+    public void testPreAggregatedSlidingTimeWindow() throws Exception {
         final int numElementsPerKey = numElementsPerKey();
         final int windowSize = windowSize();
         final int windowSlide = windowSlide();
@@ -679,8 +685,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 
             env.execute("Tumbling Window Test");
         } catch (Exception e) {
-            e.printStackTrace();
-            fail(e.getMessage());
+            throw e;
         }
     }
 
