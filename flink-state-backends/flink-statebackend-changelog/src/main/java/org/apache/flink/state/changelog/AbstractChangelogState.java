@@ -19,7 +19,9 @@
 package org.apache.flink.state.changelog;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
+import org.apache.flink.state.changelog.StateChangeLogReader.ChangeApplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -36,9 +38,15 @@ abstract class AbstractChangelogState<K, N, V, S extends InternalKvState<K, N, V
     protected final S delegatedState;
     protected N currentNamespace;
     protected StateChangeLogger<V, N> changeLogger;
-    protected final short stateId;
+    protected final short stateId; // todo: drop
+    protected final InternalKeyContext<K> keyContext; // todo: drop
 
-    AbstractChangelogState(S state, StateChangeLogger<V, N> changeLogger, short stateId) {
+    AbstractChangelogState(
+            S state,
+            StateChangeLogger<V, N> changeLogger,
+            InternalKeyContext<K> keyContext,
+            short stateId) {
+        this.keyContext = keyContext;
         checkArgument(!(state instanceof AbstractChangelogState));
         checkArgument(stateId >= 0);
         this.stateId = stateId;
@@ -90,4 +98,6 @@ abstract class AbstractChangelogState<K, N, V, S extends InternalKvState<K, N, V
             int recommendedMaxNumberOfReturnedRecords) {
         return delegatedState.getStateIncrementalVisitor(recommendedMaxNumberOfReturnedRecords);
     }
+
+    public abstract ChangeApplier<K, N> getChangeApplier(ChangelogApplierFactory factory);
 }

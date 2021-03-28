@@ -24,15 +24,36 @@ import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackendTest;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.execution.Environment;
+import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
+import org.apache.flink.runtime.state.storage.JobManagerCheckpointStorage;
+
+import org.junit.Ignore;
+import org.junit.Test;
 
 import java.io.IOException;
 
 /** Tests for {@link ChangelogStateBackend} delegating {@link EmbeddedRocksDBStateBackend}. */
 public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
         extends EmbeddedRocksDBStateBackendTest {
+
+    @Override
+    protected boolean snapshotUsesStreamFactory() {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsMetaInfoVerification() {
+        // todo: same for Heap
+        // todo: use constructor args?
+        return false;
+    }
+
+    @Test
+    @Ignore("The type of handle returned from snapshot() is not incremental")
+    public void testSharedIncrementalStateDeRegistration() {}
 
     @Override
     protected <K> CheckpointableKeyedStateBackend<K> createKeyedBackend(
@@ -53,10 +74,16 @@ public class ChangelogDelegateEmbeddedRocksDBStateBackendTest
 
     @Override
     protected ChangelogStateBackend getStateBackend() throws IOException {
-        return new ChangelogStateBackend(super.getStateBackend(), getStateChangelogWriterFactory());
+        return new ChangelogStateBackend(
+                super.getStateBackend(), getStateChangelogWriterFactory());
     }
 
     private StateChangelogWriterFactory getStateChangelogWriterFactory() throws IOException {
         return new FsStateChangelogWriterFactory(Path.fromLocalFile(TEMP_FOLDER.newFolder()), false);
+    }
+
+    @Override
+    protected CheckpointStorage getCheckpointStorage() {
+        return new JobManagerCheckpointStorage();
     }
 }

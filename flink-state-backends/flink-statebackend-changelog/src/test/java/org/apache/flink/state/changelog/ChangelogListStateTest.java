@@ -21,6 +21,8 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.heap.InternalKeyContextImpl;
 import org.apache.flink.runtime.state.internal.InternalListState;
 import org.apache.flink.util.function.FunctionWithException;
 import org.apache.flink.util.function.ThrowingConsumer;
@@ -87,7 +89,11 @@ public class ChangelogListStateTest {
             throws Exception {
         TestChangeLogger logger = new TestChangeLogger();
         ChangelogListState state =
-                new ChangelogListState<>(new TestingInternalListState(data), logger, (short) 0);
+                new ChangelogListState<>(
+                        new TestingInternalListState(data),
+                        logger,
+                        new InternalKeyContextImpl<>(KeyGroupRange.EMPTY_KEY_GROUP_RANGE, 1),
+                        (short) 0);
 
         Iterator iterator = iteratorSupplier.apply(state);
         for (T el : elements) {
@@ -109,7 +115,11 @@ public class ChangelogListStateTest {
             throws Exception {
         TestChangeLogger logger = new TestChangeLogger();
         ChangelogListState state =
-                new ChangelogListState<>(new TestingInternalListState(data), logger, (short) 0);
+                new ChangelogListState<>(
+                        new TestingInternalListState(data),
+                        logger,
+                        new InternalKeyContextImpl<>(KeyGroupRange.EMPTY_KEY_GROUP_RANGE, 1),
+                        (short) 0);
         action.accept(state);
         assertion.accept(logger);
     }

@@ -23,9 +23,10 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
-import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
+import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalValueState;
+import org.apache.flink.state.changelog.StateChangeLogReader.ChangeApplier;
 
 import java.io.IOException;
 
@@ -63,8 +64,14 @@ class ChangelogValueState<K, N, V>
     ChangelogValueState(
             InternalValueState<K, N, V> delegatedState,
             StateChangeLogger<V, N> changeLogger,
+            InternalKeyContext<K> keyContext,
             short stateId) {
-        super(delegatedState, changeLogger, stateId);
+        super(delegatedState, changeLogger, keyContext, stateId);
+    }
+
+    @Override
+    public ChangeApplier<K, N> getChangeApplier(ChangelogApplierFactory factory) {
+        return factory.forValue(delegatedState, keyContext);
     }
 
     @Override

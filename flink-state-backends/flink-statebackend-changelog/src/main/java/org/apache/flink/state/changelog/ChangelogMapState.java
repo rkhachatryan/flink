@@ -25,9 +25,10 @@ import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
-import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
+import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalMapState;
+import org.apache.flink.state.changelog.StateChangeLogReader.ChangeApplier;
 import org.apache.flink.util.function.BiConsumerWithException;
 
 import java.io.IOException;
@@ -74,8 +75,9 @@ class ChangelogMapState<K, N, UK, UV>
     ChangelogMapState(
             InternalMapState<K, N, UK, UV> delegatedState,
             StateChangeLogger<Map<UK, UV>, N> changeLogger,
+            InternalKeyContext<K> keyContext,
             short stateId) {
-        super(delegatedState, changeLogger, stateId);
+        super(delegatedState, changeLogger, keyContext, stateId);
     }
 
     @Override

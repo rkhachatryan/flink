@@ -24,7 +24,7 @@ import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
-import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
+import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalListState;
 
@@ -67,8 +67,9 @@ class ChangelogListState<K, N, V>
     ChangelogListState(
             InternalListState<K, N, V> delegatedState,
             StateChangeLogger<List<V>, N> changeLogger,
+            InternalKeyContext<K> keyContext,
             short stateId) {
-        super(delegatedState, changeLogger, stateId);
+        super(delegatedState, changeLogger, keyContext, stateId);
     }
 
     @Override

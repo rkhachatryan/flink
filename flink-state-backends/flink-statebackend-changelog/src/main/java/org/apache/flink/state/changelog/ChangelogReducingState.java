@@ -24,7 +24,7 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
 import org.apache.flink.runtime.state.changelog.StateChange;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
-import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
+import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.internal.InternalReducingState;
 
@@ -64,8 +64,9 @@ class ChangelogReducingState<K, N, V>
     ChangelogReducingState(
             InternalReducingState<K, N, V> delegatedState,
             StateChangeLogger<V, N> changeLogger,
+            InternalKeyContext<K> keyContext,
             short stateId) {
-        super(delegatedState, changeLogger, stateId);
+        super(delegatedState, changeLogger, keyContext, stateId);
     }
 
     @Override

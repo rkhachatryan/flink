@@ -22,12 +22,14 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.changelog.fs.FsStateChangelogWriterFactory;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.execution.Environment;
+import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.ConfigurableStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.MemoryStateBackendTest;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
+import org.apache.flink.runtime.state.storage.JobManagerCheckpointStorage;
 
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -38,6 +40,17 @@ import java.io.IOException;
 public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendTest {
 
     @Rule public final TemporaryFolder tmp = new TemporaryFolder();
+
+    protected boolean snapshotUsesStreamFactory() {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsMetaInfoVerification() {
+        // todo: same for Heap
+        // todo: use constructor args?
+        return false;
+    }
 
     @Override
     protected <K> CheckpointableKeyedStateBackend<K> createKeyedBackend(
@@ -58,10 +71,16 @@ public class ChangelogDelegateMemoryStateBackendTest extends MemoryStateBackendT
 
     @Override
     protected ConfigurableStateBackend getStateBackend() throws IOException {
-        return new ChangelogStateBackend(super.getStateBackend(), getStateChangelogWriterFactory());
+        return new ChangelogStateBackend(
+                super.getStateBackend(), getStateChangelogWriterFactory());
     }
 
     private StateChangelogWriterFactory getStateChangelogWriterFactory() throws IOException {
         return new FsStateChangelogWriterFactory(Path.fromLocalFile(tmp.newFolder()), false);
+    }
+
+    @Override
+    protected CheckpointStorage getCheckpointStorage() {
+        return new JobManagerCheckpointStorage();
     }
 }
