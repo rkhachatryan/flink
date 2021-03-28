@@ -28,7 +28,6 @@ public class StateChange {
     private final byte[] change;
 
     public StateChange(int keyGroup, byte[] change) {
-        Preconditions.checkArgument(keyGroup >= 0);
         this.keyGroup = keyGroup;
         this.change = Preconditions.checkNotNull(change);
     }

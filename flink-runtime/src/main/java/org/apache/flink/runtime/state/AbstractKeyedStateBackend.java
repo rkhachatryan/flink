@@ -29,7 +29,6 @@ import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
-import org.apache.flink.runtime.state.heap.InternalReadOnlyKeyContext;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
@@ -53,7 +52,7 @@ public abstract class AbstractKeyedStateBackend<K>
         implements CheckpointableKeyedStateBackend<K>,
                 CheckpointListener,
                 TestableKeyedStateBackend,
-                InternalReadOnlyKeyContext<K> {
+                InternalKeyContext<K> {
 
     /** The key serializer. */
     protected final TypeSerializer<K> keySerializer;
@@ -376,5 +375,10 @@ public abstract class AbstractKeyedStateBackend<K>
                 final TypeSerializer<N> namespaceSerializer,
                 final StateDescriptor<S, ?> stateDescriptor)
                 throws Exception;
+    }
+
+    @Override
+    public void setCurrentKeyGroupIndex(int currentKeyGroupIndex) {
+        keyContext.setCurrentKeyGroupIndex(currentKeyGroupIndex);
     }
 }

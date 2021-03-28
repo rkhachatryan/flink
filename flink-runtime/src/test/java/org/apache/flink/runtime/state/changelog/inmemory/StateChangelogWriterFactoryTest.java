@@ -67,14 +67,19 @@ public class StateChangelogWriterFactoryTest {
         KeyGroupRange kgRange = KeyGroupRange.of(0, 5);
         Map<Integer, List<byte[]>> appendsByKeyGroup = generateAppends(kgRange, 10, 20);
 
-        try (StateChangelogWriterFactory<?> client = getFactory();
+        try (StateChangelogWriterFactory<?, ?> client = getFactory();
                 StateChangelogWriter<?> writer =
                         client.createWriter(new OperatorID().toString(), kgRange)) {
-            SequenceNumber prev = writer.lastAppendedSequenceNumber();
-            appendsByKeyGroup.forEach(
-                    (group, appends) -> appends.forEach(bytes -> writer.append(group, bytes)));
+            SequenceNumber prev = SequenceNumber.FIRST;
+            for (Map.Entry<Integer, List<byte[]>> entry : appendsByKeyGroup.entrySet()) {
+                Integer group = entry.getKey();
+                List<byte[]> appends = entry.getValue();
+                for (byte[] bytes : appends) {
+                    writer.append(group, bytes);
+                }
+            }
 
-            StateChangelogHandle<?> handle = writer.persist(prev.next()).get();
+            StateChangelogHandle<?> handle = writer.persist(prev).get();
 
             assertByteMapsEqual(appendsByKeyGroup, extract(handle));
         }
@@ -127,7 +132,7 @@ public class StateChangelogWriterFactoryTest {
         return bytes;
     }
 
-    private InMemoryStateChangelogWriterFactory getFactory() {
+    protected StateChangelogWriterFactory<?, ?> getFactory() throws IOException {
         return new InMemoryStateChangelogWriterFactory();
     }
 
