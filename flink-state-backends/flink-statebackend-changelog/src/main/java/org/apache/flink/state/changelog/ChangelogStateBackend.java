@@ -34,7 +34,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage;
 import org.apache.flink.runtime.state.delegate.DelegatingStateBackend;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.Preconditions;
@@ -99,8 +99,7 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                 stateHandles,
                                 cancelStreamRegistry);
         // todo: FLINK-21804 get from Environment.getTaskStateManager
-        InMemoryStateChangelogWriterFactory changelogWriterFactory =
-                new InMemoryStateChangelogWriterFactory();
+        InMemoryStateChangelogStorage changelogWriterFactory = new InMemoryStateChangelogStorage();
         return new ChangelogKeyedStateBackend<>(
                 keyedStateBackend,
                 env.getExecutionConfig(),
@@ -141,8 +140,7 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                 managedMemoryFraction);
 
         // todo: FLINK-21804 get from Environment.getTaskStateManager
-        InMemoryStateChangelogWriterFactory changelogWriterFactory =
-                new InMemoryStateChangelogWriterFactory();
+        InMemoryStateChangelogStorage changelogWriterFactory = new InMemoryStateChangelogStorage();
         return new ChangelogKeyedStateBackend<>(
                 keyedStateBackend,
                 env.getExecutionConfig(),

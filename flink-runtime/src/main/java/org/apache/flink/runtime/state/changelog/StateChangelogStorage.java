@@ -25,10 +25,10 @@ import java.io.Serializable;
 
 /**
  * A factory for {@link StateChangelogWriter} and {@link StateChangelogHandleReader}. Please use
- * {@link StateChangelogWriterFactoryLoader} to obtain an instance.
+ * {@link StateChangelogStorageLoader} to obtain an instance.
  */
 @Internal
-public interface StateChangelogWriterFactory<Handle extends StateChangelogHandle>
+public interface StateChangelogStorage<Handle extends StateChangelogHandle>
         extends AutoCloseable, Serializable {
 
     StateChangelogWriter<Handle> createWriter(String operatorID, KeyGroupRange keyGroupRange);

@@ -19,14 +19,14 @@ package org.apache.flink.runtime.state.changelog.inmemory;
 
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.changelog.StateChangelogHandleReader;
-import org.apache.flink.runtime.state.changelog.StateChangelogWriterFactory;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.util.CloseableIterator;
 
 import java.io.Serializable;
 
-/** An in-memory (non-production) implementation of {@link StateChangelogWriterFactory}. */
-public class InMemoryStateChangelogWriterFactory
-        implements StateChangelogWriterFactory<InMemoryStateChangelogHandle>, Serializable {
+/** An in-memory (non-production) implementation of {@link StateChangelogStorage}. */
+public class InMemoryStateChangelogStorage
+        implements StateChangelogStorage<InMemoryStateChangelogHandle>, Serializable {
     private static final long serialVersionUID = 1L;
 
     @Override
