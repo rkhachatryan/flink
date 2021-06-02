@@ -21,15 +21,19 @@ package org.apache.flink.runtime.state.changelog;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.state.KeyGroupRange;
 
+import java.io.Serializable;
+
 /**
- * {@link StateChangelogWriter} factory. Scoped to a single entity (e.g. a SubTask or
- * OperatorCoordinator). Please use {@link StateChangelogWriterFactoryLoader} to obtain an instance.
+ * A factory for {@link StateChangelogWriter} and {@link StateChangelogHandleReader}. Please use
+ * {@link StateChangelogWriterFactoryLoader} to obtain an instance.
  */
 @Internal
-public interface StateChangelogWriterFactory<Handle extends StateChangelogHandle<?>>
-        extends AutoCloseable {
+public interface StateChangelogWriterFactory<Handle extends StateChangelogHandle>
+        extends AutoCloseable, Serializable {
 
     StateChangelogWriter<Handle> createWriter(String operatorID, KeyGroupRange keyGroupRange);
+
+    StateChangelogHandleReader<Handle> createReader();
 
     @Override
     default void close() throws Exception {}
