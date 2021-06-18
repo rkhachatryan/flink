@@ -55,10 +55,11 @@ class ChangelogReducingState<K, N, V>
 
     @Override
     public void mergeNamespaces(N target, Collection<N> sources) throws Exception {
-        delegatedState.mergeNamespaces(target, sources);
-        // do not simply store the new value for the target namespace
-        // because old namespaces need to be removed
+        // Do not simply store the new value for the target namespace because old namespaces need to
+        // be removed. To prevent duplicated effects on recovery record the operation first and
+        // perform it afterwards (as opposed to other actions).
         changeLogger.namespacesMerged(target, sources);
+        delegatedState.mergeNamespaces(target, sources);
     }
 
     @Override
