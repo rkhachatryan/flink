@@ -22,6 +22,9 @@ import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.internal.InternalAggregatingState;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 class AggregatingStateChangeApplier<K, N, IN, SV, OUT> extends KvStateStateChangeApplier<K, N> {
     private final InternalAggregatingState<K, N, IN, SV, OUT> state;
 
@@ -62,8 +65,14 @@ class AggregatingStateChangeApplier<K, N, IN, SV, OUT> extends KvStateStateChang
     }
 
     @Override
-    protected void applyNameSpaceMerge(DataInputView in) {
-        throw new UnsupportedOperationException();
+    protected void applyNamespaceMerged(DataInputView in) throws Exception {
+        N target = state.getNamespaceSerializer().deserialize(in);
+        int sourcesSize = in.readInt();
+        Collection<N> sources = new ArrayList<>(sourcesSize);
+        for (int i = 0; i < sourcesSize; i++) {
+            sources.add(state.getNamespaceSerializer().deserialize(in));
+        }
+        state.mergeNamespaces(target, sources);
     }
 
     @Override

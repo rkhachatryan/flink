@@ -73,7 +73,7 @@ class ListStateChangeApplier<K, N, T> extends KvStateStateChangeApplier<K, N> {
     }
 
     @Override
-    protected void applyNameSpaceMerge(DataInputView in) throws Exception {
+    protected void applyNamespaceMerged(DataInputView in) throws Exception {
         N target = state.getNamespaceSerializer().deserialize(in);
         int sourcesSize = in.readInt();
         Collection<N> sources = new ArrayList<>(sourcesSize);

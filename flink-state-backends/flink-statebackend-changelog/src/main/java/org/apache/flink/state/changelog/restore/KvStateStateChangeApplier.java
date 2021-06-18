@@ -59,7 +59,7 @@ abstract class KvStateStateChangeApplier<K, N> implements StateChangeApplier {
                 applyStateUpdateInternal(in);
                 return;
             case MERGE_NS:
-                applyNameSpaceMerge(in);
+                applyNamespaceMerged(in);
                 return;
             case REMOVE_ELEMENT:
                 applyStateElementRemoved(in);
@@ -69,7 +69,7 @@ abstract class KvStateStateChangeApplier<K, N> implements StateChangeApplier {
         }
     }
 
-    protected abstract void applyNameSpaceMerge(DataInputView in) throws Exception;
+    protected abstract void applyNamespaceMerged(DataInputView in) throws Exception;
 
     protected abstract void applyStateAdded(DataInputView in) throws Exception;
 

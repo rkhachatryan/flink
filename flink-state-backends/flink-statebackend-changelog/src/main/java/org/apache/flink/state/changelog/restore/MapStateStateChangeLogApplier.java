@@ -65,7 +65,7 @@ class MapStateStateChangeLogApplier<K, N, UK, UV> extends KvStateStateChangeAppl
     }
 
     @Override
-    protected void applyNameSpaceMerge(DataInputView in) {
+    protected void applyNamespaceMerged(DataInputView in) {
         throw new UnsupportedOperationException();
     }
 

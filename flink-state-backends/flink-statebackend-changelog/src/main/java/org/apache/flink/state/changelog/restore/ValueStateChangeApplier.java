@@ -62,7 +62,7 @@ class ValueStateChangeApplier<K, N, T> extends KvStateStateChangeApplier<K, N> {
     }
 
     @Override
-    protected void applyNameSpaceMerge(DataInputView in) {
+    protected void applyNamespaceMerged(DataInputView in) {
         throw new UnsupportedOperationException();
     }
 
