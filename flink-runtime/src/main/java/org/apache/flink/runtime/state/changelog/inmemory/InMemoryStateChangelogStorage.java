@@ -26,7 +26,7 @@ import java.io.Serializable;
 
 /** An in-memory (non-production) implementation of {@link StateChangelogStorage}. */
 public class InMemoryStateChangelogStorage
-        implements StateChangelogStorage<InMemoryStateChangelogHandle>, Serializable {
+        implements StateChangelogStorage<InMemoryChangelogStateHandle>, Serializable {
     private static final long serialVersionUID = 1L;
 
     @Override
@@ -36,7 +36,7 @@ public class InMemoryStateChangelogStorage
     }
 
     @Override
-    public StateChangelogHandleReader<InMemoryStateChangelogHandle> createReader() {
+    public StateChangelogHandleReader<InMemoryChangelogStateHandle> createReader() {
         return handle -> CloseableIterator.fromList(handle.getChanges(), change -> {});
     }
 }

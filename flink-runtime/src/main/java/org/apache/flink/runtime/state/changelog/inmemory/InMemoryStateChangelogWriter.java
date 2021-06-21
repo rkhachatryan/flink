@@ -41,7 +41,7 @@ import java.util.stream.Stream;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 @NotThreadSafe
-class InMemoryStateChangelogWriter implements StateChangelogWriter<InMemoryStateChangelogHandle> {
+class InMemoryStateChangelogWriter implements StateChangelogWriter<InMemoryChangelogStateHandle> {
     private static final Logger LOG = LoggerFactory.getLogger(InMemoryStateChangelogWriter.class);
 
     private final Map<Integer, NavigableMap<SequenceNumber, byte[]>> changesByKeyGroup =
@@ -64,11 +64,11 @@ class InMemoryStateChangelogWriter implements StateChangelogWriter<InMemoryState
     }
 
     @Override
-    public CompletableFuture<InMemoryStateChangelogHandle> persist(SequenceNumber from) {
+    public CompletableFuture<InMemoryChangelogStateHandle> persist(SequenceNumber from) {
         LOG.debug("Persist after {}", from);
         Preconditions.checkNotNull(from);
         return completedFuture(
-                new InMemoryStateChangelogHandle(
+                new InMemoryChangelogStateHandle(
                         collectChanges(from), from, SequenceNumber.of(sqn)));
     }
 

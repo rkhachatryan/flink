@@ -46,8 +46,8 @@ import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle.ChangelogStateBackendHandleImpl;
+import org.apache.flink.runtime.state.changelog.ChangelogStateHandle;
 import org.apache.flink.runtime.state.changelog.SequenceNumber;
-import org.apache.flink.runtime.state.changelog.StateChangelogHandle;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueElement;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
@@ -129,7 +129,7 @@ public class ChangelogKeyedStateBackend<K>
 
     private final TtlTimeProvider ttlTimeProvider;
 
-    private final StateChangelogWriter<StateChangelogHandle> stateChangelogWriter;
+    private final StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter;
 
     private long lastCheckpointId = -1L;
 
@@ -147,7 +147,7 @@ public class ChangelogKeyedStateBackend<K>
     private final List<KeyedStateHandle> materialized = new ArrayList<>();
 
     /** Updated initially on restore and later cleared upon materialization (after FLINK-21356). */
-    private final List<StateChangelogHandle> restoredNonMaterialized = new ArrayList<>();
+    private final List<ChangelogStateHandle> restoredNonMaterialized = new ArrayList<>();
 
     @Nullable private SequenceNumber lastUploadedFrom;
     @Nullable private SequenceNumber lastUploadedTo;
@@ -165,7 +165,7 @@ public class ChangelogKeyedStateBackend<K>
             AbstractKeyedStateBackend<K> keyedStateBackend,
             ExecutionConfig executionConfig,
             TtlTimeProvider ttlTimeProvider,
-            StateChangelogWriter<StateChangelogHandle> stateChangelogWriter,
+            StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter,
             Collection<ChangelogStateBackendHandle> initialState) {
         this.keyedStateBackend = keyedStateBackend;
         this.executionConfig = executionConfig;
@@ -308,9 +308,9 @@ public class ChangelogKeyedStateBackend<K>
                         .thenApply(this::buildSnapshotResult));
     }
 
-    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(StateChangelogHandle delta) {
+    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(ChangelogStateHandle delta) {
         // collections don't change once started and handles are immutable
-        List<StateChangelogHandle> prevDeltaCopy = new ArrayList<>(restoredNonMaterialized);
+        List<ChangelogStateHandle> prevDeltaCopy = new ArrayList<>(restoredNonMaterialized);
         if (delta != null && delta.getStateSize() > 0) {
             prevDeltaCopy.add(delta);
         }

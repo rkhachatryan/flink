@@ -28,7 +28,7 @@ import java.io.Serializable;
  * {@link StateChangelogStorageLoader} to obtain an instance.
  */
 @Internal
-public interface StateChangelogStorage<Handle extends StateChangelogHandle>
+public interface StateChangelogStorage<Handle extends ChangelogStateHandle>
         extends AutoCloseable, Serializable {
 
     StateChangelogWriter<Handle> createWriter(String operatorID, KeyGroupRange keyGroupRange);
