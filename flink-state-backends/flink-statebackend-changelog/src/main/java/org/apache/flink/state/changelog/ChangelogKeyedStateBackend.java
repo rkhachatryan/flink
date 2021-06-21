@@ -147,7 +147,7 @@ public class ChangelogKeyedStateBackend<K>
     private final List<KeyedStateHandle> materialized = new ArrayList<>();
 
     /** Updated initially on restore and later cleared upon materialization (after FLINK-21356). */
-    private final List<StateChangelogHandle> nonMaterialized = new ArrayList<>();
+    private final List<StateChangelogHandle> restoredNonMaterialized = new ArrayList<>();
 
     @Nullable private SequenceNumber lastUploadedFrom;
     @Nullable private SequenceNumber lastUploadedTo;
@@ -310,7 +310,7 @@ public class ChangelogKeyedStateBackend<K>
 
     private SnapshotResult<KeyedStateHandle> buildSnapshotResult(StateChangelogHandle delta) {
         // collections don't change once started and handles are immutable
-        List<StateChangelogHandle> prevDeltaCopy = new ArrayList<>(nonMaterialized);
+        List<StateChangelogHandle> prevDeltaCopy = new ArrayList<>(restoredNonMaterialized);
         if (delta != null && delta.getStateSize() > 0) {
             prevDeltaCopy.add(delta);
         }
@@ -473,7 +473,7 @@ public class ChangelogKeyedStateBackend<K>
                 for (ChangelogStateBackendHandle h : stateHandles) {
                     if (h != null) {
                         materialized.addAll(h.getMaterializedStateHandles());
-                        nonMaterialized.addAll(h.getNonMaterializedStateHandles());
+                        restoredNonMaterialized.addAll(h.getNonMaterializedStateHandles());
                     }
                 }
             }
