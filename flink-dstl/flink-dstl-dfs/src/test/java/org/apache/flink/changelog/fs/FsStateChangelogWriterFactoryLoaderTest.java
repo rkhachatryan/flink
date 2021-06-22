@@ -28,9 +28,7 @@ import java.util.Iterator;
 
 import static org.junit.Assert.fail;
 
-/**
- * {@link StateChangelogStorageLoader} test for {@link FsStateChangelogWriterFactory} case.
- */
+/** {@link StateChangelogStorageLoader} test for {@link FsStateChangelogWriterFactory} case. */
 public class FsStateChangelogWriterFactoryLoaderTest {
 
     @Test
