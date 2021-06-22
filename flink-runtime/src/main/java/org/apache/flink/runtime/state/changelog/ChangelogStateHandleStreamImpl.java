@@ -27,14 +27,12 @@ import org.apache.flink.runtime.state.SharedStateRegistryKey;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
-import org.apache.flink.util.CloseableIterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -119,11 +117,6 @@ public final class ChangelogStateHandleStreamImpl implements ChangelogStateHandl
             return new SharedStateRegistryKey(
                     Integer.toString(System.identityHashCode(stateHandle)));
         }
-    }
-
-    public interface StateChangeStreamReader {
-        CloseableIterator<StateChange> read(StreamStateHandle handle, long offset)
-                throws IOException;
     }
 
     public List<Tuple2<StreamStateHandle, Long>> getHandlesAndOffsets() {

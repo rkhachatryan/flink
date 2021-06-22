@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.changelog.ChangelogStateHandleStreamImpl;
 import org.apache.flink.runtime.state.changelog.StateChangelogHandleReader;
+import org.apache.flink.runtime.state.changelog.StateChangelogHandleStreamHandleReader;
 import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.runtime.state.changelog.StateChangelogWriter;
 import org.apache.flink.util.ExceptionUtils;
@@ -133,7 +134,8 @@ public class FsStateChangelogWriterFactory
 
     @Override
     public StateChangelogHandleReader<ChangelogStateHandleStreamImpl> createReader() {
-        throw new UnsupportedOperationException(); // todo: fixme ASAP
+        StateChangeFormat stateChangeFormat = new StateChangeFormat();
+        return new StateChangelogHandleStreamHandleReader(stateChangeFormat);
     }
 
     @Override
