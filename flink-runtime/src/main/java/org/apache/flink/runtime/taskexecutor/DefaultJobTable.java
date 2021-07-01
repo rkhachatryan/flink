@@ -24,6 +24,7 @@ import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.util.Preconditions;
@@ -165,6 +166,12 @@ public final class DefaultJobTable implements JobTable {
         public LibraryCacheManager.ClassLoaderHandle getClassLoaderHandle() {
             verifyJobIsNotClosed();
             return jobServices.getClassLoaderHandle();
+        }
+
+        @Override
+        public StateChangelogStorage<?> getStateChangelogStorage() {
+            verifyJobIsNotClosed();
+            return jobServices.getStateChangelogStorage();
         }
 
         @Override

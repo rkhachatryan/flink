@@ -20,6 +20,8 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.execution.librarycache.TestingClassLoaderLease;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage;
 
 import java.util.function.Supplier;
 
@@ -28,18 +30,27 @@ public class TestingJobServices implements JobTable.JobServices {
 
     private final Supplier<LibraryCacheManager.ClassLoaderHandle> classLoaderHandleSupplier;
 
+    private final StateChangelogStorage<?> stateChangelogStorage;
+
     private final Runnable closeRunnable;
 
     private TestingJobServices(
             Supplier<LibraryCacheManager.ClassLoaderHandle> classLoaderHandleSupplier,
+            StateChangelogStorage<?> stateChangelogStorage,
             Runnable closeRunnable) {
         this.classLoaderHandleSupplier = classLoaderHandleSupplier;
+        this.stateChangelogStorage = stateChangelogStorage;
         this.closeRunnable = closeRunnable;
     }
 
     @Override
     public LibraryCacheManager.ClassLoaderHandle getClassLoaderHandle() {
         return classLoaderHandleSupplier.get();
+    }
+
+    @Override
+    public StateChangelogStorage<?> getStateChangelogStorage() {
+        return stateChangelogStorage;
     }
 
     @Override
@@ -57,11 +68,18 @@ public class TestingJobServices implements JobTable.JobServices {
                 TestingClassLoaderLease.newBuilder().build();
         private Supplier<LibraryCacheManager.ClassLoaderHandle> classLoaderHandleSupplier =
                 () -> testingClassLoaderLease;
+        private StateChangelogStorage<?> stateChangelogStorage =
+                new InMemoryStateChangelogStorage();
         private Runnable closeRunnable = () -> {};
 
         public Builder setClassLoaderHandleSupplier(
                 Supplier<LibraryCacheManager.ClassLoaderHandle> classLoaderHandleSupplier) {
             this.classLoaderHandleSupplier = classLoaderHandleSupplier;
+            return this;
+        }
+
+        public Builder setStateChangelogStorage(StateChangelogStorage<?> stateChangelogStorage) {
+            this.stateChangelogStorage = stateChangelogStorage;
             return this;
         }
 
@@ -71,7 +89,8 @@ public class TestingJobServices implements JobTable.JobServices {
         }
 
         public TestingJobServices build() {
-            return new TestingJobServices(classLoaderHandleSupplier, closeRunnable);
+            return new TestingJobServices(
+                    classLoaderHandleSupplier, stateChangelogStorage, closeRunnable);
         }
     }
 }

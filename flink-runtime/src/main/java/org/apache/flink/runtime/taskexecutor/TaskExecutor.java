@@ -100,6 +100,8 @@ import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
 import org.apache.flink.runtime.state.TaskLocalStateStore;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.TaskStateManagerImpl;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.runtime.taskexecutor.exceptions.RegistrationTimeoutException;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotAllocationException;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotOccupiedException;
@@ -676,6 +678,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                             jobId,
                             tdd.getExecutionAttemptId(),
                             localStateStore,
+                            jobManagerConnection.getStateChangelogStorage(),
                             taskRestore,
                             checkpointResponder);
 
@@ -1088,6 +1091,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         return TaskExecutorJobServices.create(
                 libraryCacheManager.registerClassLoaderLease(jobId),
+                StateChangelogStorageLoader.load(taskManagerConfiguration.getConfiguration()),
                 () -> permanentBlobService.releaseJob(jobId));
     }
 
@@ -2422,11 +2426,16 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         private final LibraryCacheManager.ClassLoaderLease classLoaderLease;
 
+        private final StateChangelogStorage<?> stateChangelogStorage;
+
         private final Runnable closeHook;
 
         private TaskExecutorJobServices(
-                LibraryCacheManager.ClassLoaderLease classLoaderLease, Runnable closeHook) {
+                LibraryCacheManager.ClassLoaderLease classLoaderLease,
+                StateChangelogStorage<?> stateChangelogStorage,
+                Runnable closeHook) {
             this.classLoaderLease = classLoaderLease;
+            this.stateChangelogStorage = stateChangelogStorage;
             this.closeHook = closeHook;
         }
 
@@ -2436,15 +2445,29 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         @Override
+        public StateChangelogStorage<?> getStateChangelogStorage() {
+            return stateChangelogStorage;
+        }
+
+        @Override
         public void close() {
-            classLoaderLease.release();
-            closeHook.run();
+            try {
+                classLoaderLease.release();
+                if (stateChangelogStorage != null) {
+                    stateChangelogStorage.close();
+                }
+                closeHook.run();
+            } catch (Exception e) {
+                ExceptionUtils.rethrow(e);
+            }
         }
 
         @VisibleForTesting
         static TaskExecutorJobServices create(
-                LibraryCacheManager.ClassLoaderLease classLoaderLease, Runnable closeHook) {
-            return new TaskExecutorJobServices(classLoaderLease, closeHook);
+                LibraryCacheManager.ClassLoaderLease classLoaderLease,
+                StateChangelogStorage<?> stateChangelogStorage,
+                Runnable closeHook) {
+            return new TaskExecutorJobServices(classLoaderLease, stateChangelogStorage, closeHook);
         }
     }
 }
