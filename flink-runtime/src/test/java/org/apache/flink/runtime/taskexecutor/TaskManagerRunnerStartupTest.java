@@ -38,6 +38,7 @@ import org.apache.flink.runtime.metrics.scope.ScopeFormats;
 import org.apache.flink.runtime.metrics.util.TestingMetricRegistry;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.TestingRpcServiceResource;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.TestLogger;
 
@@ -267,6 +268,6 @@ public class TaskManagerRunnerStartupTest extends TestLogger {
                 new BlobCacheService(configuration, new VoidBlobStore(), null),
                 false,
                 ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES,
-                error -> {});
+                error -> {}, new StateChangelogStorageLoader());
     }
 }

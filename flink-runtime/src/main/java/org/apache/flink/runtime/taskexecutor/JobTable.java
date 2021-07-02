@@ -24,7 +24,6 @@ import org.apache.flink.runtime.execution.librarycache.LibraryCacheManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.jobmaster.JobMasterGateway;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
-import org.apache.flink.runtime.state.changelog.StateChangelogStorage;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.util.function.SupplierWithException;
@@ -201,8 +200,6 @@ public interface JobTable extends AutoCloseable {
 
         LibraryCacheManager.ClassLoaderHandle getClassLoaderHandle();
 
-        StateChangelogStorage<?> getStateChangelogStorage();
-
         ResultPartitionConsumableNotifier getResultPartitionConsumableNotifier();
 
         PartitionProducerStateChecker getPartitionStateChecker();
@@ -225,13 +222,6 @@ public interface JobTable extends AutoCloseable {
          * @return {@link LibraryCacheManager.ClassLoaderHandle} for the associated job
          */
         LibraryCacheManager.ClassLoaderHandle getClassLoaderHandle();
-
-        /**
-         * Gets the {@link StateChangelogStorage} for the associated job.
-         *
-         * @return the {@link StateChangelogStorage} for the associated job.
-         */
-        StateChangelogStorage<?> getStateChangelogStorage();
 
         /**
          * Closes the job services.

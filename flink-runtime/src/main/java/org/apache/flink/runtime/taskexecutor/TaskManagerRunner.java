@@ -193,7 +193,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
                         blobCacheService,
                         false,
                         externalResourceInfoProvider,
-                        this);
+                        this,
+                        new StateChangelogStorageLoader(pluginManager));
 
         this.terminationFuture = new CompletableFuture<>();
         this.shutdown = false;
@@ -451,7 +452,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
             BlobCacheService blobCacheService,
             boolean localCommunicationOnly,
             ExternalResourceInfoProvider externalResourceInfoProvider,
-            FatalErrorHandler fatalErrorHandler)
+            FatalErrorHandler fatalErrorHandler,
+            StateChangelogStorageLoader changelogStorageLoader)
             throws Exception {
 
         final TaskExecutor taskExecutor =
@@ -465,7 +467,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
                         blobCacheService,
                         localCommunicationOnly,
                         externalResourceInfoProvider,
-                        fatalErrorHandler);
+                        fatalErrorHandler,
+                        changelogStorageLoader);
 
         return TaskExecutorToServiceAdapter.createFor(taskExecutor);
     }
@@ -480,7 +483,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
             BlobCacheService blobCacheService,
             boolean localCommunicationOnly,
             ExternalResourceInfoProvider externalResourceInfoProvider,
-            FatalErrorHandler fatalErrorHandler)
+            FatalErrorHandler fatalErrorHandler,
+            StateChangelogStorageLoader changelogStorageLoader)
             throws Exception {
 
         checkNotNull(configuration);
@@ -545,7 +549,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
                 metricQueryServiceAddress,
                 blobCacheService,
                 fatalErrorHandler,
-                new TaskExecutorPartitionTrackerImpl(taskManagerServices.getShuffleEnvironment()));
+                new TaskExecutorPartitionTrackerImpl(taskManagerServices.getShuffleEnvironment()),
+                changelogStorageLoader);
     }
 
     /**
@@ -650,7 +655,8 @@ public class TaskManagerRunner implements FatalErrorHandler {
                 BlobCacheService blobCacheService,
                 boolean localCommunicationOnly,
                 ExternalResourceInfoProvider externalResourceInfoProvider,
-                FatalErrorHandler fatalErrorHandler)
+                FatalErrorHandler fatalErrorHandler,
+                StateChangelogStorageLoader changelogStorageLoader)
                 throws Exception;
     }
 

@@ -27,6 +27,7 @@ import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.MainThreadExecutable;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 
 import javax.annotation.Nullable;
 
@@ -59,7 +60,7 @@ class TestingTaskExecutor extends TaskExecutor {
                 metricQueryServiceAddress,
                 blobCacheService,
                 fatalErrorHandler,
-                partitionTracker);
+                partitionTracker, new StateChangelogStorageLoader());
     }
 
     @Override

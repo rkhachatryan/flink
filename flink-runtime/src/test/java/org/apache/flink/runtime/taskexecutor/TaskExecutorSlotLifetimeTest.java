@@ -45,6 +45,7 @@ import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGate
 import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.TestingRpcService;
 import org.apache.flink.runtime.rpc.TestingRpcServiceResource;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotUtils;
 import org.apache.flink.runtime.taskmanager.LocalUnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
@@ -218,7 +219,7 @@ public class TaskExecutorSlotLifetimeTest extends TestLogger {
                 null,
                 new BlobCacheService(configuration, new VoidBlobStore(), null),
                 testingFatalErrorHandlerResource.getFatalErrorHandler(),
-                new TestingTaskExecutorPartitionTracker());
+                new TestingTaskExecutorPartitionTracker(), new StateChangelogStorageLoader());
     }
 
     public static final class UserClassLoaderExtractingInvokable extends AbstractInvokable {

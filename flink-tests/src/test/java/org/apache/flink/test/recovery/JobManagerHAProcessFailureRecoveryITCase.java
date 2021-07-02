@@ -43,6 +43,7 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcSystem;
 import org.apache.flink.runtime.rpc.RpcUtils;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorResourceUtils;
 import org.apache.flink.runtime.taskexecutor.TaskManagerRunner;
 import org.apache.flink.runtime.testutils.DispatcherProcess;
@@ -296,7 +297,7 @@ public class JobManagerHAProcessFailureRecoveryITCase extends TestLogger {
                         new TaskManagerRunner(
                                 config,
                                 pluginManager,
-                                TaskManagerRunner::createTaskExecutorService);
+                            (configuration, resourceID, rpcService1, highAvailabilityServices1, heartbeatServices, metricRegistry, blobCacheService, localCommunicationOnly, externalResourceInfoProvider, fatalErrorHandler, changelogStorageLoader) -> TaskManagerRunner.createTaskExecutorService(configuration, resourceID, rpcService1, highAvailabilityServices1, heartbeatServices, metricRegistry, blobCacheService, localCommunicationOnly, externalResourceInfoProvider, fatalErrorHandler, new StateChangelogStorageLoader()));
                 taskManagerRunners[i].start();
             }
 

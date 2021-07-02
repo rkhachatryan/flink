@@ -74,6 +74,7 @@ import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.RpcSystem;
 import org.apache.flink.runtime.rpc.RpcUtils;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.runtime.taskexecutor.TaskExecutor;
 import org.apache.flink.runtime.taskexecutor.TaskManagerRunner;
 import org.apache.flink.runtime.webmonitor.retriever.LeaderRetriever;
@@ -641,7 +642,8 @@ public class MiniCluster implements AutoCloseableAsync {
                             useLocalCommunication(),
                             ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES,
                             taskManagerTerminatingFatalErrorHandlerFactory.create(
-                                    taskManagers.size()));
+                                    taskManagers.size()),
+                            new StateChangelogStorageLoader());
 
             taskExecutor.start();
             taskManagers.add(taskExecutor);
