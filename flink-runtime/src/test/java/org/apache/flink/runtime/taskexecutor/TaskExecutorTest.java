@@ -81,7 +81,7 @@ import org.apache.flink.runtime.rpc.RpcUtils;
 import org.apache.flink.runtime.rpc.TestingRpcService;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
-import org.apache.flink.runtime.state.changelog.inmemory.InMemoryStateChangelogStorage;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.runtime.taskexecutor.TaskSubmissionTestEnvironment.Builder;
 import org.apache.flink.runtime.taskexecutor.exceptions.RegistrationTimeoutException;
 import org.apache.flink.runtime.taskexecutor.exceptions.TaskManagerException;
@@ -2469,8 +2469,7 @@ public class TaskExecutorTest extends TestLogger {
         final TaskExecutor.TaskExecutorJobServices taskExecutorJobServices =
                 TaskExecutor.TaskExecutorJobServices.create(
                         classLoaderLease,
-                        new InMemoryStateChangelogStorage(),
-                        closeHookLatch::trigger);
+                    closeHookLatch::trigger);
 
         taskExecutorJobServices.close();
         leaseReleaseLatch.await();
@@ -2677,7 +2676,7 @@ public class TaskExecutorTest extends TestLogger {
                 null,
                 dummyBlobCacheService,
                 testingFatalErrorHandler,
-                taskExecutorPartitionTracker);
+                taskExecutorPartitionTracker, new StateChangelogStorageLoader());
     }
 
     private TestingTaskExecutor createTestingTaskExecutor(TaskManagerServices taskManagerServices) {

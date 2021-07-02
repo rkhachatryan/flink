@@ -25,6 +25,7 @@ import org.apache.flink.configuration.TaskManagerOptionsInternal;
 import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.state.changelog.StateChangelogStorageLoader;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.TimeUtils;
 
@@ -201,7 +202,7 @@ public class TaskManagerRunnerTest extends TestLogger {
                 blobCacheService,
                 localCommunicationOnly,
                 externalResourceInfoProvider,
-                fatalErrorHandler) -> taskExecutorService;
+                fatalErrorHandler, changelogStorageLoader) -> taskExecutorService;
     }
 
     private static Configuration createConfiguration() {
@@ -213,7 +214,7 @@ public class TaskManagerRunnerTest extends TestLogger {
 
     private static TaskManagerRunner createTaskManagerRunner(final Configuration configuration)
             throws Exception {
-        return createTaskManagerRunner(configuration, TaskManagerRunner::createTaskExecutorService);
+        return createTaskManagerRunner(configuration, (configuration1, resourceID, rpcService, highAvailabilityServices, heartbeatServices, metricRegistry, blobCacheService, localCommunicationOnly, externalResourceInfoProvider, fatalErrorHandler, changelogStorageLoader) -> TaskManagerRunner.createTaskExecutorService(configuration1, resourceID, rpcService, highAvailabilityServices, heartbeatServices, metricRegistry, blobCacheService, localCommunicationOnly, externalResourceInfoProvider, fatalErrorHandler, new StateChangelogStorageLoader()));
     }
 
     private static TaskManagerRunner createTaskManagerRunner(

@@ -267,6 +267,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             taskResultPartitionCleanupFuturesPerJob = new HashMap<>(8);
 
     private final ThreadInfoSampleService threadInfoSampleService;
+    private final Map<JobID, StateChangelogStorage<?>> changelogStorageMap;
+    private final StateChangelogStorageLoader changelogStorageLoader;
 
     public TaskExecutor(
             RpcService rpcService,
@@ -279,7 +281,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             @Nullable String metricQueryServiceAddress,
             BlobCacheService blobCacheService,
             FatalErrorHandler fatalErrorHandler,
-            TaskExecutorPartitionTracker partitionTracker) {
+            TaskExecutorPartitionTracker partitionTracker,
+            StateChangelogStorageLoader changelogStorageLoader) {
 
         super(rpcService, RpcServiceUtils.createRandomName(TASK_MANAGER_NAME));
 
@@ -332,6 +335,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         ScheduledExecutorService sampleExecutor =
                 Executors.newSingleThreadScheduledExecutor(sampleThreadFactory);
         this.threadInfoSampleService = new ThreadInfoSampleService(sampleExecutor);
+        this.changelogStorageMap = new HashMap<>();
+        this.changelogStorageLoader = changelogStorageLoader;
     }
 
     private HeartbeatManager<Void, TaskExecutorHeartbeatPayload>
@@ -673,12 +678,19 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
             final JobManagerTaskRestore taskRestore = tdd.getTaskRestore();
 
+            // here (merge with task config?)
+            StateChangelogStorage<?> st =
+                    changelogStorageMap.computeIfAbsent(
+                            jobId,
+                            unused ->
+                                    changelogStorageLoader.loadNonStatic(
+                                            jobInformation.getJobConfiguration()));
             final TaskStateManager taskStateManager =
                     new TaskStateManagerImpl(
                             jobId,
                             tdd.getExecutionAttemptId(),
                             localStateStore,
-                            jobManagerConnection.getStateChangelogStorage(),
+                            st,
                             taskRestore,
                             checkpointResponder);
 
@@ -1091,7 +1103,6 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         return TaskExecutorJobServices.create(
                 libraryCacheManager.registerClassLoaderLease(jobId),
-                StateChangelogStorageLoader.load(taskManagerConfiguration.getConfiguration()),
                 () -> permanentBlobService.releaseJob(jobId));
     }
 
@@ -1788,11 +1799,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         jobLeaderService.removeJob(jobId);
-        jobTable.getJob(jobId)
-                .ifPresent(
-                        job -> {
-                            closeJob(job, cause);
-                        });
+        jobTable.getJob(jobId).ifPresent(job -> closeJob(job, cause));
         currentSlotOfferPerJob.remove(jobId);
     }
 
@@ -1802,9 +1809,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         if (taskTerminationFutures != null) {
             FutureUtils.waitForAll(taskTerminationFutures)
                     .thenRunAsync(
-                            () -> {
-                                partitionTracker.stopTrackingAndReleaseJobPartitionsFor(jobId);
-                            },
+                            () -> partitionTracker.stopTrackingAndReleaseJobPartitionsFor(jobId),
                             getMainThreadExecutor());
         }
     }
@@ -2426,16 +2431,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         private final LibraryCacheManager.ClassLoaderLease classLoaderLease;
 
-        private final StateChangelogStorage<?> stateChangelogStorage;
-
         private final Runnable closeHook;
 
         private TaskExecutorJobServices(
-                LibraryCacheManager.ClassLoaderLease classLoaderLease,
-                StateChangelogStorage<?> stateChangelogStorage,
-                Runnable closeHook) {
+                LibraryCacheManager.ClassLoaderLease classLoaderLease, Runnable closeHook) {
             this.classLoaderLease = classLoaderLease;
-            this.stateChangelogStorage = stateChangelogStorage;
             this.closeHook = closeHook;
         }
 
@@ -2445,17 +2445,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
 
         @Override
-        public StateChangelogStorage<?> getStateChangelogStorage() {
-            return stateChangelogStorage;
-        }
-
-        @Override
         public void close() {
             try {
                 classLoaderLease.release();
-                if (stateChangelogStorage != null) {
-                    stateChangelogStorage.close();
-                }
                 closeHook.run();
             } catch (Exception e) {
                 ExceptionUtils.rethrow(e);
@@ -2464,10 +2456,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
         @VisibleForTesting
         static TaskExecutorJobServices create(
-                LibraryCacheManager.ClassLoaderLease classLoaderLease,
-                StateChangelogStorage<?> stateChangelogStorage,
-                Runnable closeHook) {
-            return new TaskExecutorJobServices(classLoaderLease, stateChangelogStorage, closeHook);
+                LibraryCacheManager.ClassLoaderLease classLoaderLease, Runnable closeHook) {
+            return new TaskExecutorJobServices(classLoaderLease, closeHook);
         }
     }
 }
