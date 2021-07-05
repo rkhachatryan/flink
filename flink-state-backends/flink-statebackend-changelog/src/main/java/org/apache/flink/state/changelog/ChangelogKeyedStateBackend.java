@@ -124,6 +124,9 @@ public class ChangelogKeyedStateBackend<K>
      */
     private final HashMap<String, InternalKvState<K, ?, ?>> keyValueStatesByName;
 
+    /** Unwrapped changelog states used for recovery (not wrapped into e.g. TTL). */
+    private final HashMap<String, ChangelogState> changelogStates;
+
     private final HashMap<String, ChangelogKeyGroupedPriorityQueue<?>> priorityQueueStatesByName;
 
     private final ExecutionConfig executionConfig;
@@ -190,6 +193,7 @@ public class ChangelogKeyedStateBackend<K>
         this.priorityQueueStatesByName = new HashMap<>();
         this.stateChangelogWriter = stateChangelogWriter;
         this.materializedTo = stateChangelogWriter.initialSequenceNumber();
+        this.changelogStates = new HashMap<>();
         this.completeRestore(initialState);
     }
 
@@ -486,11 +490,15 @@ public class ChangelogKeyedStateBackend<K>
                         state.getValueSerializer(),
                         keyedStateBackend.getKeyContext(),
                         stateChangelogWriter,
-                        meta);
-        return stateFactory.create(
-                state,
-                kvStateChangeLogger,
-                keyedStateBackend /* pass the nested backend as key context so that it get key updates on recovery*/);
+                        meta,
+                        stateDesc.getTtlConfig());
+        IS is =
+                stateFactory.create(
+                        state,
+                        kvStateChangeLogger,
+                        keyedStateBackend /* pass the nested backend as key context so that it get key updates on recovery*/);
+        changelogStates.put(stateDesc.getName(), (ChangelogState) is);
+        return is;
     }
 
     private void completeRestore(Collection<ChangelogStateBackendHandle> stateHandles) {
@@ -534,7 +542,7 @@ public class ChangelogKeyedStateBackend<K>
         ChangelogState state;
         switch (type) {
             case KEY_VALUE:
-                state = (ChangelogState) keyValueStatesByName.get(name);
+                state = changelogStates.get(name);
                 break;
             case PRIORITY_QUEUE:
                 state = priorityQueueStatesByName.get(name);
