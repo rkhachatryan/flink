@@ -26,6 +26,7 @@ import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.mailbox.MailboxExecutor;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
@@ -56,6 +57,8 @@ import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot.BackendStat
 import org.apache.flink.runtime.state.metrics.LatencyTrackingStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
+import org.apache.flink.state.changelog.materialization.AsyncMaterializationRunnable;
+import org.apache.flink.state.changelog.materialization.MaterializedSnapshot;
 import org.apache.flink.state.changelog.restore.FunctionDelegationHelper;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -75,6 +78,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -144,9 +148,17 @@ public class ChangelogKeyedStateBackend<K>
     private final FunctionDelegationHelper functionDelegationHelper =
             new FunctionDelegationHelper();
 
-    /** Updated initially on restore and later upon materialization (in FLINK-21357). */
-    @GuardedBy("materialized")
-    private final List<KeyedStateHandle> materialized = new ArrayList<>();
+//    /** Updated initially on restore and later upon materialization (in FLINK-21357). */
+//    @GuardedBy("materialized")
+//    private final List<KeyedStateHandle> materialized = new ArrayList<>();
+
+    private MaterializedSnapshot materializedSnapshot;
+
+    private RunnableFuture<SnapshotResult<KeyedStateHandle>> materializedRunnableFuture;
+
+    private final MailboxExecutor mainMailboxExecutor;
+
+    private final ExecutorService asyncOperationsThreadPool;
 
     /** Updated initially on restore and later cleared upon materialization (in FLINK-21357). */
     @GuardedBy("materialized")
@@ -182,7 +194,9 @@ public class ChangelogKeyedStateBackend<K>
             ExecutionConfig executionConfig,
             TtlTimeProvider ttlTimeProvider,
             StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter,
-            Collection<ChangelogStateBackendHandle> initialState) {
+            Collection<ChangelogStateBackendHandle> initialState,
+            MailboxExecutor mainMailboxExecutor,
+            ExecutorService asyncOperationsThreadPool) {
         this.keyedStateBackend = keyedStateBackend;
         this.executionConfig = executionConfig;
         this.ttlTimeProvider = ttlTimeProvider;
@@ -190,6 +204,9 @@ public class ChangelogKeyedStateBackend<K>
         this.priorityQueueStatesByName = new HashMap<>();
         this.stateChangelogWriter = stateChangelogWriter;
         this.materializedTo = stateChangelogWriter.initialSequenceNumber();
+        this.mainMailboxExecutor = checkNotNull(mainMailboxExecutor);
+        this.asyncOperationsThreadPool = checkNotNull(asyncOperationsThreadPool);
+
         this.completeRestore(initialState);
     }
 
@@ -324,6 +341,30 @@ public class ChangelogKeyedStateBackend<K>
                         .thenApply(this::buildSnapshotResult));
     }
 
+    private void triggerMaterialization(long checkpointId,
+                              long timestamp,
+                              @Nonnull CheckpointStreamFactory streamFactory,
+                              @Nonnull CheckpointOptions checkpointOptions) throws Exception {
+        mainMailboxExecutor.execute(
+                () -> {
+                    materializedRunnableFuture =
+                            keyedStateBackend.snapshot(
+                                    checkpointId,
+                                    timestamp,
+                                    streamFactory,
+                                    checkpointOptions);
+                    // TODO: add metadata to log
+                    asyncMaterialization();
+                },
+                "materialization"
+        );
+    }
+
+    private void asyncMaterialization() {
+        asyncOperationsThreadPool.execute(
+                new AsyncMaterializationRunnable(materializedRunnableFuture, materializedSnapshot));
+    }
+
     private SnapshotResult<KeyedStateHandle> buildSnapshotResult(ChangelogStateHandle delta) {
         // Can be called by either task thread during the sync checkpoint phase (if persist future
         // was already completed); or by the writer thread otherwise. So need to synchronize.
@@ -334,12 +375,12 @@ public class ChangelogKeyedStateBackend<K>
             if (delta != null && delta.getStateSize() > 0) {
                 prevDeltaCopy.add(delta);
             }
-            if (prevDeltaCopy.isEmpty() && materialized.isEmpty()) {
+            if (prevDeltaCopy.isEmpty() && materializedSnapshot.isEmpty()) {
                 return SnapshotResult.empty();
             } else {
                 return SnapshotResult.of(
                         new ChangelogStateBackendHandleImpl(
-                                materialized, prevDeltaCopy, getKeyGroupRange()));
+                                materializedSnapshot.getMaterializedSnapshot(), prevDeltaCopy, getKeyGroupRange()));
             }
         }
     }
