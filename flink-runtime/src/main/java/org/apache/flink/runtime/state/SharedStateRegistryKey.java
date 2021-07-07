@@ -27,7 +27,7 @@ import org.apache.flink.util.StringBasedID;
  * should have the same {@link SharedStateRegistryKey}. The meaning of logical equivalence is up to
  * the application.
  */
-public class SharedStateRegistryKey extends StringBasedID {
+public final class SharedStateRegistryKey extends StringBasedID {
 
     private static final long serialVersionUID = 1L;
 

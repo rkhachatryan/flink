@@ -131,7 +131,7 @@ public class TaskStateManagerImplTest extends TestLogger {
 
         JobManagerTaskRestore taskRestore =
                 new JobManagerTaskRestore(
-                        checkpointMetaData.getCheckpointId(), acknowledgeReport.getSubtaskState());
+                        checkpointMetaData.getCheckpointId(), acknowledgeReport.getSubtaskState(), assignment.getSharedKeyedStates(subTaskIndex));
 
         taskStateManager =
                 taskStateManager(

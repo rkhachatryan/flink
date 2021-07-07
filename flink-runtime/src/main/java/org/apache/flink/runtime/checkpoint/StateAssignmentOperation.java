@@ -38,6 +38,7 @@ import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
+import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateObject;
 import org.apache.flink.util.Preconditions;
 
@@ -140,10 +141,39 @@ public class StateAssignmentOperation {
             }
         }
 
-        // actually assign the state
+        Map<StateHandleID, Map<TaskStateAssignment, Set<Integer>>> usedStates = new HashMap<>();
+        for (TaskStateAssignment stateAssignment : vertexAssignments.values()) {
+            if (stateAssignment.hasState) {
+                collectKeyedStateIds(stateAssignment, usedStates);
+            }
+        }
+        for (Map.Entry<StateHandleID, Map<TaskStateAssignment, Set<Integer>>> e :
+                usedStates.entrySet()) {
+            StateHandleID id = e.getKey();
+            Map<TaskStateAssignment, Set<Integer>> map = e.getValue();
+            if (map.values().size() > 1) {
+                map.forEach((assignment, subtasks) -> assignment.addSharedState(id, subtasks));
+            }
+        }
         for (TaskStateAssignment stateAssignment : vertexAssignments.values()) {
             if (stateAssignment.hasState) {
                 assignTaskStateToExecutionJobVertices(stateAssignment);
+            }
+        }
+    }
+
+    private void collectKeyedStateIds(
+            TaskStateAssignment stateAssignment,
+            Map<StateHandleID, Map<TaskStateAssignment, Set<Integer>>> usedStates) {
+        for (Map.Entry<OperatorInstanceID, List<KeyedStateHandle>> e :
+                stateAssignment.getSubManagedKeyedState().entrySet()) {
+            for (KeyedStateHandle h : e.getValue()) {
+                for (StateHandleID id : h.getAllStateObjectsIds()) {
+                    usedStates
+                            .computeIfAbsent(id, u -> new HashMap<>())
+                            .computeIfAbsent(stateAssignment, u -> new HashSet<>())
+                            .add(e.getKey().getSubtaskId());
+                }
             }
         }
     }
@@ -235,7 +265,10 @@ public class StateAssignmentOperation {
 
             if (!statelessTask) {
                 JobManagerTaskRestore taskRestore =
-                        new JobManagerTaskRestore(restoreCheckpointId, taskState);
+                        new JobManagerTaskRestore(
+                                restoreCheckpointId,
+                                taskState,
+                                assignment.getSharedKeyedStates(subTaskIndex));
                 currentExecutionAttempt.setInitialState(taskRestore);
             }
         }

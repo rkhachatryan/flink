@@ -74,7 +74,7 @@ public class TaskDeploymentDescriptorTest extends TestLogger {
     private static final List<URL> requiredClasspaths = new ArrayList<>(0);
     private static final TaskStateSnapshot taskStateHandles = new TaskStateSnapshot();
     private static final JobManagerTaskRestore taskRestore =
-            new JobManagerTaskRestore(1L, taskStateHandles);
+            new JobManagerTaskRestore(1L, taskStateHandles, assignment.getSharedKeyedStates(subTaskIndex));
 
     private final SerializedValue<ExecutionConfig> executionConfig =
             new SerializedValue<>(new ExecutionConfig());

@@ -140,7 +140,7 @@ public class ExecutionTest extends TestLogger {
         final Execution execution = executionVertex.getCurrentExecutionAttempt();
 
         final JobManagerTaskRestore taskRestoreState =
-                new JobManagerTaskRestore(1L, new TaskStateSnapshot());
+                new JobManagerTaskRestore(1L, new TaskStateSnapshot(), assignment.getSharedKeyedStates(subTaskIndex));
         execution.setInitialState(taskRestoreState);
 
         assertThat(execution.getTaskRestore(), is(notNullValue()));

@@ -30,6 +30,7 @@ import org.apache.flink.runtime.state.InputChannelStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
+import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateObject;
 
 import org.slf4j.Logger;
@@ -40,6 +41,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,6 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.util.Collections.emptySet;
@@ -86,6 +89,11 @@ class TaskStateAssignment {
 
     private final Map<IntermediateDataSetID, TaskStateAssignment> consumerAssignment;
     private final Map<ExecutionJobVertex, TaskStateAssignment> vertexAssignments;
+    /**
+     * Keys of {@link #subManagedKeyedState keyed states} that are shared among several sub-tasks
+     * and should be owned by the JM.
+     */
+    private final Map<StateHandleID, Set<Integer>> sharedKeyedStates = new HashMap<>();
 
     public TaskStateAssignment(
             ExecutionJobVertex executionJobVertex,
@@ -146,6 +154,17 @@ class TaskStateAssignment {
                             .toArray(TaskStateAssignment[]::new);
         }
         return upstreamAssignments;
+    }
+
+    public Map<OperatorInstanceID, List<KeyedStateHandle>> getSubManagedKeyedState() {
+        return subManagedKeyedState;
+    }
+
+    public Set<StateHandleID> getSharedKeyedStates(int subtasksIdx) {
+        return sharedKeyedStates.entrySet().stream()
+                .filter(e -> e.getValue().contains(subtasksIdx))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
     }
 
     public OperatorSubtaskState getSubtaskState(OperatorInstanceID instanceID) {
@@ -410,6 +429,10 @@ class TaskStateAssignment {
         }
         return new SubtasksRescaleMapping(
                 mapping, oldMapping.mayHaveAmbiguousSubtasks || mayHaveAmbiguousSubtasks);
+    }
+
+    public void addSharedState(StateHandleID key, Set<Integer> subtasks) {
+        sharedKeyedStates.computeIfAbsent(key, u -> new HashSet<>()).addAll(subtasks);
     }
 
     static class SubtasksRescaleMapping {

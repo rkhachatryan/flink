@@ -27,7 +27,7 @@ import org.apache.flink.util.StringBasedID;
  * (whatever logically equal means is up to the implementation). For example, this could be based on
  * the string representation of the full filepath for a state that is based on a file.
  */
-public class StateHandleID extends StringBasedID {
+public final class StateHandleID extends StringBasedID {
 
     private static final long serialVersionUID = 1L;
 
