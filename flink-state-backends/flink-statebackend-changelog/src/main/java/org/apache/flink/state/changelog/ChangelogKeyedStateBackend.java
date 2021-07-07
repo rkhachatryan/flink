@@ -57,8 +57,6 @@ import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot.BackendStat
 import org.apache.flink.runtime.state.metrics.LatencyTrackingStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
-import org.apache.flink.state.changelog.materialization.AsyncMaterializationRunnable;
-import org.apache.flink.state.changelog.materialization.MaterializedSnapshot;
 import org.apache.flink.state.changelog.restore.FunctionDelegationHelper;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -85,7 +83,9 @@ import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Collections.singletonList;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.concurrent.FutureUtils.runIfNotDoneAndGet;
 
 /**
  * A {@link KeyedStateBackend} that keeps state on the underlying delegated keyed state backend as
@@ -148,13 +148,11 @@ public class ChangelogKeyedStateBackend<K>
     private final FunctionDelegationHelper functionDelegationHelper =
             new FunctionDelegationHelper();
 
-//    /** Updated initially on restore and later upon materialization (in FLINK-21357). */
-//    @GuardedBy("materialized")
-//    private final List<KeyedStateHandle> materialized = new ArrayList<>();
+    //    /** Updated initially on restore and later upon materialization (in FLINK-21357). */
+    //    @GuardedBy("materialized")
+    //    private final List<KeyedStateHandle> materialized = new ArrayList<>();
 
-    private MaterializedSnapshot materializedSnapshot;
-
-    private RunnableFuture<SnapshotResult<KeyedStateHandle>> materializedRunnableFuture;
+    private SnapshotResult<KeyedStateHandle> materializedSnapshot;
 
     private final MailboxExecutor mainMailboxExecutor;
 
@@ -187,7 +185,7 @@ public class ChangelogKeyedStateBackend<K>
      *
      * <p>WARN: this value needs to be updated for benchmarking, e.g. in notifyCheckpointComplete.
      */
-    private final SequenceNumber materializedTo;
+    private SequenceNumber materializedTo;
 
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
@@ -335,37 +333,44 @@ public class ChangelogKeyedStateBackend<K>
                 checkpointId,
                 lastUploadedFrom,
                 lastUploadedTo);
+        // invariant: metadata is either written to changelog or write requested or it's not needed
+        // enforced by single-threaded access to materializedSnapshot
+        SnapshotResult<KeyedStateHandle> asOfNow = materializedSnapshot;
         return toRunnableFuture(
                 stateChangelogWriter
                         .persist(lastUploadedFrom)
-                        .thenApply(this::buildSnapshotResult));
+                        .thenApply(delta -> buildSnapshotResult(delta, asOfNow)));
     }
 
-    private void triggerMaterialization(long checkpointId,
-                              long timestamp,
-                              @Nonnull CheckpointStreamFactory streamFactory,
-                              @Nonnull CheckpointOptions checkpointOptions) throws Exception {
+    private void triggerMaterialization(
+            long checkpointId,
+            long timestamp,
+            @Nonnull CheckpointStreamFactory streamFactory,
+            @Nonnull CheckpointOptions checkpointOptions)
+            throws Exception {
         mainMailboxExecutor.execute(
                 () -> {
-                    materializedRunnableFuture =
+                    SequenceNumber upTo = stateChangelogWriter.lastAppendedSequenceNumber();
+                    RunnableFuture<SnapshotResult<KeyedStateHandle>> future =
                             keyedStateBackend.snapshot(
-                                    checkpointId,
-                                    timestamp,
-                                    streamFactory,
-                                    checkpointOptions);
-                    // TODO: add metadata to log
-                    asyncMaterialization();
+                                    checkpointId, timestamp, streamFactory, checkpointOptions);
+                    asyncOperationsThreadPool.execute(
+                            () -> {
+                                runIfNotDoneAndGet(future);
+                                mainMailboxExecutor.execute(
+                                        () -> {
+                                            materializedSnapshot = future.get());
+                                            materializedTo = upTo;
+                                            // todo: keyValueStatesByName.values().forEach(s -> s.resetMetadataWritten());
+                                        },
+                                        "");
+                            });
                 },
-                "materialization"
-        );
+                "materialization");
     }
 
-    private void asyncMaterialization() {
-        asyncOperationsThreadPool.execute(
-                new AsyncMaterializationRunnable(materializedRunnableFuture, materializedSnapshot));
-    }
-
-    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(ChangelogStateHandle delta) {
+    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(
+            ChangelogStateHandle delta, SnapshotResult<KeyedStateHandle> m) {
         // Can be called by either task thread during the sync checkpoint phase (if persist future
         // was already completed); or by the writer thread otherwise. So need to synchronize.
         // todo: revisit after FLINK-21357 - use mailbox action?
@@ -380,7 +385,9 @@ public class ChangelogKeyedStateBackend<K>
             } else {
                 return SnapshotResult.of(
                         new ChangelogStateBackendHandleImpl(
-                                materializedSnapshot.getMaterializedSnapshot(), prevDeltaCopy, getKeyGroupRange()));
+                                singletonList(m.getJobManagerOwnedSnapshot()), // todo: handle empty?
+                                prevDeltaCopy,
+                                getKeyGroupRange()));
             }
         }
     }
