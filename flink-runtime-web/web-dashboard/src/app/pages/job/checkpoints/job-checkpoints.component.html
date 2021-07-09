@@ -193,11 +193,41 @@
             <td>{{ checkPointStats['summary']['state_size']['avg'] | humanizeBytes }}</td>
             <td>{{ checkPointStats['summary']['processed_data']['avg'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['avg'] | humanizeBytes }})</td>
           </tr>
+            <tr>
+                <td><strong>Maximum</strong></td>
+                <td>{{ checkPointStats['summary']['end_to_end_duration']['max'] | humanizeDuration}}</td>
+                <td>{{ checkPointStats['summary']['state_size']['max'] | humanizeBytes }}</td>
+                <td>{{ checkPointStats['summary']['processed_data']['max'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['max'] | humanizeBytes }})</td>
+            </tr>
+            <tr>
+                <td><strong>50% percentile</strong></td>
+                <td>{{ checkPointStats['summary']['end_to_end_duration']['p50'] | humanizeDuration}}</td>
+                <td>{{ checkPointStats['summary']['state_size']['p50'] | humanizeBytes }}</td>
+                <td>{{ checkPointStats['summary']['processed_data']['p50'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['p50'] | humanizeBytes }})</td>
+            </tr>
+            <tr>
+                <td><strong>90% percentile</strong></td>
+                <td>{{ checkPointStats['summary']['end_to_end_duration']['p90'] | humanizeDuration}}</td>
+                <td>{{ checkPointStats['summary']['state_size']['p90'] | humanizeBytes }}</td>
+                <td>{{ checkPointStats['summary']['processed_data']['p90'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['p90'] | humanizeBytes }})</td>
+            </tr>
+            <tr>
+                <td><strong>99% percentile</strong></td>
+                <td>{{ checkPointStats['summary']['end_to_end_duration']['p99'] | humanizeDuration}}</td>
+                <td>{{ checkPointStats['summary']['state_size']['p99'] | humanizeBytes }}</td>
+                <td>{{ checkPointStats['summary']['processed_data']['p99'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['p99'] | humanizeBytes }})</td>
+            </tr>
+            <tr>
+                <td><strong>99% percentile</strong></td>
+                <td>{{ checkPointStats['summary']['end_to_end_duration']['p99'] | humanizeDuration}}</td>
+                <td>{{ checkPointStats['summary']['state_size']['p99'] | humanizeBytes }}</td>
+                <td>{{ checkPointStats['summary']['processed_data']['p99'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['p99'] | humanizeBytes }})</td>
+            </tr>
           <tr>
-            <td><strong>Maximum</strong></td>
-            <td>{{ checkPointStats['summary']['end_to_end_duration']['max'] | humanizeDuration}}</td>
-            <td>{{ checkPointStats['summary']['state_size']['max'] | humanizeBytes }}</td>
-            <td>{{ checkPointStats['summary']['processed_data']['max'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['max'] | humanizeBytes }})</td>
+            <td><strong>99.9% percentile</strong></td>
+            <td>{{ checkPointStats['summary']['end_to_end_duration']['p999'] | humanizeDuration}}</td>
+            <td>{{ checkPointStats['summary']['state_size']['p999'] | humanizeBytes }}</td>
+            <td>{{ checkPointStats['summary']['processed_data']['p999'] | humanizeBytes }} ({{ checkPointStats['summary']['persisted_data']['p999'] | humanizeBytes }})</td>
           </tr>
         </ng-container>
       </tbody>
