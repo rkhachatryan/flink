@@ -1849,7 +1849,6 @@ public class StreamTaskTest extends TestLogger {
 
     static Future<Boolean> triggerCheckpoint(
             StreamTaskMailboxTestHarness<String> testHarness, long checkpointId) {
-        testHarness.getTaskStateManager().setWaitForReportLatch(new OneShotLatch());
         return testHarness
                 .getStreamTask()
                 .triggerCheckpointAsync(

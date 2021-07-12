@@ -31,7 +31,6 @@ import org.apache.flink.api.connector.source.mocks.MockSourceReader;
 import org.apache.flink.api.connector.source.mocks.MockSourceSplit;
 import org.apache.flink.api.connector.source.mocks.MockSourceSplitSerializer;
 import org.apache.flink.core.io.InputStatus;
-import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
@@ -206,8 +205,6 @@ public class SourceOperatorStreamTaskTest extends SourceStreamTaskTestBase {
             CheckpointOptions checkpointOptions)
             throws Exception {
         // Trigger a checkpoint.
-        OneShotLatch waitForAcknowledgeLatch = new OneShotLatch();
-        testHarness.taskStateManager.setWaitForReportLatch(waitForAcknowledgeLatch);
         CheckpointMetaData checkpointMetaData = new CheckpointMetaData(checkpointId, checkpointId);
         Future<Boolean> checkpointFuture =
                 testHarness
@@ -223,7 +220,7 @@ public class SourceOperatorStreamTaskTest extends SourceStreamTaskTestBase {
         Future<Void> checkpointNotified =
                 testHarness.getStreamTask().notifyCheckpointCompleteAsync(checkpointId);
         processUntil(testHarness, checkpointNotified::isDone);
-        waitForAcknowledgeLatch.await();
+        testHarness.taskStateManager.getWaitForReportLatch().await();
     }
 
     private void processUntil(StreamTaskMailboxTestHarness testHarness, Supplier<Boolean> condition)
