@@ -69,7 +69,9 @@ class BatchingStateChangeUploader implements StateChangeUploader {
     @GuardedBy("scheduled")
     private ScheduledFuture<?> scheduledFuture;
 
-    private volatile Throwable error;
+    @Nullable
+    @GuardedBy("this")
+    private Throwable errorUnsafe;
 
     private final long maxBytesInFlight;
     private final LongAdder inFlightBytesCounter = new LongAdder();
@@ -111,6 +113,7 @@ class BatchingStateChangeUploader implements StateChangeUploader {
 
     @Override
     public void upload(UploadTask uploadTask) {
+        Throwable error = getErrorSafe();
         if (error != null) {
             LOG.debug("don't persist {} changesets, already failed", uploadTask.changeSets.size());
             uploadTask.fail(error);
@@ -158,6 +161,7 @@ class BatchingStateChangeUploader implements StateChangeUploader {
             scheduledFuture = null;
         }
         try {
+            Throwable error = getErrorSafe();
             if (error != null) {
                 tasks.forEach(task -> task.fail(error));
                 return;
@@ -168,7 +172,7 @@ class BatchingStateChangeUploader implements StateChangeUploader {
             if (findThrowable(t, IOException.class).isPresent()) {
                 LOG.warn("Caught IO exception while uploading", t);
             } else {
-                error = t;
+                setErrorSafe(t);
                 throw t;
             }
         }
@@ -191,6 +195,14 @@ class BatchingStateChangeUploader implements StateChangeUploader {
         drained.forEach(task -> task.fail(ce));
         retryingExecutor.close();
         delegate.close();
+    }
+
+    private synchronized Throwable getErrorSafe() {
+        return errorUnsafe;
+    }
+
+    private synchronized void setErrorSafe(Throwable t) {
+        errorUnsafe = t;
     }
 
     private static UploadTask wrapWithSizeUpdate(
