@@ -77,7 +77,7 @@ import java.util.stream.IntStream;
 import static java.util.Collections.singletonList;
 import static org.apache.flink.api.common.restartstrategy.RestartStrategies.fixedDelayRestart;
 import static org.apache.flink.configuration.JobManagerOptions.EXECUTION_FAILOVER_STRATEGY;
-import static org.apache.flink.configuration.TaskManagerOptions.TASK_CANCELLATION_TIMEOUT;
+import static org.apache.flink.configuration.ResourceManagerOptions.STANDALONE_CLUSTER_STARTUP_PERIOD_TIME;
 import static org.apache.flink.connector.jdbc.JdbcTestFixture.INPUT_TABLE;
 import static org.apache.flink.connector.jdbc.JdbcTestFixture.INSERT_TEMPLATE;
 import static org.apache.flink.connector.jdbc.xa.JdbcXaFacadeTestHelper.getInsertedIds;
@@ -141,7 +141,8 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
         // restart all tasks if at least one fails
         configuration.set(EXECUTION_FAILOVER_STRATEGY, "full");
         // cancel tasks eagerly to reduce the risk of running out of memory with many restarts
-        configuration.set(TASK_CANCELLATION_TIMEOUT, 1000L);
+        //        configuration.set(TASK_CANCELLATION_TIMEOUT, 5L);
+        configuration.set(STANDALONE_CLUSTER_STARTUP_PERIOD_TIME, 5L);
         cluster =
                 new MiniClusterWithClientResource(
                         new MiniClusterResourceConfiguration.Builder()
@@ -149,7 +150,7 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
                                 // Get enough TMs to run the job. Parallelize using TMs (rather than
                                 // slots) for better isolation - this test tends to exhaust memory
                                 // by restarts and fast sources
-                                .setNumberTaskManagers(dbEnv.getParallelism())
+                                .setNumberTaskManagers(dbEnv.getParallelism() - 1)
                                 .build());
         cluster.before();
         dbEnv.start();
@@ -354,7 +355,7 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
                                 SourceRange.forSubtask(
                                         getRuntimeContext().getIndexOfThisSubtask(), numElements)));
             }
-            LOG.debug("Source initialized with ranges: {}", ranges.get());
+            LOG.info("Source initialized with ranges: {}", ranges.get());
         }
 
         @Override
@@ -370,7 +371,7 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
                     && haveActiveSources()) {
                 if (System.currentTimeMillis() - start > 10_000) {
                     // debugging FLINK-22889 (TODO: remove after resolved)
-                    LOG.debug("Slept more than 10s", new Exception());
+                    LOG.info("Slept more than 10s", new Exception());
                     start = Long.MAX_VALUE;
                 }
                 try {
@@ -387,7 +388,7 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
             while (running && haveActiveSources()) {
                 if (System.currentTimeMillis() - start > 10_000) {
                     // debugging FLINK-22889 (TODO: remove after resolved)
-                    LOG.debug("Slept more than 10s", new Exception());
+                    LOG.info("Slept more than 10s", new Exception());
                     start = Long.MAX_VALUE;
                 }
                 activeSources
@@ -446,13 +447,13 @@ public class JdbcExactlyOnceSinkE2eTest extends JdbcTestBase {
                                     new CountDownLatch(
                                             getRuntimeContext().getNumberOfParallelSubtasks()))
                     .countDown();
-            LOG.debug("Mapper will fail after {} records", remaining);
+            LOG.info("Mapper will fail after {} records", remaining);
         }
 
         @Override
         public TestEntry map(TestEntry value) throws Exception {
             if (--remaining <= 0) {
-                LOG.debug("Mapper failing intentionally");
+                LOG.info("Mapper failing intentionally");
                 throw new TestException();
             }
             return value;
