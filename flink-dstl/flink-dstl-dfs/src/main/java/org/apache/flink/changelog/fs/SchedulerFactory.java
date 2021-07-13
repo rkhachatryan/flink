@@ -52,9 +52,9 @@ class SchedulerFactory {
                 },
                 (ignored, executor) -> {
                     if (executor.isShutdown()) {
-                        throw new RejectedExecutionException();
-                    } else {
                         log.debug("Execution rejected because shutdown is in progress");
+                    } else {
+                        throw new RejectedExecutionException();
                     }
                 });
     }
