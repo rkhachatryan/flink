@@ -44,6 +44,10 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.flink.core.fs.FileSystem.WriteMode.NO_OVERWRITE;
 
+/**
+ * A synchronous {@link StateChangeUploader} implementation that uploads the changes using {@link
+ * FileSystem}.
+ */
 class StateChangeFsUploader implements StateChangeUploader {
     private static final Logger LOG = LoggerFactory.getLogger(StateChangeFsUploader.class);
 

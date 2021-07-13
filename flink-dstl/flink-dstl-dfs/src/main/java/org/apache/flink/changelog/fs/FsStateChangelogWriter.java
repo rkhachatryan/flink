@@ -76,7 +76,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * <ol>
  *   <li>Every change has at most one associated upload (retries are performed at a lower level)
- *   <li>Every change is present in at most one collection: either uploaded OR notUploaded
+ *   <li>Every change is present in at most one collection: either {@link #uploaded} OR {@link
+ *       #notUploaded}
  *   <li>Changes BEING uploaded are NOT referenced locally - they will be added to uploaded upon
  *       completion
  *   <li>Failed and truncated changes are NOT stored - only their respective highest sequence
@@ -168,6 +169,8 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
     public SequenceNumber lastAppendedSequenceNumber() {
         LOG.trace("query {} sqn: {}", logId, activeSequenceNumber);
         SequenceNumber tmp = activeSequenceNumber;
+        // the returned current sequence number must be able to distinguish between the changes
+        // appended before and after this call so we need to use the next sequence number
         rollover();
         return tmp;
     }
