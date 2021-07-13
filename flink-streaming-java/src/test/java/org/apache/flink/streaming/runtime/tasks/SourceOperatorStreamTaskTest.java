@@ -205,6 +205,7 @@ public class SourceOperatorStreamTaskTest extends SourceStreamTaskTestBase {
             CheckpointOptions checkpointOptions)
             throws Exception {
         // Trigger a checkpoint.
+        testHarness.taskStateManager.getWaitForReportLatch().reset();
         CheckpointMetaData checkpointMetaData = new CheckpointMetaData(checkpointId, checkpointId);
         Future<Boolean> checkpointFuture =
                 testHarness
