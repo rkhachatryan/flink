@@ -26,8 +26,6 @@ import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 
-import static org.apache.flink.changelog.fs.FsStateChangelogCleaner.NO_OP;
-
 /** {@link FsStateChangelogStorage} test. */
 @RunWith(Parameterized.class)
 public class FsStateChangelogStorageTest extends StateChangelogStorageTest {
@@ -41,9 +39,6 @@ public class FsStateChangelogStorageTest extends StateChangelogStorageTest {
     @Override
     protected StateChangelogStorage<?> getFactory() throws IOException {
         return new FsStateChangelogStorage(
-                Path.fromLocalFile(temporaryFolder.newFolder()),
-                compression,
-                1024 * 1024 * 10,
-                NO_OP);
+                Path.fromLocalFile(temporaryFolder.newFolder()), compression, 1024 * 1024 * 10);
     }
 }
