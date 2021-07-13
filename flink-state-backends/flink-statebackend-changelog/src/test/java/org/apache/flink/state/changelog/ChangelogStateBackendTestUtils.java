@@ -21,7 +21,6 @@ package org.apache.flink.state.changelog;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
-import org.apache.flink.changelog.fs.FsStateChangelogCleaner;
 import org.apache.flink.changelog.fs.FsStateChangelogStorage;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.Path;
@@ -74,10 +73,7 @@ public class ChangelogStateBackendTestUtils {
         return TestTaskStateManager.builder()
                 .setStateChangelogStorage(
                         new FsStateChangelogStorage(
-                                Path.fromLocalFile(changelogStoragePath),
-                                false,
-                                1024,
-                                FsStateChangelogCleaner.NO_OP))
+                                Path.fromLocalFile(changelogStoragePath), false, 1024))
                 .build();
     }
 }
