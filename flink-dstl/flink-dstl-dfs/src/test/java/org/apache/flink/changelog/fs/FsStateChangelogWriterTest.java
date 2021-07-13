@@ -211,8 +211,7 @@ public class FsStateChangelogWriterTest {
                         UUID.randomUUID(),
                         KeyGroupRange.of(KEY_GROUP, KEY_GROUP),
                         uploader,
-                        appendPersistThreshold,
-                        FsStateChangelogCleaner.NO_OP)) {
+                        appendPersistThreshold)) {
             test.accept(writer, uploader);
         }
     }

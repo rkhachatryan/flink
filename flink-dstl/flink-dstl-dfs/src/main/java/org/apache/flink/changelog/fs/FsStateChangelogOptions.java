@@ -81,15 +81,6 @@ public class FsStateChangelogOptions {
                     .defaultValue(MemorySize.parse("1Mb"))
                     .withDescription("Buffer size used when uploading change sets");
 
-    public static final ConfigOption<Integer> NUM_THREADS_CLEANUP =
-            ConfigOptions.key("dstl.dfs.num-threads-cleanup")
-                    .intType()
-                    .defaultValue(5)
-                    .withDescription(
-                            "Number of threads to use to perform cleanup in case an upload is discarded "
-                                    + "(and not cleaned up by JM). "
-                                    + "If the cleanup doesn't keep up then task might be back-pressured.");
-
     public static final ConfigOption<Integer> NUM_UPLOAD_THREADS =
             ConfigOptions.key("dstl.dfs.upload.num-threads")
                     .intType()

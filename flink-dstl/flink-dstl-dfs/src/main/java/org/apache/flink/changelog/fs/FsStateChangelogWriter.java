@@ -47,6 +47,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.flink.util.IOUtils.closeAllQuietly;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -100,8 +101,6 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
     @GuardedBy("lock")
     private final List<UploadCompletionListener> uploadCompletionListeners = new ArrayList<>();
 
-    private final FsStateChangelogCleaner cleaner;
-
     /** Current {@link SequenceNumber}. */
     private SequenceNumber activeSequenceNumber = INITIAL_SQN;
 
@@ -139,13 +138,11 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
             UUID logId,
             KeyGroupRange keyGroupRange,
             StateChangeUploader uploader,
-            long preEmptivePersistThresholdInBytes,
-            FsStateChangelogCleaner cleaner) {
+            long preEmptivePersistThresholdInBytes) {
         this.logId = logId;
         this.keyGroupRange = keyGroupRange;
         this.uploader = uploader;
         this.preEmptivePersistThresholdInBytes = preEmptivePersistThresholdInBytes;
-        this.cleaner = cleaner;
     }
 
     @Override
@@ -237,7 +234,8 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
     private synchronized void handleUploadSuccess(List<UploadResult> results) {
         synchronized (lock) {
             if (closed) {
-                results.forEach(cleaner::cleanupAsync);
+                results.forEach(
+                        r -> closeAllQuietly(() -> r.getStreamStateHandle().discardState()));
             } else {
                 uploadCompletionListeners.removeIf(listener -> listener.onSuccess(results));
                 for (UploadResult result : results) {

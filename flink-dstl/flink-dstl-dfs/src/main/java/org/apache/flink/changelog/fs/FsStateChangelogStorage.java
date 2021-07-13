@@ -36,9 +36,7 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static java.util.Arrays.asList;
 import static org.apache.flink.changelog.fs.FsStateChangelogOptions.PREEMPTIVE_PERSIST_THRESHOLD;
-import static org.apache.flink.util.ExceptionUtils.firstOrSuppressed;
 
 /** Filesystem-based implementation of {@link StateChangelogStorage}. */
 @Experimental
@@ -48,7 +46,6 @@ public class FsStateChangelogStorage
     private static final Logger LOG = LoggerFactory.getLogger(FsStateChangelogStorage.class);
 
     private final StateChangeUploader uploader;
-    private final FsStateChangelogCleaner cleaner;
     private final long preEmptivePersistThresholdInBytes;
 
     /**
@@ -60,27 +57,21 @@ public class FsStateChangelogStorage
     public FsStateChangelogStorage(Configuration config) throws IOException {
         this(
                 StateChangeUploader.fromConfig(config),
-                FsStateChangelogCleaner.fromConfig(config),
                 config.get(PREEMPTIVE_PERSIST_THRESHOLD).getBytes());
     }
 
     @VisibleForTesting
-    public FsStateChangelogStorage(
-            Path basePath, boolean compression, int bufferSize, FsStateChangelogCleaner cleaner)
+    public FsStateChangelogStorage(Path basePath, boolean compression, int bufferSize)
             throws IOException {
         this(
                 new StateChangeFsUploader(
                         basePath, basePath.getFileSystem(), compression, bufferSize),
-                cleaner,
                 PREEMPTIVE_PERSIST_THRESHOLD.defaultValue().getBytes());
     }
 
     private FsStateChangelogStorage(
-            StateChangeUploader uploader,
-            FsStateChangelogCleaner cleaner,
-            long preEmptivePersistThresholdInBytes) {
+            StateChangeUploader uploader, long preEmptivePersistThresholdInBytes) {
         this.uploader = uploader;
-        this.cleaner = cleaner;
         this.preEmptivePersistThresholdInBytes = preEmptivePersistThresholdInBytes;
     }
 
@@ -89,7 +80,7 @@ public class FsStateChangelogStorage
         UUID logId = new UUID(0, logIdGenerator.getAndIncrement());
         LOG.info("createWriter for operator {}/{}: {}", operatorID, keyGroupRange, logId);
         return new FsStateChangelogWriter(
-                logId, keyGroupRange, uploader, preEmptivePersistThresholdInBytes, cleaner);
+                logId, keyGroupRange, uploader, preEmptivePersistThresholdInBytes);
     }
 
     @Override
@@ -99,16 +90,6 @@ public class FsStateChangelogStorage
 
     @Override
     public void close() throws Exception {
-        Exception e = null;
-        for (AutoCloseable closeable : asList(uploader, cleaner)) {
-            try {
-                closeable.close();
-            } catch (Exception ex) {
-                e = firstOrSuppressed(ex, e);
-            }
-        }
-        if (e != null) {
-            throw e;
-        }
+        uploader.close();
     }
 }
