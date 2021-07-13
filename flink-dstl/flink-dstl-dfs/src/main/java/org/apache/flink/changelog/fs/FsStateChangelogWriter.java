@@ -191,9 +191,7 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
         synchronized (lock) {
             ensureCanPersist(from);
             rollover();
-            Map<SequenceNumber, StateChangeSet> tailMap = notUploaded.tailMap(from, true);
-            Map<SequenceNumber, StateChangeSet> toUpload = new HashMap<>(tailMap);
-            tailMap.clear(); // prevent re-uploads
+            Map<SequenceNumber, StateChangeSet> toUpload = drainTailMap(notUploaded, from);
             NavigableMap<SequenceNumber, UploadResult> readyToReturn = uploaded.tailMap(from, true);
             LOG.debug("collected readyToReturn: {}, toUpload: {}", readyToReturn, toUpload);
 
@@ -377,5 +375,13 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
             }
             return false;
         }
+    }
+
+    private static Map<SequenceNumber, StateChangeSet> drainTailMap(
+            NavigableMap<SequenceNumber, StateChangeSet> src, SequenceNumber fromInclusive) {
+        Map<SequenceNumber, StateChangeSet> tailMap = src.tailMap(fromInclusive, true);
+        Map<SequenceNumber, StateChangeSet> toUpload = new HashMap<>(tailMap);
+        tailMap.clear();
+        return toUpload;
     }
 }
