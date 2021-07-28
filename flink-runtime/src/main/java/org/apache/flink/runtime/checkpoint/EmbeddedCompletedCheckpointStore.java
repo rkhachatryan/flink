@@ -55,14 +55,14 @@ public class EmbeddedCompletedCheckpointStore implements CompletedCheckpointStor
     }
 
     @Override
-    public void addCheckpoint(
+    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)
             throws Exception {
         checkpoints.addLast(checkpoint);
 
-        CheckpointSubsumeHelper.subsume(
+        return CheckpointSubsumeHelper.subsume(
                 checkpoints, maxRetainedCheckpoints, CompletedCheckpoint::discardOnSubsume);
     }
 

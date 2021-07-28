@@ -107,7 +107,7 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
                                                     "retrieveState was attempted for checkpoint "
                                                             + id);
                                         }));
-                        store.addCheckpoint(
+                        store.addCheckpointAndSubsumeOldestOne(
                                 createCheckpoint(1, sharedStateRegistry),
                                 new CheckpointsCleaner(),
                                 () -> {
@@ -136,13 +136,13 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
                                                                         createCheckpoint(
                                                                                 id,
                                                                                 sharedStateRegistry))));
-                        store.addCheckpoint(
+                        store.addCheckpointAndSubsumeOldestOne(
                                 createCheckpoint(1, sharedStateRegistry),
                                 new CheckpointsCleaner(),
                                 () -> {
                                     /*no op*/
                                 });
-                        store.addCheckpoint(
+                        store.addCheckpointAndSubsumeOldestOne(
                                 createCheckpoint(5, sharedStateRegistry),
                                 new CheckpointsCleaner(),
                                 () -> {
@@ -216,12 +216,14 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
             final CompletedCheckpointStoreTest.TestCompletedCheckpoint checkpoint1 =
                     CompletedCheckpointStoreTest.createCheckpoint(0, sharedStateRegistry);
 
-            checkpointStore.addCheckpoint(checkpoint1, new CheckpointsCleaner(), () -> {});
+            checkpointStore.addCheckpointAndSubsumeOldestOne(
+                    checkpoint1, new CheckpointsCleaner(), () -> {});
             assertThat(checkpointStore.getAllCheckpoints(), Matchers.contains(checkpoint1));
 
             final CompletedCheckpointStoreTest.TestCompletedCheckpoint checkpoint2 =
                     CompletedCheckpointStoreTest.createCheckpoint(1, sharedStateRegistry);
-            checkpointStore.addCheckpoint(checkpoint2, new CheckpointsCleaner(), () -> {});
+            checkpointStore.addCheckpointAndSubsumeOldestOne(
+                    checkpoint2, new CheckpointsCleaner(), () -> {});
             final List<CompletedCheckpoint> allCheckpoints = checkpointStore.getAllCheckpoints();
             assertThat(allCheckpoints, Matchers.contains(checkpoint2));
             assertThat(allCheckpoints, Matchers.not(Matchers.contains(checkpoint1)));
@@ -251,7 +253,8 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
             final CompletedCheckpointStoreTest.TestCompletedCheckpoint checkpoint1 =
                     CompletedCheckpointStoreTest.createCheckpoint(0, sharedStateRegistry);
 
-            checkpointStore.addCheckpoint(checkpoint1, new CheckpointsCleaner(), () -> {});
+            checkpointStore.addCheckpointAndSubsumeOldestOne(
+                    checkpoint1, new CheckpointsCleaner(), () -> {});
             assertThat(checkpointStore.getAllCheckpoints(), Matchers.contains(checkpoint1));
 
             checkpointStore.shutdown(JobStatus.FINISHED, new CheckpointsCleaner());
@@ -330,7 +333,7 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
                             CheckpointProperties.forCheckpoint(NEVER_RETAIN_AFTER_TERMINATION),
                             new TestCompletedCheckpointStorageLocation());
             // shouldn't fail despite the exception
-            store.addCheckpoint(
+            store.addCheckpointAndSubsumeOldestOne(
                     checkpointToAdd,
                     new CheckpointsCleaner(),
                     () -> {

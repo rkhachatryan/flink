@@ -125,7 +125,8 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
                 createCompletedCheckpointStore(stateHandleStore, numRetain);
 
         for (CompletedCheckpoint c : completed) {
-            completedCheckpointStore.addCheckpoint(c, new CheckpointsCleaner(), () -> {});
+            completedCheckpointStore.addCheckpointAndSubsumeOldestOne(
+                    c, new CheckpointsCleaner(), () -> {});
         }
         assertEquals(expectedRetained, completedCheckpointStore.getAllCheckpoints());
     }
@@ -203,7 +204,8 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
         final long ckpId = 100L;
         final CompletedCheckpoint ckp =
                 CompletedCheckpointStoreTest.createCheckpoint(ckpId, new SharedStateRegistry());
-        completedCheckpointStore.addCheckpoint(ckp, new CheckpointsCleaner(), () -> {});
+        completedCheckpointStore.addCheckpointAndSubsumeOldestOne(
+                ckp, new CheckpointsCleaner(), () -> {});
 
         // We should persist the completed checkpoint to state handle store.
         final CompletedCheckpoint addedCkp = addFuture.get(timeout, TimeUnit.MILLISECONDS);
@@ -238,7 +240,8 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
                 CompletedCheckpointStoreTest.createCheckpoint(ckpId, new SharedStateRegistry());
 
         try {
-            completedCheckpointStore.addCheckpoint(ckp, new CheckpointsCleaner(), () -> {});
+            completedCheckpointStore.addCheckpointAndSubsumeOldestOne(
+                    ckp, new CheckpointsCleaner(), () -> {});
             fail("We should get an exception when add checkpoint to failed..");
         } catch (FlinkException ex) {
             assertThat(ex, FlinkMatchers.containsMessage(errMsg));

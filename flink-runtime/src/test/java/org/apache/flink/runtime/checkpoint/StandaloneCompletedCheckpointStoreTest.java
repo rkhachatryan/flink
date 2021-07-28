@@ -55,7 +55,7 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
         TestCompletedCheckpoint checkpoint = createCheckpoint(0, sharedStateRegistry);
         Collection<OperatorState> operatorStates = checkpoint.getOperatorStates().values();
 
-        store.addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(checkpoint, new CheckpointsCleaner(), () -> {});
         assertEquals(1, store.getNumberOfRetainedCheckpoints());
         verifyCheckpointRegistered(operatorStates, sharedStateRegistry);
 
@@ -76,7 +76,7 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
         TestCompletedCheckpoint checkpoint = createCheckpoint(0, sharedStateRegistry);
         Collection<OperatorState> taskStates = checkpoint.getOperatorStates().values();
 
-        store.addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(checkpoint, new CheckpointsCleaner(), () -> {});
         assertEquals(1, store.getNumberOfRetainedCheckpoints());
         verifyCheckpointRegistered(taskStates, sharedStateRegistry);
 
@@ -116,7 +116,8 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
                         }
                     };
             // should fail despite the exception
-            store.addCheckpoint(checkpointToAdd, new CheckpointsCleaner(), () -> {});
+            store.addCheckpointAndSubsumeOldestOne(
+                    checkpointToAdd, new CheckpointsCleaner(), () -> {});
         }
         discardAttempted.await();
     }
@@ -125,9 +126,12 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
     public void testPreferCheckpointWithoutSavepoint() throws Exception {
         StandaloneCompletedCheckpointStore store = new StandaloneCompletedCheckpointStore(5);
         JobID jobId = new JobID();
-        store.addCheckpoint(checkpoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
-        store.addCheckpoint(checkpoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
-        store.addCheckpoint(checkpoint(jobId, 3L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                checkpoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                checkpoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                checkpoint(jobId, 3L), new CheckpointsCleaner(), () -> {});
 
         CompletedCheckpoint latestCheckpoint = store.getLatestCheckpoint(true);
 
@@ -138,9 +142,12 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
     public void testPreferCheckpointWithSavepoint() throws Exception {
         StandaloneCompletedCheckpointStore store = new StandaloneCompletedCheckpointStore(5);
         JobID jobId = new JobID();
-        store.addCheckpoint(checkpoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
-        store.addCheckpoint(savepoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
-        store.addCheckpoint(savepoint(jobId, 3L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                checkpoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                savepoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                savepoint(jobId, 3L), new CheckpointsCleaner(), () -> {});
 
         CompletedCheckpoint latestCheckpoint = store.getLatestCheckpoint(true);
 
@@ -151,8 +158,10 @@ public class StandaloneCompletedCheckpointStoreTest extends CompletedCheckpointS
     public void testPreferCheckpointWithOnlySavepoint() throws Exception {
         StandaloneCompletedCheckpointStore store = new StandaloneCompletedCheckpointStore(5);
         JobID jobId = new JobID();
-        store.addCheckpoint(savepoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
-        store.addCheckpoint(savepoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                savepoint(jobId, 1L), new CheckpointsCleaner(), () -> {});
+        store.addCheckpointAndSubsumeOldestOne(
+                savepoint(jobId, 2L), new CheckpointsCleaner(), () -> {});
 
         CompletedCheckpoint latestCheckpoint = store.getLatestCheckpoint(true);
 

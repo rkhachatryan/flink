@@ -115,6 +115,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -2089,7 +2090,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
                                         .setMaxConcurrentCheckpoints(Integer.MAX_VALUE)
                                         .build())
                         .setCheckpointIDCounter(counter)
-                        .setCompletedCheckpointStore(new StandaloneCompletedCheckpointStore(10))
+                        .setCompletedCheckpointStore(new StandaloneCompletedCheckpointStore(1))
                         .setTimer(manuallyTriggeredScheduledExecutor)
                         .build();
 
@@ -2123,6 +2124,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
         checkpointCoordinator.receiveAcknowledgeMessage(
                 new AcknowledgeCheckpoint(graph.getJobID(), attemptID2, checkpointId2),
                 TASK_MANAGER_LOCATION_INFO);
+        assertNull(checkpointCoordinator.getLastSubsumedCheckpoint());
 
         assertEquals(1, checkpointCoordinator.getNumberOfPendingCheckpoints());
         assertEquals(1, checkpointCoordinator.getNumberOfRetainedSuccessfulCheckpoints());
@@ -2151,6 +2153,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
                 new AcknowledgeCheckpoint(graph.getJobID(), attemptID2, savepointId2),
                 TASK_MANAGER_LOCATION_INFO);
 
+        assertNull(checkpointCoordinator.getLastSubsumedCheckpoint());
         assertEquals(1, checkpointCoordinator.getNumberOfPendingCheckpoints());
         assertEquals(2, checkpointCoordinator.getNumberOfRetainedSuccessfulCheckpoints());
 
@@ -2167,9 +2170,29 @@ public class CheckpointCoordinatorTest extends TestLogger {
                 new AcknowledgeCheckpoint(graph.getJobID(), attemptID2, savepointId1),
                 TASK_MANAGER_LOCATION_INFO);
 
+        // savepoint should not be notified as subsumed.
+        assertNull(checkpointCoordinator.getLastSubsumedCheckpoint());
+
         assertEquals(0, checkpointCoordinator.getNumberOfPendingCheckpoints());
-        assertEquals(3, checkpointCoordinator.getNumberOfRetainedSuccessfulCheckpoints());
+        assertEquals(2, checkpointCoordinator.getNumberOfRetainedSuccessfulCheckpoints());
         assertNotNull(savepointFuture1.get());
+
+        CompletableFuture<CompletedCheckpoint> checkpointFuture4 =
+                checkpointCoordinator.triggerCheckpoint(false);
+        manuallyTriggeredScheduledExecutor.triggerAll();
+        FutureUtils.throwIfCompletedExceptionally(checkpointFuture4);
+        long checkpointId4 = counter.getLast();
+
+        checkpointCoordinator.receiveAcknowledgeMessage(
+                new AcknowledgeCheckpoint(graph.getJobID(), attemptID1, checkpointId4),
+                TASK_MANAGER_LOCATION_INFO);
+        checkpointCoordinator.receiveAcknowledgeMessage(
+                new AcknowledgeCheckpoint(graph.getJobID(), attemptID2, checkpointId4),
+                TASK_MANAGER_LOCATION_INFO);
+        assertNotNull(checkpointCoordinator.getLastSubsumedCheckpoint());
+        // checkpoint2 would be subsumed.
+        assertEquals(
+                checkpointId2, checkpointCoordinator.getLastSubsumedCheckpoint().getCheckpointID());
     }
 
     private void testMaxConcurrentAttempts(int maxConcurrentAttempts) {
@@ -2752,7 +2775,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
                         .setTimer(manuallyTriggeredScheduledExecutor)
                         .build();
 
-        store.addCheckpoint(
+        store.addCheckpointAndSubsumeOldestOne(
                 new CompletedCheckpoint(
                         new JobID(),
                         0,

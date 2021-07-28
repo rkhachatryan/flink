@@ -167,7 +167,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
      *     metadata was fully written to the underlying systems or not.
      */
     @Override
-    public void addCheckpoint(
+    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
             final CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)
@@ -183,17 +183,23 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
 
         completedCheckpoints.addLast(checkpoint);
 
-        CheckpointSubsumeHelper.subsume(
-                completedCheckpoints,
-                maxNumberOfCheckpointsToRetain,
-                completedCheckpoint ->
-                        tryRemoveCompletedCheckpoint(
-                                completedCheckpoint,
-                                completedCheckpoint.shouldBeDiscardedOnSubsume(),
-                                checkpointsCleaner,
-                                postCleanup));
+        CompletedCheckpoint subsume =
+                CheckpointSubsumeHelper.subsume(
+                        completedCheckpoints,
+                        maxNumberOfCheckpointsToRetain,
+                        completedCheckpoint ->
+                                tryRemoveCompletedCheckpoint(
+                                        completedCheckpoint,
+                                        completedCheckpoint.shouldBeDiscardedOnSubsume(),
+                                        checkpointsCleaner,
+                                        postCleanup));
 
-        LOG.debug("Added {} to {}.", checkpoint, path);
+        if (subsume == null) {
+            LOG.debug("Added {} to {} without any older checkpoint to subsume.", checkpoint, path);
+        } else {
+            LOG.debug("Added {} to {} and subsume {}.", checkpoint, path, subsume);
+        }
+        return subsume;
     }
 
     @Override

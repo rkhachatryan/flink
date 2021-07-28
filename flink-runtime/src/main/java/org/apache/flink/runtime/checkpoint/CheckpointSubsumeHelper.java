@@ -20,6 +20,8 @@ package org.apache.flink.runtime.checkpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.Optional;
@@ -46,18 +48,24 @@ import java.util.Optional;
 class CheckpointSubsumeHelper {
     private static final Logger LOG = LoggerFactory.getLogger(CheckpointSubsumeHelper.class);
 
-    public static void subsume(
+    @Nullable
+    public static CompletedCheckpoint subsume(
             Deque<CompletedCheckpoint> checkpoints, int numRetain, SubsumeAction subsumeAction)
             throws Exception {
         if (checkpoints.isEmpty() || checkpoints.size() <= numRetain) {
-            return;
+            return null;
         }
         CompletedCheckpoint latest = checkpoints.peekLast();
+        CompletedCheckpoint lastSubsumedCheckpoint = null;
         Optional<CompletedCheckpoint> latestNotSavepoint = getLatestNotSavepoint(checkpoints);
         Iterator<CompletedCheckpoint> iterator = checkpoints.iterator();
         while (checkpoints.size() > numRetain && iterator.hasNext()) {
             CompletedCheckpoint next = iterator.next();
             if (canSubsume(next, latest, latestNotSavepoint)) {
+                // We only return the checkpoint could be discarded on subsume.
+                if (next.discardOnSubsume()) {
+                    lastSubsumedCheckpoint = next;
+                }
                 iterator.remove();
                 try {
                     subsumeAction.subsume(next);
@@ -67,6 +75,7 @@ class CheckpointSubsumeHelper {
             }
             // Don't break out from the loop to subsume intermediate savepoints
         }
+        return lastSubsumedCheckpoint;
     }
 
     private static Optional<CompletedCheckpoint> getLatestNotSavepoint(

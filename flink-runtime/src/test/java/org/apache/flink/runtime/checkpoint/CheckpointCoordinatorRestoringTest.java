@@ -1182,7 +1182,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
                 op2.getGeneratedOperatorID(),
                 new OperatorState(op2.getGeneratedOperatorID(), 1, 1));
         CompletedCheckpointStore store = new EmbeddedCompletedCheckpointStore();
-        store.addCheckpoint(
+        store.addCheckpointAndSubsumeOldestOne(
                 new CompletedCheckpoint(
                         graph.getJobID(),
                         2,
@@ -1239,7 +1239,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
                 op2.getGeneratedOperatorID(),
                 new FullyFinishedOperatorState(op1.getGeneratedOperatorID(), 1, 1));
         CompletedCheckpointStore store = new EmbeddedCompletedCheckpointStore();
-        store.addCheckpoint(
+        store.addCheckpointAndSubsumeOldestOne(
                 new CompletedCheckpoint(
                         graph.getJobID(),
                         2,

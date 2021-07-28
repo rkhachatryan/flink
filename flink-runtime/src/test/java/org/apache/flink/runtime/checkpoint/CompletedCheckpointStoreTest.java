@@ -79,11 +79,13 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         // Add and get latest
-        checkpoints.addCheckpoint(expected[0], new CheckpointsCleaner(), () -> {});
+        checkpoints.addCheckpointAndSubsumeOldestOne(
+                expected[0], new CheckpointsCleaner(), () -> {});
         assertEquals(1, checkpoints.getNumberOfRetainedCheckpoints());
         verifyCheckpoint(expected[0], checkpoints.getLatestCheckpoint(false));
 
-        checkpoints.addCheckpoint(expected[1], new CheckpointsCleaner(), () -> {});
+        checkpoints.addCheckpointAndSubsumeOldestOne(
+                expected[1], new CheckpointsCleaner(), () -> {});
         assertEquals(2, checkpoints.getNumberOfRetainedCheckpoints());
         verifyCheckpoint(expected[1], checkpoints.getLatestCheckpoint(false));
     }
@@ -106,11 +108,13 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         // Add checkpoints
-        checkpoints.addCheckpoint(expected[0], new CheckpointsCleaner(), () -> {});
+        checkpoints.addCheckpointAndSubsumeOldestOne(
+                expected[0], new CheckpointsCleaner(), () -> {});
         assertEquals(1, checkpoints.getNumberOfRetainedCheckpoints());
 
         for (int i = 1; i < expected.length; i++) {
-            checkpoints.addCheckpoint(expected[i], new CheckpointsCleaner(), () -> {});
+            checkpoints.addCheckpointAndSubsumeOldestOne(
+                    expected[i], new CheckpointsCleaner(), () -> {});
 
             // The ZooKeeper implementation discards asynchronously
             expected[i - 1].awaitDiscard();
@@ -153,7 +157,8 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         for (TestCompletedCheckpoint checkpoint : expected) {
-            checkpoints.addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
+            checkpoints.addCheckpointAndSubsumeOldestOne(
+                    checkpoint, new CheckpointsCleaner(), () -> {});
         }
 
         List<CompletedCheckpoint> actual = checkpoints.getAllCheckpoints();
@@ -180,7 +185,8 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         for (TestCompletedCheckpoint checkpoint : expected) {
-            checkpoints.addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
+            checkpoints.addCheckpointAndSubsumeOldestOne(
+                    checkpoint, new CheckpointsCleaner(), () -> {});
         }
 
         checkpoints.shutdown(JobStatus.FINISHED, new CheckpointsCleaner());

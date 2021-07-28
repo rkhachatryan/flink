@@ -24,6 +24,8 @@ import org.apache.flink.api.common.JobStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.ListIterator;
 
@@ -45,8 +47,12 @@ public interface CompletedCheckpointStore {
      *
      * <p>Only a bounded number of checkpoints is kept. When exceeding the maximum number of
      * retained checkpoints, the oldest one will be discarded.
+     *
+     * @return the subsumed oldest completed checkpoint if possible, return null if no checkpoint
+     *     needs to be discarded on subsume.
      */
-    void addCheckpoint(
+    @Nullable
+    CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)
@@ -126,7 +132,8 @@ public interface CompletedCheckpointStore {
                 new StandaloneCompletedCheckpointStore(checkpoints.length);
         CheckpointsCleaner checkpointsCleaner = new CheckpointsCleaner();
         for (final CompletedCheckpoint checkpoint : checkpoints) {
-            store.addCheckpoint(checkpoint, checkpointsCleaner, postCleanupAction);
+            store.addCheckpointAndSubsumeOldestOne(
+                    checkpoint, checkpointsCleaner, postCleanupAction);
         }
         return store;
     }

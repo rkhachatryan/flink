@@ -36,7 +36,7 @@ public enum DeactivatedCheckpointCompletedCheckpointStore implements CompletedCh
     }
 
     @Override
-    public void addCheckpoint(
+    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)
