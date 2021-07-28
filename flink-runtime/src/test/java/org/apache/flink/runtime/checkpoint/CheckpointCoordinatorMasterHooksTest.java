@@ -308,7 +308,7 @@ public class CheckpointCoordinatorMasterHooksTest {
         cc.addMasterHook(statefulHook2);
 
         cc.getCheckpointStore()
-                .addCheckpointAndSubsumeOldestOne(checkpoint, new CheckpointsCleaner(), () -> {});
+                .addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
         cc.restoreLatestCheckpointedStateToAll(Collections.emptySet(), false);
 
         verify(statefulHook1, times(1)).restoreCheckpoint(eq(checkpointId), eq(state1));
@@ -368,7 +368,7 @@ public class CheckpointCoordinatorMasterHooksTest {
         cc.addMasterHook(statelessHook);
 
         cc.getCheckpointStore()
-                .addCheckpointAndSubsumeOldestOne(checkpoint, new CheckpointsCleaner(), () -> {});
+                .addCheckpoint(checkpoint, new CheckpointsCleaner(), () -> {});
 
         // since we have unmatched state, this should fail
         try {

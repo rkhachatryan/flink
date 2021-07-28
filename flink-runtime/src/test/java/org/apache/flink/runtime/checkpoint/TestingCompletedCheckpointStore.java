@@ -36,7 +36,7 @@ public final class TestingCompletedCheckpointStore implements CompletedCheckpoin
     public void recover() {}
 
     @Override
-    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+    public CompletedCheckpoint addCheckpoint(
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup) {

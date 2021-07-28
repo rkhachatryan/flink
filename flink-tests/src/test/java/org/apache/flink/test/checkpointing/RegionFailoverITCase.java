@@ -466,13 +466,13 @@ public class RegionFailoverITCase extends TestLogger {
         }
 
         @Override
-        public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+        public CompletedCheckpoint addCheckpoint(
                 CompletedCheckpoint checkpoint,
                 CheckpointsCleaner checkpointsCleaner,
                 Runnable postCleanup)
                 throws Exception {
             CompletedCheckpoint subsumedCheckpoint =
-                    super.addCheckpointAndSubsumeOldestOne(
+                    super.addCheckpoint(
                             checkpoint, checkpointsCleaner, postCleanup);
             // we record the information when adding completed checkpoint instead of
             // 'notifyCheckpointComplete' invoked

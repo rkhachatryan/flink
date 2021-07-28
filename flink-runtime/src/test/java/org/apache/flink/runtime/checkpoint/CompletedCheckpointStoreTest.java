@@ -79,12 +79,12 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         // Add and get latest
-        checkpoints.addCheckpointAndSubsumeOldestOne(
+        checkpoints.addCheckpoint(
                 expected[0], new CheckpointsCleaner(), () -> {});
         assertEquals(1, checkpoints.getNumberOfRetainedCheckpoints());
         verifyCheckpoint(expected[0], checkpoints.getLatestCheckpoint(false));
 
-        checkpoints.addCheckpointAndSubsumeOldestOne(
+        checkpoints.addCheckpoint(
                 expected[1], new CheckpointsCleaner(), () -> {});
         assertEquals(2, checkpoints.getNumberOfRetainedCheckpoints());
         verifyCheckpoint(expected[1], checkpoints.getLatestCheckpoint(false));
@@ -108,12 +108,12 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         // Add checkpoints
-        checkpoints.addCheckpointAndSubsumeOldestOne(
+        checkpoints.addCheckpoint(
                 expected[0], new CheckpointsCleaner(), () -> {});
         assertEquals(1, checkpoints.getNumberOfRetainedCheckpoints());
 
         for (int i = 1; i < expected.length; i++) {
-            checkpoints.addCheckpointAndSubsumeOldestOne(
+            checkpoints.addCheckpoint(
                     expected[i], new CheckpointsCleaner(), () -> {});
 
             // The ZooKeeper implementation discards asynchronously
@@ -157,7 +157,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         for (TestCompletedCheckpoint checkpoint : expected) {
-            checkpoints.addCheckpointAndSubsumeOldestOne(
+            checkpoints.addCheckpoint(
                     checkpoint, new CheckpointsCleaner(), () -> {});
         }
 
@@ -185,7 +185,7 @@ public abstract class CompletedCheckpointStoreTest extends TestLogger {
                 };
 
         for (TestCompletedCheckpoint checkpoint : expected) {
-            checkpoints.addCheckpointAndSubsumeOldestOne(
+            checkpoints.addCheckpoint(
                     checkpoint, new CheckpointsCleaner(), () -> {});
         }
 

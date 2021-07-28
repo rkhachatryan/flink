@@ -442,13 +442,13 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
         }
 
         @Override
-        public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+        public CompletedCheckpoint addCheckpoint(
                 CompletedCheckpoint checkpoint,
                 CheckpointsCleaner checkpointsCleaner,
                 Runnable postCleanup)
                 throws Exception {
             if (abortCheckpointLatch.isTriggered()) {
-                return super.addCheckpointAndSubsumeOldestOne(
+                return super.addCheckpoint(
                         checkpoint, checkpointsCleaner, postCleanup);
             } else {
                 // tell main thread that all checkpoints on task side have been finished.

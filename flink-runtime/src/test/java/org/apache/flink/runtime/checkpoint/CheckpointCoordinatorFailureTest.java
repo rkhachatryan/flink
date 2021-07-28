@@ -260,7 +260,7 @@ public class CheckpointCoordinatorFailureTest extends TestLogger {
         }
 
         @Override
-        public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+        public CompletedCheckpoint addCheckpoint(
                 CompletedCheckpoint checkpoint,
                 CheckpointsCleaner checkpointsCleaner,
                 Runnable postCleanup)

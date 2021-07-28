@@ -65,7 +65,7 @@ public class StandaloneCompletedCheckpointStore implements CompletedCheckpointSt
 
     @Nullable
     @Override
-    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+    public CompletedCheckpoint addCheckpoint(
             CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)

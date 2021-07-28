@@ -80,6 +80,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
     private final Executor ioExecutor;
 
     private final CheckpointStoreUtil completedCheckpointStoreUtil;
+    private long latestSubsumedCheckpointID = -1L;
 
     /**
      * Creates a {@link DefaultCompletedCheckpointStore} instance.
@@ -113,6 +114,11 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
     @Override
     public boolean requiresExternalizedCheckpoints() {
         return true;
+    }
+
+    @Override
+    public long getLatestSubsumedCheckpointID() {
+        return latestSubsumedCheckpointID;
     }
 
     /**
@@ -167,7 +173,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
      *     metadata was fully written to the underlying systems or not.
      */
     @Override
-    public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+    public void addCheckpoint(
             final CompletedCheckpoint checkpoint,
             CheckpointsCleaner checkpointsCleaner,
             Runnable postCleanup)
@@ -183,23 +189,18 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
 
         completedCheckpoints.addLast(checkpoint);
 
-        CompletedCheckpoint subsume =
-                CheckpointSubsumeHelper.subsume(
-                        completedCheckpoints,
-                        maxNumberOfCheckpointsToRetain,
-                        completedCheckpoint ->
-                                tryRemoveCompletedCheckpoint(
-                                        completedCheckpoint,
-                                        completedCheckpoint.shouldBeDiscardedOnSubsume(),
-                                        checkpointsCleaner,
-                                        postCleanup));
+        CheckpointSubsumeHelper.subsume(
+                completedCheckpoints,
+                maxNumberOfCheckpointsToRetain,
+                completedCheckpoint ->
+                        tryRemoveCompletedCheckpoint(
+                                completedCheckpoint,
+                                completedCheckpoint.shouldBeDiscardedOnSubsume(),
+                                checkpointsCleaner,
+                                postCleanup,
+                                true));
 
-        if (subsume == null) {
-            LOG.debug("Added {} to {} without any older checkpoint to subsume.", checkpoint, path);
-        } else {
-            LOG.debug("Added {} to {} and subsume {}.", checkpoint, path, subsume);
-        }
-        return subsume;
+        LOG.debug("Added {} to {} without any older checkpoint to subsume.", checkpoint, path);
     }
 
     @Override
@@ -229,7 +230,8 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
                             checkpoint,
                             checkpoint.shouldBeDiscardedOnShutdown(jobStatus),
                             checkpointsCleaner,
-                            () -> {});
+                            () -> {},
+                            false);
                 } catch (Exception e) {
                     LOG.warn("Fail to remove checkpoint during shutdown.", e);
                 }
@@ -255,9 +257,13 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>>
             CompletedCheckpoint completedCheckpoint,
             boolean shouldDiscard,
             CheckpointsCleaner checkpointsCleaner,
-            Runnable postCleanup)
+            Runnable postCleanup,
+            boolean subsumed)
             throws Exception {
         if (tryRemove(completedCheckpoint.getCheckpointID())) {
+            if (subsumed) {
+                latestSubsumedCheckpointID = completedCheckpoint.getCheckpointID();
+            }
             checkpointsCleaner.cleanCheckpoint(
                     completedCheckpoint, shouldDiscard, postCleanup, ioExecutor);
         }

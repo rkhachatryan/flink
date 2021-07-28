@@ -156,7 +156,7 @@ public class CheckpointStoreITCase extends TestLogger {
         }
 
         @Override
-        public CompletedCheckpoint addCheckpointAndSubsumeOldestOne(
+        public CompletedCheckpoint addCheckpoint(
                 CompletedCheckpoint checkpoint,
                 CheckpointsCleaner checkpointsCleaner,
                 Runnable postCleanup) {

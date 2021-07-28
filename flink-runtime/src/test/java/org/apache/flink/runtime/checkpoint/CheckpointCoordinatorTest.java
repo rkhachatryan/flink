@@ -2775,7 +2775,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
                         .setTimer(manuallyTriggeredScheduledExecutor)
                         .build();
 
-        store.addCheckpointAndSubsumeOldestOne(
+        store.addCheckpoint(
                 new CompletedCheckpoint(
                         new JobID(),
                         0,
