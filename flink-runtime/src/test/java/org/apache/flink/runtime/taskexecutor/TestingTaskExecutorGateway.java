@@ -222,8 +222,11 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     }
 
     @Override
-    public CompletableFuture<Acknowledge> confirmCheckpoint(
-            ExecutionAttemptID executionAttemptID, long checkpointId, long checkpointTimestamp) {
+    public CompletableFuture<Acknowledge> notifyCheckpointOnComplete(
+            ExecutionAttemptID executionAttemptID,
+            long completedCheckpointId,
+            long completedCheckpointTimestamp,
+            long lastSubsumedCheckpointId) {
         return CompletableFuture.completedFuture(Acknowledge.get());
     }
 

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.CheckpointListener;
+import org.apache.flink.api.common.state.InternalCheckpointListener;
 import org.apache.flink.api.common.state.KeyedStateStore;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
@@ -295,6 +296,12 @@ public class StreamOperatorStateHandler {
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         if (keyedStateBackend instanceof CheckpointListener) {
             ((CheckpointListener) keyedStateBackend).notifyCheckpointAborted(checkpointId);
+        }
+    }
+
+    public void notifyCheckpointSubsumed(long checkpointId) throws Exception {
+        if (keyedStateBackend instanceof InternalCheckpointListener) {
+            ((InternalCheckpointListener) keyedStateBackend).notifyCheckpointSubsumed(checkpointId);
         }
     }
 

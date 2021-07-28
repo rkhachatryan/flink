@@ -326,6 +326,10 @@ public abstract class AbstractStreamOperatorV2<OUT>
         stateHandler.notifyCheckpointAborted(checkpointId);
     }
 
+    public void notifyCheckpointSubsumed(long checkpointId) throws Exception {
+        stateHandler.notifyCheckpointSubsumed(checkpointId);
+    }
+
     // ------------------------------------------------------------------------
     //  Properties and Services
     // ------------------------------------------------------------------------

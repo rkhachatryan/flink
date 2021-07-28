@@ -19,6 +19,8 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.mailbox.MailboxExecutor;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperatorV2;
 import org.apache.flink.streaming.api.operators.BoundedMultiInput;
 import org.apache.flink.streaming.api.operators.BoundedOneInput;
 import org.apache.flink.streaming.api.operators.StreamOperator;
@@ -97,6 +99,16 @@ public class StreamOperatorWrapper<OUT, OP extends StreamOperator<OUT>> {
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
         if (!closed) {
             wrapped.notifyCheckpointComplete(checkpointId);
+        }
+    }
+
+    public void notifyCheckpointSubsumed(long checkpointId) throws Exception {
+        if (!closed) {
+            if (wrapped instanceof AbstractStreamOperator) {
+                ((AbstractStreamOperator<?>) wrapped).notifyCheckpointSubsumed(checkpointId);
+            } else if (wrapped instanceof AbstractStreamOperatorV2) {
+                ((AbstractStreamOperatorV2<?>) wrapped).notifyCheckpointSubsumed(checkpointId);
+            }
         }
     }
 

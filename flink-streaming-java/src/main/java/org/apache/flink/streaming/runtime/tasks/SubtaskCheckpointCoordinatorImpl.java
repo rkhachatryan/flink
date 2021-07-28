@@ -36,16 +36,20 @@ import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.SnapshotResult;
+import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.streaming.api.operators.OperatorSnapshotFutures;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.function.BiFunctionWithException;
+import org.apache.flink.util.function.ThrowingConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
@@ -340,32 +344,17 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
     public void notifyCheckpointComplete(
             long checkpointId, OperatorChain<?, ?> operatorChain, Supplier<Boolean> isRunning)
             throws Exception {
-        Exception previousException = null;
-        if (!isRunning.get()) {
-            LOG.debug(
-                    "Ignoring notification of complete checkpoint {} for not-running task {}",
-                    checkpointId,
-                    taskName);
-        } else if (operatorChain.isFinishedOnRestore()) {
-            LOG.debug(
-                    "Ignoring notification of complete checkpoint {} for finished on restore task {}",
-                    checkpointId,
-                    taskName);
-        } else {
-            LOG.debug(
-                    "Notification of completed checkpoint {} for task {}", checkpointId, taskName);
 
-            for (StreamOperatorWrapper<?, ?> operatorWrapper :
-                    operatorChain.getAllOperators(true)) {
-                try {
-                    operatorWrapper.notifyCheckpointComplete(checkpointId);
-                } catch (Exception e) {
-                    previousException = ExceptionUtils.firstOrSuppressed(e, previousException);
-                }
-            }
-        }
-        env.getTaskStateManager().notifyCheckpointComplete(checkpointId);
-        ExceptionUtils.tryRethrowException(previousException);
+        notifyCheckpoint(
+                checkpointId,
+                operatorChain,
+                isRunning,
+                "Ignoring notification of complete checkpoint {} for not-running task {}",
+                "Ignoring notification of complete checkpoint {} for finished on restore task {}",
+                "Notification of aborted checkpoint {} for task {}",
+                null,
+                (opw) -> opw.notifyCheckpointComplete(checkpointId),
+                (tsm) -> tsm.notifyCheckpointComplete(checkpointId));
     }
 
     @Override
@@ -373,45 +362,89 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             long checkpointId, OperatorChain<?, ?> operatorChain, Supplier<Boolean> isRunning)
             throws Exception {
 
+        notifyCheckpoint(
+                checkpointId,
+                operatorChain,
+                isRunning,
+                "Ignoring notification of aborted checkpoint {} for not-running task {}",
+                "Ignoring notification of aborted checkpoint {} for finished on restore task {}",
+                "Notification of aborted checkpoint {} for task {}",
+                () -> {
+                    boolean canceled = cancelAsyncCheckpointRunnable(checkpointId);
+
+                    if (!canceled) {
+                        if (checkpointId > lastCheckpointId) {
+                            // only record checkpoints that have not triggered on task side.
+                            abortedCheckpointIds.add(checkpointId);
+                        }
+                    }
+
+                    channelStateWriter.abort(
+                            checkpointId,
+                            new CancellationException("checkpoint aborted via notification"),
+                            false);
+                },
+                (opw) -> opw.getStreamOperator().notifyCheckpointAborted(checkpointId),
+                (tsm) -> tsm.notifyCheckpointAborted(checkpointId));
+    }
+
+    @Override
+    public void notifyCheckpointSubsumed(
+            long checkpointId, OperatorChain<?, ?> operatorChain, Supplier<Boolean> isRunning)
+            throws Exception {
+        notifyCheckpoint(
+                checkpointId,
+                operatorChain,
+                isRunning,
+                "Ignoring notification of subsumed checkpoint {} for not-running task {}",
+                "Ignoring notification of subsumed checkpoint {} for finished on restore task {}",
+                "Notification of subsumed checkpoint {} for task {}",
+                null,
+                (opw) -> opw.notifyCheckpointSubsumed(checkpointId),
+                null);
+    }
+
+    private void notifyCheckpoint(
+            long checkpointId,
+            OperatorChain<?, ?> operatorChain,
+            Supplier<Boolean> isRunning,
+            String logFormatIfNotRunning,
+            String logFormatIfFinishedOnRestore,
+            String logFormatIfNotificationStart,
+            @Nullable Runnable runnableBeforeNotifyOperator,
+            @Nonnull ThrowingConsumer<StreamOperatorWrapper<?, ?>, Exception> operatorConsumer,
+            @Nullable ThrowingConsumer<TaskStateManager, Exception> taskStateManagerConsumer)
+            throws Exception {
+
         Exception previousException = null;
         if (!isRunning.get()) {
-            LOG.debug(
-                    "Ignoring notification of aborted checkpoint {} for not-running task {}",
-                    checkpointId,
-                    taskName);
+            LOG.debug(logFormatIfNotRunning, checkpointId, taskName);
         } else if (operatorChain.isFinishedOnRestore()) {
-            LOG.debug(
-                    "Ignoring notification of aborted checkpoint {} for finished on restore task {}",
-                    checkpointId,
-                    taskName);
+            LOG.debug(logFormatIfFinishedOnRestore, checkpointId, taskName);
         } else {
-            LOG.debug("Notification of aborted checkpoint {} for task {}", checkpointId, taskName);
+            LOG.debug(logFormatIfNotificationStart, checkpointId, taskName);
 
-            boolean canceled = cancelAsyncCheckpointRunnable(checkpointId);
-
-            if (!canceled) {
-                if (checkpointId > lastCheckpointId) {
-                    // only record checkpoints that have not triggered on task side.
-                    abortedCheckpointIds.add(checkpointId);
-                }
+            if (runnableBeforeNotifyOperator != null) {
+                runnableBeforeNotifyOperator.run();
             }
-
-            channelStateWriter.abort(
-                    checkpointId,
-                    new CancellationException("checkpoint aborted via notification"),
-                    false);
 
             for (StreamOperatorWrapper<?, ?> operatorWrapper :
                     operatorChain.getAllOperators(true)) {
                 try {
-                    operatorWrapper.getStreamOperator().notifyCheckpointAborted(checkpointId);
+                    operatorConsumer.accept(operatorWrapper);
                 } catch (Exception e) {
                     previousException = ExceptionUtils.firstOrSuppressed(e, previousException);
                 }
             }
         }
 
-        env.getTaskStateManager().notifyCheckpointAborted(checkpointId);
+        if (taskStateManagerConsumer != null) {
+            try {
+                taskStateManagerConsumer.accept(env.getTaskStateManager());
+            } catch (Exception e) {
+                previousException = ExceptionUtils.firstOrSuppressed(e, previousException);
+            }
+        }
         ExceptionUtils.tryRethrowException(previousException);
     }
 

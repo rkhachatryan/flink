@@ -1223,6 +1223,15 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 String.format("checkpoint %d aborted", checkpointId));
     }
 
+    @Override
+    public Future<Void> notifyCheckpointSubsumedAsync(long checkpointId) {
+        return notifyCheckpointOperation(
+                () ->
+                        subtaskCheckpointCoordinator.notifyCheckpointSubsumed(
+                                checkpointId, operatorChain, this::isRunning),
+                String.format("checkpoint %d subsumed", checkpointId));
+    }
+
     private Future<Void> notifyCheckpointOperation(
             RunnableWithException runnable, String description) {
         CompletableFuture<Void> result = new CompletableFuture<>();

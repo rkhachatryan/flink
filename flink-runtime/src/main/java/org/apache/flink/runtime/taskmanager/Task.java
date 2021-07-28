@@ -1399,6 +1399,33 @@ public class Task
         }
     }
 
+    public void notifyCheckpointSubsumed(long checkpointId) {
+        AbstractInvokable invokable = this.invokable;
+
+        if (executionState == ExecutionState.RUNNING && invokable != null) {
+
+            try {
+                invokable.notifyCheckpointSubsumedAsync(checkpointId);
+            } catch (RejectedExecutionException ex) {
+                // This may happen if the mailbox is closed. It means that the task is shutting
+                // down, so we just ignore it.
+                LOG.debug(
+                        "Notify checkpoint subsume {} for {} ({}) was rejected by the mailbox",
+                        checkpointId,
+                        taskNameWithSubtask,
+                        executionId);
+            } catch (Exception e) {
+                if (getExecutionState() == ExecutionState.RUNNING) {
+                    LOG.warn("Error while subsuming checkpoint {}.", checkpointId, e);
+                }
+            }
+        } else {
+            LOG.info(
+                    "Ignoring checkpoint subsume notification for non-running task {}.",
+                    taskNameWithSubtask);
+        }
+    }
+
     /**
      * Dispatches an operator event to the invokable task.
      *

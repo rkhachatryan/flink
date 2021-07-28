@@ -130,10 +130,16 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     }
 
     @Override
-    public CompletableFuture<Acknowledge> confirmCheckpoint(
-            ExecutionAttemptID executionAttemptID, long checkpointId, long checkpointTimestamp) {
-        return originalGateway.confirmCheckpoint(
-                executionAttemptID, checkpointId, checkpointTimestamp);
+    public CompletableFuture<Acknowledge> notifyCheckpointOnComplete(
+            ExecutionAttemptID executionAttemptID,
+            long completedCheckpointId,
+            long completedCheckpointTimestamp,
+            long lastSubsumedCheckpointId) {
+        return originalGateway.notifyCheckpointOnComplete(
+                executionAttemptID,
+                completedCheckpointId,
+                completedCheckpointTimestamp,
+                lastSubsumedCheckpointId);
     }
 
     @Override

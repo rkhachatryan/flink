@@ -291,6 +291,20 @@ public abstract class AbstractInvokable {
                         this.getClass().getName()));
     }
 
+    /**
+     * Invoked when a checkpoint has been subsumed, i.e., when the checkpoint coordinator has
+     * confirmed one checkpoint has been finished, and try to remove the first previous checkpoint.
+     *
+     * @param checkpointId The ID of the checkpoint that is subsumed.
+     * @return future that completes when the notification has been processed by the task.
+     */
+    public Future<Void> notifyCheckpointSubsumedAsync(long checkpointId) {
+        throw new UnsupportedOperationException(
+                String.format(
+                        "notifyCheckpointSubsumeAsync not supported by %s",
+                        this.getClass().getName()));
+    }
+
     public void dispatchOperatorEvent(OperatorID operator, SerializedValue<OperatorEvent> event)
             throws FlinkException {
         throw new UnsupportedOperationException(
