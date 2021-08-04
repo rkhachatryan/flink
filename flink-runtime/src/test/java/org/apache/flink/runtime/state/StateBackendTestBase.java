@@ -3636,6 +3636,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
                     backend.getPartitionedState(
                             VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
 
+            backend.setCurrentKey(1);
             assertEquals("Hello", state.value());
 
         } finally {
