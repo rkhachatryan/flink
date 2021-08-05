@@ -29,6 +29,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.io.network.logger.NetworkActionsLogger;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
+import org.apache.flink.runtime.jobmaster.TemporarySyncUtils;
 import org.apache.flink.runtime.operators.testutils.ExpectedTestException;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -114,6 +115,7 @@ public class UnalignedCheckpointStressITCase extends TestLogger {
 
     @Before
     public void setup() throws Exception {
+        TemporarySyncUtils.STRESS_TEST_RUNNING.set(true);
         Configuration configuration = new Configuration();
         File folder = temporaryFolder.getRoot();
         configuration.set(CHECKPOINTS_DIRECTORY, folder.toURI().toString());
@@ -131,6 +133,7 @@ public class UnalignedCheckpointStressITCase extends TestLogger {
 
     @After
     public void shutDownExistingCluster() {
+        TemporarySyncUtils.STRESS_TEST_RUNNING.set(false);
         if (cluster != null) {
             cluster.after();
             cluster = null;
@@ -265,6 +268,18 @@ public class UnalignedCheckpointStressITCase extends TestLogger {
 
         for (int i = 0; i <= 1000 && checkpointDir == null; i++) {
             Thread.sleep(5);
+            //////
+            // this is equivalent of the traversal below with an explicit separation of listing the
+            // files and reading attributes; some of the files are expected to be deleted after
+            // being listed crashing the test
+            List<Path> filesListed =
+                    Files.walk(Paths.get(rootDir.getPath())).collect(Collectors.toList());
+            TemporarySyncUtils.FILES_LISTED_LATCH.countDown();
+            TemporarySyncUtils.CHECKPOINTS_CLEANED_LATCH.await();
+            for (Path path : filesListed) {
+                Files.readAttributes(path, "*");
+            }
+            //////
             try (Stream<Path> files = Files.walk(Paths.get(rootDir.getPath()))) {
                 checkpointDir =
                         files.filter(Files::isRegularFile)

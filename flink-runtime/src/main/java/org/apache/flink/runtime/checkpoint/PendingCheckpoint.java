@@ -27,6 +27,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.jobmaster.TemporarySyncUtils;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
@@ -708,6 +709,7 @@ public class PendingCheckpoint implements Checkpoint {
             reportFailedCheckpoint(failureCause, statsCallback);
             assertAbortSubsumedForced(reason);
         } finally {
+            TemporarySyncUtils.ABORTED_CHECKPOINT.set(this);
             dispose(true, checkpointsCleaner, postCleanup, executor);
         }
     }

@@ -29,6 +29,11 @@ import java.io.Serializable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.runtime.jobmaster.TemporarySyncUtils.ABORTED_CHECKPOINT;
+import static org.apache.flink.runtime.jobmaster.TemporarySyncUtils.CHECKPOINTS_CLEANED_LATCH;
+import static org.apache.flink.runtime.jobmaster.TemporarySyncUtils.FILES_LISTED_LATCH;
+import static org.apache.flink.runtime.jobmaster.TemporarySyncUtils.STRESS_TEST_RUNNING;
+
 /**
  * Delegate class responsible for checkpoints cleaning and counting the number of checkpoints yet to
  * clean.
@@ -82,7 +87,13 @@ public class CheckpointsCleaner implements Serializable {
         executor.execute(
                 () -> {
                     try {
-                        cleanupAction.run();
+                        if (STRESS_TEST_RUNNING.get() && ABORTED_CHECKPOINT.get() == checkpoint) {
+                            FILES_LISTED_LATCH.await();
+                            cleanupAction.run();
+                            CHECKPOINTS_CLEANED_LATCH.countDown();
+                        } else {
+                            cleanupAction.run();
+                        }
                     } catch (Exception e) {
                         LOG.warn(
                                 "Could not properly discard completed checkpoint {}.",
