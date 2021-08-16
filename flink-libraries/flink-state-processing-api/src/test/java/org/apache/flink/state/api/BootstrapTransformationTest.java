@@ -156,7 +156,10 @@ public class BootstrapTransformationTest extends AbstractTestBase {
 
         StreamConfig config =
                 transformation.getConfig(
-                        OperatorIDGenerator.fromUid("uid"), new MemoryStateBackend(), null);
+                        OperatorIDGenerator.fromUid("uid"),
+                        new MemoryStateBackend(),
+                        null,
+                        new Path());
         KeySelector selector =
                 config.getStatePartitioner(0, Thread.currentThread().getContextClassLoader());
 

@@ -19,10 +19,10 @@
 package org.apache.flink.state.api.output;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
+import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorageAccess;
@@ -43,14 +43,17 @@ public final class SnapshotUtils {
             long timestamp,
             boolean isExactlyOnceMode,
             boolean isUnalignedCheckpoint,
-            CheckpointStorageWorkerView checkpointStorage,
-            Path savepointPath)
+            CheckpointStorageWorkerView checkpointStorage)
             throws Exception {
 
+        // todo: return CheckpointStorageLocationReference from checkpointStorage?
+        CheckpointStorageLocationReference locationReference =
+                AbstractFsCheckpointStorageAccess.encodePathAsReference(
+                        checkpointStorage.getSavepointPath());
         CheckpointOptions options =
                 CheckpointOptions.forConfig(
                         CheckpointType.SAVEPOINT,
-                        AbstractFsCheckpointStorageAccess.encodePathAsReference(savepointPath),
+                        locationReference,
                         isExactlyOnceMode,
                         isUnalignedCheckpoint,
                         CheckpointOptions.NO_ALIGNED_CHECKPOINT_TIME_OUT);

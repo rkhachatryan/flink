@@ -57,6 +57,7 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -90,32 +91,35 @@ public class SavepointWriterITCase extends AbstractTestBase {
 
     @Test
     public void testFsStateBackend() throws Exception {
-        testStateBootstrapAndModification(
-                new FsStateBackend(TEMPORARY_FOLDER.newFolder().toURI(), FILE_STATE_SIZE));
+        File file = TEMPORARY_FOLDER.newFolder();
+        testStateBootstrapAndModification(new FsStateBackend(file.toURI(), FILE_STATE_SIZE), file);
     }
 
     @Test
     public void testRocksDBStateBackend() throws Exception {
+        File file = TEMPORARY_FOLDER.newFolder();
         StateBackend backend =
-                new RocksDBStateBackend(
-                        new FsStateBackend(TEMPORARY_FOLDER.newFolder().toURI(), FILE_STATE_SIZE));
-        testStateBootstrapAndModification(backend);
+                new RocksDBStateBackend(new FsStateBackend(file.toURI(), FILE_STATE_SIZE));
+        testStateBootstrapAndModification(backend, file);
     }
 
     @Test
     public void testHashMapStateBackend() throws Exception {
-        testStateBootstrapAndModification(new HashMapStateBackend());
+        final String savepointPath = getTempDirPath(new AbstractID().toHexString());
+        testStateBootstrapAndModification(new HashMapStateBackend(), new File(savepointPath));
     }
 
     @Test
     public void testEmbeddedRocksDBStateBackend() throws Exception {
         StateBackend backend = new EmbeddedRocksDBStateBackend();
-        testStateBootstrapAndModification(backend);
+        final String savepointPath = getTempDirPath(new AbstractID().toHexString());
+        testStateBootstrapAndModification(backend, new File(savepointPath));
     }
 
-    public void testStateBootstrapAndModification(StateBackend backend) throws Exception {
-        final String savepointPath = getTempDirPath(new AbstractID().toHexString());
+    public void testStateBootstrapAndModification(StateBackend backend, File file)
+            throws Exception {
 
+        String savepointPath = "file://" + file.getAbsolutePath();
         bootstrapState(backend, savepointPath);
 
         validateBootstrap(backend, savepointPath);

@@ -31,7 +31,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.ManagedMemoryUseCase;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage;
 import org.apache.flink.state.api.functions.Timestamper;
@@ -167,11 +166,11 @@ public class BootstrapTransformation<T> {
         }
 
         StreamOperator<TaggedOperatorSubtaskState> operator =
-                factory.createOperator(System.currentTimeMillis(), savepointPath);
+                factory.createOperator(System.currentTimeMillis());
 
         operator = dataSet.clean(operator);
 
-        final StreamConfig config = getConfig(operatorID, stateBackend, operator);
+        final StreamConfig config = getConfig(operatorID, stateBackend, operator, savepointPath);
 
         BoundedOneInputStreamTaskRunner<T> operatorRunner =
                 new BoundedOneInputStreamTaskRunner<>(config, localMaxParallelism, timestamper);
@@ -194,7 +193,8 @@ public class BootstrapTransformation<T> {
     StreamConfig getConfig(
             OperatorID operatorID,
             StateBackend stateBackend,
-            StreamOperator<TaggedOperatorSubtaskState> operator) {
+            StreamOperator<TaggedOperatorSubtaskState> operator,
+            Path savepointPath) {
         // Eagerly perform a deep copy of the configuration, otherwise it will result in undefined
         // behavior
         // when deploying with multiple bootstrap transformations.
@@ -217,21 +217,11 @@ public class BootstrapTransformation<T> {
         config.setOperatorName(operatorID.toHexString());
         config.setOperatorID(operatorID);
         config.setStateBackend(stateBackend);
-        config.setCheckpointStorage(getCheckpointStorage());
+        config.setCheckpointStorage(new FileSystemCheckpointStorage(savepointPath));
         // This means leaving this stateBackend unwrapped.
         config.setChangelogStateBackendEnabled(TernaryBoolean.FALSE);
         config.setManagedMemoryFractionOperatorOfUseCase(ManagedMemoryUseCase.STATE_BACKEND, 1.0);
         return config;
-    }
-
-    /**
-     * @return A checkpoint storage that will write the resulting savepoint to a DFS. It is
-     *     configured with a dummy checkpoint directory to satisfy the API but should only ever be
-     *     used for savepoints. This is required to override the default checkpoint directory which
-     *     is always in memory.
-     */
-    private static CheckpointStorage getCheckpointStorage() {
-        return new FileSystemCheckpointStorage("file:///tmp/unused");
     }
 
     private static <T> int getParallelism(

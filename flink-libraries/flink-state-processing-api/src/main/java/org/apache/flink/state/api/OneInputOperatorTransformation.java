@@ -106,7 +106,7 @@ public class OneInputOperatorTransformation<T> {
      */
     public BootstrapTransformation<T> transform(StateBootstrapFunction<T> processFunction) {
         SavepointWriterOperatorFactory factory =
-                (timestamp, path) -> new StateBootstrapOperator<>(timestamp, path, processFunction);
+                timestamp -> new StateBootstrapOperator<>(timestamp, processFunction);
 
         return transform(factory);
     }
@@ -124,8 +124,7 @@ public class OneInputOperatorTransformation<T> {
     public BootstrapTransformation<T> transform(
             BroadcastStateBootstrapFunction<T> processFunction) {
         SavepointWriterOperatorFactory factory =
-                (timestamp, path) ->
-                        new BroadcastStateBootstrapOperator<>(timestamp, path, processFunction);
+                timestamp -> new BroadcastStateBootstrapOperator<>(timestamp, processFunction);
 
         return transform(factory);
     }

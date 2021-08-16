@@ -82,8 +82,7 @@ public class KeyedOperatorTransformation<K, T> {
      */
     public BootstrapTransformation<T> transform(KeyedStateBootstrapFunction<K, T> processFunction) {
         SavepointWriterOperatorFactory factory =
-                (timestamp, path) ->
-                        new KeyedStateBootstrapOperator<>(timestamp, path, processFunction);
+                timestamp -> new KeyedStateBootstrapOperator<>(timestamp, processFunction);
         return transform(factory);
     }
 

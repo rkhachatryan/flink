@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.core.fs.Path;
+
 import java.io.IOException;
 
 /**
@@ -65,4 +67,8 @@ public interface CheckpointStorageWorkerView {
      */
     CheckpointStreamFactory.CheckpointStateOutputStream createTaskOwnedStateStream()
             throws IOException;
+
+    default Path getSavepointPath() {
+        throw new UnsupportedOperationException(this.getClass().getSimpleName());
+    }
 }

@@ -69,6 +69,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /** IT Test for writing savepoints to the {@code WindowOperator}. */
 @SuppressWarnings("unchecked")
@@ -111,19 +112,21 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
                                     transformation.process(new CustomProcessWindowFunction()),
                             stream -> stream.process(new CustomProcessWindowFunction())));
 
-    private static final List<Tuple2<String, StateBackend>> STATE_BACKENDS =
+    private static final List<Tuple2<String, Function<String, StateBackend>>> STATE_BACKENDS =
             Arrays.asList(
-                    Tuple2.of("HashMap", new HashMapStateBackend()),
-                    Tuple2.of("EmbeddedRocksDB", new EmbeddedRocksDBStateBackend()),
-                    Tuple2.of("Memory", new MemoryStateBackend()),
+                    Tuple2.of("HashMap", p -> new HashMapStateBackend()),
+                    Tuple2.of("EmbeddedRocksDB", p -> new EmbeddedRocksDBStateBackend()),
+                    Tuple2.of("Memory", path -> new MemoryStateBackend(path, path)),
                     Tuple2.of(
                             "RocksDB",
-                            new RocksDBStateBackend((StateBackend) new MemoryStateBackend())));
+                            path ->
+                                    new RocksDBStateBackend(
+                                            (StateBackend) new MemoryStateBackend(path, path))));
 
     @Parameterized.Parameters(name = "{0}")
     public static Collection<Object[]> data() {
         List<Object[]> parameterList = new ArrayList<>();
-        for (Tuple2<String, StateBackend> stateBackend : STATE_BACKENDS) {
+        for (Tuple2<String, Function<String, StateBackend>> stateBackend : STATE_BACKENDS) {
             for (Tuple3<String, WindowBootstrap, WindowStream> setup : SETUP_FUNCTIONS) {
                 Object[] parameters =
                         new Object[] {
@@ -142,17 +145,17 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
 
     private final WindowStream windowStream;
 
-    private final StateBackend stateBackend;
+    private final Function<String, StateBackend> stateBackendBuilder;
 
     @SuppressWarnings("unused")
     public SavepointWriterWindowITCase(
             String ignore,
             WindowBootstrap windowBootstrap,
             WindowStream windowStream,
-            StateBackend stateBackend) {
+            Function<String, StateBackend> stateBackendBuilder) {
         this.windowBootstrap = windowBootstrap;
         this.windowStream = windowStream;
-        this.stateBackend = stateBackend;
+        this.stateBackendBuilder = stateBackendBuilder;
     }
 
     @Test
@@ -169,8 +172,11 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
                         .keyBy(tuple -> tuple.f0, Types.STRING)
                         .window(TumblingEventTimeWindows.of(Time.milliseconds(5)));
 
+        // for the legacy backends, remember savepointPath on creation
+        StateBackend stateBackend = stateBackendBuilder.apply(savepointPath);
         Savepoint.create(stateBackend, 128)
                 .withOperator(UID, windowBootstrap.bootstrap(transformation))
+                // for the new backends, use checkpointStorage with the provided path
                 .write(savepointPath);
 
         bEnv.execute("write state");
@@ -208,7 +214,7 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
                         .window(TumblingEventTimeWindows.of(Time.milliseconds(5)))
                         .evictor(CountEvictor.of(1));
 
-        Savepoint.create(new MemoryStateBackend(), 128)
+        Savepoint.create(new HashMapStateBackend(), 128)
                 .withOperator(UID, windowBootstrap.bootstrap(transformation))
                 .write(savepointPath);
 
@@ -247,7 +253,7 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
                                 SlidingEventTimeWindows.of(
                                         Time.milliseconds(5), Time.milliseconds(1)));
 
-        Savepoint.create(new MemoryStateBackend(), 128)
+        Savepoint.create(new HashMapStateBackend(), 128)
                 .withOperator(UID, windowBootstrap.bootstrap(transformation))
                 .write(savepointPath);
 
@@ -290,7 +296,7 @@ public class SavepointWriterWindowITCase extends AbstractTestBase {
                                         Time.milliseconds(5), Time.milliseconds(1)))
                         .evictor(CountEvictor.of(1));
 
-        Savepoint.create(new MemoryStateBackend(), 128)
+        Savepoint.create(new HashMapStateBackend(), 128)
                 .withOperator(UID, windowBootstrap.bootstrap(transformation))
                 .write(savepointPath);
 

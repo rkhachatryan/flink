@@ -19,7 +19,6 @@
 package org.apache.flink.state.api.output.operators;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -56,16 +55,12 @@ public final class StateBootstrapWrapperOperator<
 
     private final long timestamp;
 
-    private final Path savepointPath;
-
     private Output<StreamRecord<TaggedOperatorSubtaskState>> output;
 
     private final OP operator;
 
-    public StateBootstrapWrapperOperator(long timestamp, Path savepointPath, OP operator) {
-
+    public StateBootstrapWrapperOperator(long timestamp, OP operator) {
         this.timestamp = timestamp;
-        this.savepointPath = savepointPath;
         this.operator = operator;
     }
 
@@ -196,8 +191,7 @@ public final class StateBootstrapWrapperOperator<
                         operator.getContainingTask()
                                 .getConfiguration()
                                 .isUnalignedCheckpointsEnabled(),
-                        operator.getContainingTask().getCheckpointStorage(),
-                        savepointPath);
+                        operator.getContainingTask().getCheckpointStorage());
 
         output.collect(new StreamRecord<>(state));
     }

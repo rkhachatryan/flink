@@ -19,6 +19,7 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointMetricsBuilder;
@@ -676,6 +677,11 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
         public CheckpointStreamFactory.CheckpointStateOutputStream createTaskOwnedStateStream()
                 throws IOException {
             return delegate.createTaskOwnedStateStream();
+        }
+
+        @Override
+        public Path getSavepointPath() {
+            return delegate.getSavepointPath();
         }
     }
 

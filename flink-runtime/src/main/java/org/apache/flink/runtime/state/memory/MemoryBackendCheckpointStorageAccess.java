@@ -176,4 +176,9 @@ public class MemoryBackendCheckpointStorageAccess extends AbstractFsCheckpointSt
                 + maxStateSize
                 + '}';
     }
+
+    @Override
+    public Path getSavepointPath() {
+        return getDefaultSavepointDirectory();
+    }
 }

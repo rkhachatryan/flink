@@ -185,4 +185,9 @@ public class FsCheckpointStorageAccess extends AbstractFsCheckpointStorageAccess
         return new FsCheckpointStorageLocation(
                 fs, location, location, location, reference, fileSizeThreshold, writeBufferSize);
     }
+
+    @Override
+    public Path getSavepointPath() {
+        return checkpointsDirectory;
+    }
 }

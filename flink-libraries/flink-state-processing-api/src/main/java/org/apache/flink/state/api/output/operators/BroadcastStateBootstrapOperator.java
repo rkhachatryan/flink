@@ -21,7 +21,6 @@ package org.apache.flink.state.api.output.operators;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.state.api.functions.BroadcastStateBootstrapFunction;
 import org.apache.flink.state.api.output.SnapshotUtils;
 import org.apache.flink.state.api.output.TaggedOperatorSubtaskState;
@@ -46,16 +45,12 @@ public class BroadcastStateBootstrapOperator<IN>
 
     private final long timestamp;
 
-    private final Path savepointPath;
-
     private transient ContextImpl context;
 
     public BroadcastStateBootstrapOperator(
-            long timestamp, Path savepointPath, BroadcastStateBootstrapFunction<IN> function) {
+            long timestamp, BroadcastStateBootstrapFunction<IN> function) {
         super(function);
         this.timestamp = timestamp;
-
-        this.savepointPath = savepointPath;
     }
 
     @Override
@@ -78,8 +73,7 @@ public class BroadcastStateBootstrapOperator<IN>
                         timestamp,
                         getContainingTask().getConfiguration().isExactlyOnceCheckpointMode(),
                         getContainingTask().getConfiguration().isUnalignedCheckpointsEnabled(),
-                        getContainingTask().getCheckpointStorage(),
-                        savepointPath);
+                        getContainingTask().getCheckpointStorage());
 
         output.collect(new StreamRecord<>(state));
     }

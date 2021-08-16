@@ -19,7 +19,6 @@
 package org.apache.flink.state.api.output.operators;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.state.api.functions.KeyedStateBootstrapFunction;
@@ -50,16 +49,12 @@ public class KeyedStateBootstrapOperator<K, IN>
 
     private final long timestamp;
 
-    private final Path savepointPath;
-
     private transient KeyedStateBootstrapOperator<K, IN>.ContextImpl context;
 
     public KeyedStateBootstrapOperator(
-            long timestamp, Path savepointPath, KeyedStateBootstrapFunction<K, IN> function) {
+            long timestamp, KeyedStateBootstrapFunction<K, IN> function) {
         super(function);
-
         this.timestamp = timestamp;
-        this.savepointPath = savepointPath;
     }
 
     @Override
@@ -93,8 +88,7 @@ public class KeyedStateBootstrapOperator<K, IN>
                         timestamp,
                         getContainingTask().getConfiguration().isExactlyOnceCheckpointMode(),
                         getContainingTask().getConfiguration().isUnalignedCheckpointsEnabled(),
-                        getContainingTask().getCheckpointStorage(),
-                        savepointPath);
+                        getContainingTask().getCheckpointStorage());
 
         output.collect(new StreamRecord<>(state));
     }
