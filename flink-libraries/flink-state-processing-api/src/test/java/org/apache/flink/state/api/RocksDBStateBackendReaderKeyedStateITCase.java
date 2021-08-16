@@ -18,15 +18,14 @@
 
 package org.apache.flink.state.api;
 
-import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
-import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.memory.MemoryStateBackend;
+import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 
 /** IT Case for reading state from a RocksDB keyed state backend. */
 public class RocksDBStateBackendReaderKeyedStateITCase
-        extends SavepointReaderKeyedStateITCase<RocksDBStateBackend> {
+        extends SavepointReaderKeyedStateITCase<EmbeddedRocksDBStateBackend> {
+
     @Override
-    protected RocksDBStateBackend getStateBackend() {
-        return new RocksDBStateBackend((StateBackend) new MemoryStateBackend());
+    protected EmbeddedRocksDBStateBackend getStateBackend() {
+        return new EmbeddedRocksDBStateBackend();
     }
 }
