@@ -26,10 +26,13 @@ import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.FileSystemSafetyNet;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointType;
 import org.apache.flink.runtime.mailbox.MailboxExecutor;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
+import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
+import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -43,6 +46,7 @@ import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.RegisteredPriorityQueueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.SavepointResources;
 import org.apache.flink.runtime.state.SnapshotResult;
+import org.apache.flink.runtime.state.StateObject;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
 import org.apache.flink.runtime.state.TestableKeyedStateBackend;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle;
@@ -57,15 +61,17 @@ import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot.BackendStat
 import org.apache.flink.runtime.state.metrics.LatencyTrackingStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlStateFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
+import org.apache.flink.runtime.taskmanager.AsyncExceptionHandler;
 import org.apache.flink.state.changelog.restore.FunctionDelegationHelper;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,13 +83,20 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * A {@link KeyedStateBackend} that keeps state on the underlying delegated keyed state backend as
@@ -97,6 +110,14 @@ public class ChangelogKeyedStateBackend<K>
                 CheckpointListener,
                 TestableKeyedStateBackend<K> {
     private static final Logger LOG = LoggerFactory.getLogger(ChangelogKeyedStateBackend.class);
+
+    /**
+     * ChangelogStateBackend only supports CheckpointType.CHECKPOINT; The rest of information in
+     * CheckpointOptions is not used in Snapshotable#snapshot(). More details in FLINK-23441.
+     */
+    private static final CheckpointOptions CHECKPOINT_OPTIONS =
+            new CheckpointOptions(
+                    CheckpointType.CHECKPOINT, CheckpointStorageLocationReference.getDefault());
 
     private static final Map<StateDescriptor.Type, StateFactory> STATE_FACTORIES =
             Stream.of(
@@ -141,6 +162,10 @@ public class ChangelogKeyedStateBackend<K>
 
     private final StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter;
 
+    private final PeriodicMaterializer periodicMaterializer;
+
+    private ChangelogKeyedStateBackendState changelogStateBackendState;
+
     private long lastCheckpointId = -1L;
 
     /** last accessed partitioned state. */
@@ -153,19 +178,11 @@ public class ChangelogKeyedStateBackend<K>
     private final FunctionDelegationHelper functionDelegationHelper =
             new FunctionDelegationHelper();
 
-    /** Updated initially on restore and later upon materialization (in FLINK-21357). */
-    @GuardedBy("materialized")
-    private final List<KeyedStateHandle> materialized = new ArrayList<>();
-
-    /** Updated initially on restore and later cleared upon materialization (in FLINK-21357). */
-    @GuardedBy("materialized")
-    private final List<ChangelogStateHandle> restoredNonMaterialized = new ArrayList<>();
-
     /**
      * {@link SequenceNumber} denoting last upload range <b>start</b>, inclusive. Updated to {@link
-     * #materializedTo} when {@link #snapshot(long, long, CheckpointStreamFactory,
-     * CheckpointOptions) starting snapshot}. Used to notify {@link #stateChangelogWriter} about
-     * changelog ranges that were confirmed or aborted by JM.
+     * ChangelogKeyedStateBackendState#materializedTo} when {@link #snapshot(long, long,
+     * CheckpointStreamFactory, CheckpointOptions) starting snapshot}. Used to notify {@link
+     * #stateChangelogWriter} about changelog ranges that were confirmed or aborted by JM.
      */
     @Nullable private SequenceNumber lastUploadedFrom;
     /**
@@ -176,39 +193,40 @@ public class ChangelogKeyedStateBackend<K>
      * confirmed or aborted by JM.
      */
     @Nullable private SequenceNumber lastUploadedTo;
-    /**
-     * The {@link SequenceNumber} up to which the state is materialized, exclusive. The log should
-     * be truncated accordingly.
-     *
-     * <p>WARN: currently not updated - to be changed in FLINK-21357.
-     *
-     * <p>WARN: this value needs to be updated for benchmarking, e.g. in notifyCheckpointComplete.
-     */
-    private final SequenceNumber materializedTo;
 
-    private final MailboxExecutor mainMailboxExecutor;
-
-    private final ExecutorService asyncOperationsThreadPool;
+    private final String subtaskName;
 
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
+            String subtaskName,
             ExecutionConfig executionConfig,
             TtlTimeProvider ttlTimeProvider,
             StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter,
             Collection<ChangelogStateBackendHandle> initialState,
+            AsyncExceptionHandler asyncExceptionHandler,
             MailboxExecutor mainMailboxExecutor,
-            ExecutorService asyncOperationsThreadPool) {
+            ExecutorService asyncOperationsThreadPool,
+            CheckpointStorageWorkerView checkpointStorageWorkerView) {
         this.keyedStateBackend = keyedStateBackend;
+        this.subtaskName = subtaskName;
         this.executionConfig = executionConfig;
         this.ttlTimeProvider = ttlTimeProvider;
         this.keyValueStatesByName = new HashMap<>();
         this.priorityQueueStatesByName = new HashMap<>();
         this.stateChangelogWriter = stateChangelogWriter;
-        this.materializedTo = stateChangelogWriter.initialSequenceNumber();
         this.changelogStates = new HashMap<>();
-        this.mainMailboxExecutor = checkNotNull(mainMailboxExecutor);
-        this.asyncOperationsThreadPool = checkNotNull(asyncOperationsThreadPool);
-        this.completeRestore(initialState);
+        this.changelogStateBackendState = completeRestore(initialState);
+
+        this.periodicMaterializer =
+                new PeriodicMaterializer(
+                        checkNotNull(mainMailboxExecutor),
+                        checkNotNull(asyncOperationsThreadPool),
+                        checkpointStorageWorkerView,
+                        asyncExceptionHandler,
+                        executionConfig.getPeriodicMaterializeIntervalMillis(),
+                        executionConfig.getPeriodicMaterializeIntervalMillis(),
+                        executionConfig.getMaterializationMaxAllowedFailures(),
+                        executionConfig.isPeriodicMaterializationEnabled());
     }
 
     // -------------------- CheckpointableKeyedStateBackend --------------------------------
@@ -253,6 +271,7 @@ public class ChangelogKeyedStateBackend<K>
         lastName = null;
         lastState = null;
         keyValueStatesByName.clear();
+        periodicMaterializer.close();
     }
 
     @Override
@@ -329,37 +348,58 @@ public class ChangelogKeyedStateBackend<K>
         // materialization may truncate only a part of the previous result and the backend would
         // have to split it somehow for the former option, so the latter is used.
         lastCheckpointId = checkpointId;
-        lastUploadedFrom = materializedTo;
+        lastUploadedFrom = changelogStateBackendState.lastMaterializedTo();
         lastUploadedTo = stateChangelogWriter.lastAppendedSequenceNumber().next();
 
         LOG.debug(
-                "snapshot for checkpoint {}, change range: {}..{}",
+                "snapshot of {} for checkpoint {}, change range: {}..{}",
+                subtaskName,
                 checkpointId,
                 lastUploadedFrom,
                 lastUploadedTo);
+
+        ChangelogKeyedStateBackendState changelogStateBackendStateCopy = changelogStateBackendState;
+
         return toRunnableFuture(
                 stateChangelogWriter
                         .persist(lastUploadedFrom)
-                        .thenApply(this::buildSnapshotResult));
+                        .thenApply(
+                                delta ->
+                                        buildSnapshotResult(
+                                                delta, changelogStateBackendStateCopy)));
     }
 
-    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(ChangelogStateHandle delta) {
-        // Can be called by either task thread during the sync checkpoint phase (if persist future
-        // was already completed); or by the writer thread otherwise. So need to synchronize.
-        // todo: revisit after FLINK-21357 - use mailbox action?
-        synchronized (materialized) {
-            // collections don't change once started and handles are immutable
-            List<ChangelogStateHandle> prevDeltaCopy = new ArrayList<>(restoredNonMaterialized);
-            if (delta != null && delta.getStateSize() > 0) {
-                prevDeltaCopy.add(delta);
-            }
-            if (prevDeltaCopy.isEmpty() && materialized.isEmpty()) {
-                return SnapshotResult.empty();
-            } else {
-                return SnapshotResult.of(
-                        new ChangelogStateBackendHandleImpl(
-                                materialized, prevDeltaCopy, getKeyGroupRange()));
-            }
+    @Override
+    @VisibleForTesting
+    public void triggerMaterialization() {
+        periodicMaterializer.triggerMaterialization();
+    }
+
+    @Override
+    public boolean canPerformMaterialization() {
+        return true;
+    }
+
+    private SnapshotResult<KeyedStateHandle> buildSnapshotResult(
+            ChangelogStateHandle delta,
+            ChangelogKeyedStateBackendState changelogStateBackendStateCopy) {
+
+        // collections don't change once started and handles are immutable
+        List<ChangelogStateHandle> prevDeltaCopy =
+                new ArrayList<>(changelogStateBackendStateCopy.getRestoredNonMaterialized());
+        if (delta != null && delta.getStateSize() > 0) {
+            prevDeltaCopy.add(delta);
+        }
+
+        if (prevDeltaCopy.isEmpty()
+                && changelogStateBackendStateCopy.getMaterializedSnapshot().isEmpty()) {
+            return SnapshotResult.empty();
+        } else {
+            return SnapshotResult.of(
+                    new ChangelogStateBackendHandleImpl(
+                            changelogStateBackendStateCopy.getMaterializedSnapshot(),
+                            prevDeltaCopy,
+                            getKeyGroupRange()));
         }
     }
 
@@ -515,18 +555,24 @@ public class ChangelogKeyedStateBackend<K>
         return is;
     }
 
-    private void completeRestore(Collection<ChangelogStateBackendHandle> stateHandles) {
-        if (!stateHandles.isEmpty()) {
-            synchronized (materialized) { // ensure visibility
-                for (ChangelogStateBackendHandle h : stateHandles) {
-                    if (h != null) {
-                        materialized.addAll(h.getMaterializedStateHandles());
-                        restoredNonMaterialized.addAll(h.getNonMaterializedStateHandles());
-                    }
-                }
+    private ChangelogKeyedStateBackendState completeRestore(
+            Collection<ChangelogStateBackendHandle> stateHandles) {
+
+        List<KeyedStateHandle> materialized = new ArrayList<>();
+        List<ChangelogStateHandle> restoredNonMaterialized = new ArrayList<>();
+
+        for (ChangelogStateBackendHandle h : stateHandles) {
+            if (h != null) {
+                materialized.addAll(h.getMaterializedStateHandles());
+                restoredNonMaterialized.addAll(h.getNonMaterializedStateHandles());
             }
         }
+
         changelogStates.clear();
+        return new ChangelogKeyedStateBackendState(
+                materialized,
+                restoredNonMaterialized,
+                stateChangelogWriter.initialSequenceNumber());
     }
 
     @Override
@@ -608,5 +654,223 @@ public class ChangelogKeyedStateBackend<K>
                 return f.get(timeout, unit);
             }
         };
+    }
+
+    private class PeriodicMaterializer {
+        /** task mailbox executor, execute from Task Thread. */
+        private final MailboxExecutor mailboxExecutor;
+
+        /** Async thread pool, to complete async phase of materialization. */
+        private final ExecutorService asyncOperationsThreadPool;
+
+        /** scheduled executor, periodically trigger materialization. */
+        private final ScheduledExecutorService periodicExecutor;
+
+        private final CheckpointStreamFactory streamFactory;
+
+        private final AsyncExceptionHandler asyncExceptionHandler;
+
+        /** Allowed number of consecutive materialization failures. */
+        private final int allowedNumberOfFailures;
+
+        /** Number of consecutive materialization failures. */
+        private final AtomicInteger numberOfConsecutiveFailures;
+
+        /** Making sure only one materialization on going at a time. */
+        private final AtomicBoolean materializationOnGoing;
+
+        private long materializedId;
+
+        //        private final CompletableFuture<Void> finishedFuture = new CompletableFuture<>();
+
+        PeriodicMaterializer(
+                MailboxExecutor mailboxExecutor,
+                ExecutorService asyncOperationsThreadPool,
+                CheckpointStorageWorkerView checkpointStorageWorkerView,
+                AsyncExceptionHandler asyncExceptionHandler,
+                long periodicMaterializeInitDelay,
+                long periodicMaterializeInterval,
+                int allowedNumberOfFailures,
+                boolean materializationEnabled) {
+            this.mailboxExecutor = mailboxExecutor;
+            this.asyncOperationsThreadPool = asyncOperationsThreadPool;
+
+            this.asyncExceptionHandler = asyncExceptionHandler;
+            this.periodicExecutor =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ExecutorThreadFactory(
+                                    "periodic-materialization-scheduler-" + subtaskName));
+            this.streamFactory = shared -> checkpointStorageWorkerView.createTaskOwnedStateStream();
+            this.allowedNumberOfFailures = allowedNumberOfFailures;
+            this.materializationOnGoing = new AtomicBoolean(false);
+            this.numberOfConsecutiveFailures = new AtomicInteger(allowedNumberOfFailures);
+
+            this.materializedId = 0;
+
+            if (materializationEnabled) {
+                this.periodicExecutor.scheduleWithFixedDelay(
+                        this::triggerMaterialization,
+                        periodicMaterializeInitDelay,
+                        periodicMaterializeInterval,
+                        TimeUnit.MILLISECONDS);
+            }
+        }
+
+        @VisibleForTesting
+        public void triggerMaterialization() {
+            mailboxExecutor.execute(
+                    () -> {
+                        // Only one materialization ongoing at a time
+                        if (!materializationOnGoing.compareAndSet(false, true)) {
+                            return;
+                        }
+
+                        // synchronize phase
+                        SequenceNumber upTo =
+                                stateChangelogWriter.lastAppendedSequenceNumber().next();
+
+                        if (upTo.equals(changelogStateBackendState.lastMaterializedTo())) {
+                            materializationOnGoing.compareAndSet(true, false);
+                            return;
+                        }
+
+                        RunnableFuture<SnapshotResult<KeyedStateHandle>>
+                                materializedRunnableFuture =
+                                        keyedStateBackend.snapshot(
+                                                // This ID is not needed for materialization;
+                                                // But since we are re-using the streamFactory
+                                                // that is designed for state backend snapshot,
+                                                // which requires unique checkpoint ID.
+                                                // A faked materialized Id is provided here.
+                                                // TODO: implement its own streamFactory.
+                                                materializedId++,
+                                                // matter,
+                                                // based on
+                                                System.currentTimeMillis(),
+                                                streamFactory,
+                                                CHECKPOINT_OPTIONS);
+
+                        // TODO: add metadata to log FLINK-23170
+
+                        // asynchronize phase
+                        asyncOperationsThreadPool.execute(
+                                () -> asyncMaterializationPhase(materializedRunnableFuture, upTo));
+                    },
+                    "materialization");
+        }
+
+        private void asyncMaterializationPhase(
+                RunnableFuture<SnapshotResult<KeyedStateHandle>> materializedRunnableFuture,
+                SequenceNumber upTo) {
+
+            SnapshotResult<KeyedStateHandle> materializedSnapshot = null;
+            FileSystemSafetyNet.initializeSafetyNetForThread();
+            try {
+                FutureUtils.runIfNotDoneAndGet(materializedRunnableFuture);
+
+                LOG.debug("Task {} finishes asynchronous part of materialization.", subtaskName);
+
+                materializedSnapshot = materializedRunnableFuture.get();
+
+            } catch (Exception e) {
+                int retryTime = numberOfConsecutiveFailures.incrementAndGet();
+
+                LOG.info(
+                        "Task {} asynchronous part of materialization could not be completed for the {} time.",
+                        subtaskName,
+                        retryTime,
+                        e);
+
+                handleExecutionException(materializedRunnableFuture);
+
+                if (retryTime >= allowedNumberOfFailures) {
+                    asyncExceptionHandler.handleAsyncException(
+                            "Task "
+                                    + subtaskName
+                                    + " fails to complete the asynchronous part of materialization",
+                            e);
+
+                    return;
+                }
+
+                // To simplify threading model, materializationOnGoing is only reset/updated in task
+                // thread
+                mailboxExecutor.execute(
+                        () ->
+                                checkState(
+                                        materializationOnGoing.compareAndSet(true, false),
+                                        "expect abort materialization in asynchronous phase, "
+                                                + "flag materializationOnGoing should be true before aborting."),
+                        "Task {} aborts asynchronous part of materialization for the {} time.",
+                        subtaskName,
+                        retryTime);
+            } finally {
+                FileSystemSafetyNet.closeSafetyNetAndGuardedResourcesForThread();
+            }
+
+            // if succeed, update state and finish up
+            if (materializedSnapshot != null) {
+
+                final SnapshotResult<KeyedStateHandle> copyMaterializedSnapshot =
+                        materializedSnapshot;
+
+                mailboxExecutor.execute(
+                        () -> {
+                            changelogStateBackendState =
+                                    new ChangelogKeyedStateBackendState(
+                                            getMaterializedResult(copyMaterializedSnapshot),
+                                            new ArrayList<>(),
+                                            upTo);
+
+                            checkState(
+                                    materializationOnGoing.compareAndSet(true, false),
+                                    "expect to finish materialization successfully, "
+                                            + "flag materializationOnGoing should be true before finishing.");
+                            numberOfConsecutiveFailures.set(0);
+                        },
+                        "Task {} update materializedSnapshot up to changelog sequence number: {}",
+                        subtaskName,
+                        upTo);
+            }
+        }
+
+        private void handleExecutionException(
+                RunnableFuture<SnapshotResult<KeyedStateHandle>> materializedRunnableFuture) {
+
+            LOG.info("Task {} cleanup asynchronous runnable for materialization.", subtaskName);
+
+            if (materializedRunnableFuture != null) {
+                // materialization has started
+                if (!materializedRunnableFuture.cancel(true)) {
+                    try {
+                        StateObject stateObject = materializedRunnableFuture.get();
+                        if (stateObject != null) {
+                            stateObject.discardState();
+                        }
+                    } catch (Exception ex) {
+                        LOG.debug(
+                                "Task "
+                                        + subtaskName
+                                        + " cancelled execution of snapshot future runnable. "
+                                        + "Cancellation produced the following "
+                                        + "exception, which is expected and can be ignored.",
+                                ex);
+                    }
+                }
+            }
+        }
+
+        // TODO: this method may change after the ownership PR
+        private List<KeyedStateHandle> getMaterializedResult(
+                @Nonnull SnapshotResult<KeyedStateHandle> materializedSnapshot) {
+            KeyedStateHandle jobManagerOwned = materializedSnapshot.getJobManagerOwnedSnapshot();
+            return jobManagerOwned == null ? emptyList() : singletonList(jobManagerOwned);
+        }
+
+        public void close() {
+            if (!periodicExecutor.isShutdown()) {
+                periodicExecutor.shutdownNow();
+            }
+        }
     }
 }
