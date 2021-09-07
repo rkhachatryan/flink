@@ -122,7 +122,8 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                         ttlTimeProvider,
                                         metricGroup,
                                         baseHandles,
-                                        cancelStreamRegistry));
+                                        cancelStreamRegistry),
+                cancelStreamRegistry);
     }
 
     @Override
@@ -160,7 +161,8 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                                         metricGroup,
                                         baseHandles,
                                         cancelStreamRegistry,
-                                        managedMemoryFraction));
+                                        managedMemoryFraction),
+                cancelStreamRegistry);
     }
 
     @Override
@@ -204,7 +206,8 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
             KeyGroupRange keyGroupRange,
             TtlTimeProvider ttlTimeProvider,
             Collection<KeyedStateHandle> stateHandles,
-            BaseBackendBuilder<K> baseBackendBuilder)
+            BaseBackendBuilder<K> baseBackendBuilder,
+            CloseableRegistry cancelStreamRegistry)
             throws Exception {
         StateChangelogStorage<?> changelogStorage =
                 Preconditions.checkNotNull(
@@ -212,25 +215,33 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
                         "Changelog storage is null when creating and restoring"
                                 + " the ChangelogKeyedStateBackend.");
 
-        return ChangelogBackendRestoreOperation.restore(
-                changelogStorage.createReader(),
-                env.getUserCodeClassLoader().asClassLoader(),
-                castHandles(stateHandles),
-                baseBackendBuilder,
-                (baseBackend, baseState) ->
-                        new ChangelogKeyedStateBackend(
-                                baseBackend,
-                                env.getTaskInfo().getTaskNameWithSubtasks(),
-                                env.getExecutionConfig(),
-                                ttlTimeProvider,
-                                changelogStorage.createWriter(operatorIdentifier, keyGroupRange),
-                                baseState,
-                                (message, exception) ->
-                                        env.failExternally(
-                                                new AsynchronousException(message, exception)),
-                                env.getMainMailboxExecutor(),
-                                env.getAsyncOperationsThreadPool(),
-                                env.getCheckpointStorageAccess()));
+        ChangelogKeyedStateBackend<K> restored =
+                ChangelogBackendRestoreOperation.restore(
+                        changelogStorage.createReader(),
+                        env.getUserCodeClassLoader().asClassLoader(),
+                        castHandles(stateHandles),
+                        baseBackendBuilder,
+                        (baseBackend, baseState) ->
+                                new ChangelogKeyedStateBackend(
+                                        baseBackend,
+                                        env.getTaskInfo().getTaskNameWithSubtasks(),
+                                        env.getExecutionConfig(),
+                                        ttlTimeProvider,
+                                        changelogStorage.createWriter(
+                                                operatorIdentifier, keyGroupRange),
+                                        baseState,
+                                        env.getMainMailboxExecutor(),
+                                        env.getCheckpointStorageAccess()));
+        MaterializationManager materializationManager =
+                new MaterializationManager(
+                        env.getAsyncOperationsThreadPool(),
+                        (msg, err) -> env.failExternally(new AsynchronousException(msg, err)),
+                        env.getExecutionConfig().getPeriodicMaterializeIntervalMillis(),
+                        env.getExecutionConfig().getMaterializationMaxAllowedFailures(),
+                        restored);
+        cancelStreamRegistry.registerCloseable(materializationManager);
+        materializationManager.start();
+        return restored;
     }
 
     private Collection<ChangelogStateBackendHandle> castHandles(

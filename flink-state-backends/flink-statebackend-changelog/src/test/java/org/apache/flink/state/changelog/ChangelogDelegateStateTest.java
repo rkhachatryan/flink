@@ -17,6 +17,7 @@
 
 package org.apache.flink.state.changelog;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.state.AggregatingStateDescriptor;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapStateDescriptor;
@@ -32,6 +33,7 @@ import org.apache.flink.runtime.state.StateBackendTestBase;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
+import org.apache.flink.runtime.state.ttl.mock.MockCheckpointStorage;
 import org.apache.flink.util.IOUtils;
 
 import org.junit.After;
@@ -62,6 +64,9 @@ public class ChangelogDelegateStateTest {
     @Before
     public void before() {
         env = MockEnvironment.builder().build();
+        // todo
+        env.setCheckpointStorageAccess(
+                new MockCheckpointStorage().createCheckpointStorage(new JobID()));
     }
 
     @After
