@@ -32,12 +32,12 @@ import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.atomic.LongAdder;
 
 import static java.lang.Thread.holdsLock;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -73,8 +73,7 @@ class BatchingStateChangeUploader implements StateChangeUploader {
     @GuardedBy("this")
     private Throwable errorUnsafe;
 
-    private final long maxBytesInFlight;
-    private final LongAdder inFlightBytesCounter = new LongAdder();
+    private final UploadThrottle uploadThrottle;
 
     BatchingStateChangeUploader(
             long persistDelayMs,
@@ -86,33 +85,38 @@ class BatchingStateChangeUploader implements StateChangeUploader {
         this(
                 persistDelayMs,
                 sizeThresholdBytes,
+                maxBytesInFlight,
                 retryPolicy,
                 delegate,
                 SchedulerFactory.create(1, "ChangelogUploadScheduler", LOG),
-                new RetryingExecutor(numUploadThreads),
-                maxBytesInFlight);
+                new RetryingExecutor(numUploadThreads));
     }
 
     BatchingStateChangeUploader(
             long persistDelayMs,
             long sizeThresholdBytes,
+            long maxBytesInFlight,
             RetryPolicy retryPolicy,
             StateChangeUploader delegate,
             ScheduledExecutorService scheduler,
-            RetryingExecutor retryingExecutor,
-            long maxBytesInFlight) {
+            RetryingExecutor retryingExecutor) {
+        checkArgument(
+                sizeThresholdBytes <= maxBytesInFlight,
+                "sizeThresholdBytes (%s) must not exceed maxBytesInFlight (%s)",
+                sizeThresholdBytes,
+                maxBytesInFlight);
         this.scheduleDelayMs = persistDelayMs;
         this.scheduled = new LinkedList<>();
         this.scheduler = scheduler;
         this.retryPolicy = retryPolicy;
         this.retryingExecutor = retryingExecutor;
         this.sizeThresholdBytes = sizeThresholdBytes;
-        this.maxBytesInFlight = maxBytesInFlight;
         this.delegate = delegate;
+        this.uploadThrottle = new UploadThrottle(maxBytesInFlight);
     }
 
     @Override
-    public void upload(UploadTask uploadTask) {
+    public void upload(UploadTask uploadTask) throws IOException {
         Throwable error = getErrorSafe();
         if (error != null) {
             LOG.debug("don't persist {} changesets, already failed", uploadTask.changeSets.size());
@@ -121,18 +125,17 @@ class BatchingStateChangeUploader implements StateChangeUploader {
         }
         LOG.debug("persist {} changeSets", uploadTask.changeSets.size());
         try {
-            checkState(
-                    inFlightBytesCounter.sum() <= maxBytesInFlight,
-                    "In flight data size threshold exceeded %s > %s",
-                    inFlightBytesCounter.sum(),
-                    maxBytesInFlight);
+            long size = uploadTask.getSize();
+            uploadThrottle.seizeCapacity(size);
             synchronized (scheduled) {
-                long size = uploadTask.getSize();
-                inFlightBytesCounter.add(size);
                 scheduledBytesCounter += size;
-                scheduled.add(wrapWithSizeUpdate(uploadTask, size, inFlightBytesCounter));
+                scheduled.add(wrapWithSizeUpdate(uploadTask, size, uploadThrottle));
                 scheduleUploadIfNeeded();
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            uploadTask.fail(e);
+            throw new IOException(e);
         } catch (Exception e) {
             uploadTask.fail(e);
             throw e;
@@ -206,15 +209,15 @@ class BatchingStateChangeUploader implements StateChangeUploader {
     }
 
     private static UploadTask wrapWithSizeUpdate(
-            UploadTask uploadTask, long preComputedTaskSize, LongAdder inflightSize) {
+            UploadTask uploadTask, long preComputedTaskSize, UploadThrottle uploadThrottle) {
         return new UploadTask(
                 uploadTask.changeSets,
                 result -> {
-                    inflightSize.add(-preComputedTaskSize);
+                    uploadThrottle.releaseCapacity(preComputedTaskSize);
                     uploadTask.successCallback.accept(result);
                 },
                 (result, error) -> {
-                    inflightSize.add(-preComputedTaskSize);
+                    uploadThrottle.releaseCapacity(preComputedTaskSize);
                     uploadTask.failureCallback.accept(result, error);
                 });
     }
