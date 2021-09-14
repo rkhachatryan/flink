@@ -17,6 +17,8 @@
 
 package org.apache.flink.changelog.fs;
 
+import org.apache.flink.runtime.io.AvailabilityProvider;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -220,5 +222,10 @@ class BatchingStateChangeUploader implements StateChangeUploader {
                     uploadThrottle.releaseCapacity(preComputedTaskSize);
                     uploadTask.failureCallback.accept(result, error);
                 });
+    }
+
+    @Override
+    public AvailabilityProvider getAvailabilityProvider() {
+        return uploadThrottle;
     }
 }

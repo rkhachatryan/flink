@@ -17,15 +17,19 @@
 
 package org.apache.flink.changelog.fs;
 
+import org.apache.flink.runtime.io.AvailabilityProvider;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.concurrent.CompletableFuture;
+
 /** Helper class to throttle upload requests when the in-flight data size limit is exceeded. */
 @ThreadSafe
-class UploadThrottle {
+class UploadThrottle implements AvailabilityProvider {
     private static final Logger LOG = LoggerFactory.getLogger(UploadThrottle.class);
 
     private final Object lock = new Object();
@@ -33,6 +37,9 @@ class UploadThrottle {
 
     @GuardedBy("lock")
     private long inFlightBytesCounter = 0;
+
+    @GuardedBy("lock")
+    private CompletableFuture<?> availabilityFuture = AvailabilityProvider.AVAILABLE;
 
     UploadThrottle(long maxBytesInFlight) {
         this.maxBytesInFlight = maxBytesInFlight;
@@ -45,11 +52,14 @@ class UploadThrottle {
      */
     public void seizeCapacity(long bytes) throws InterruptedException {
         synchronized (lock) {
-            while (inFlightBytesCounter > maxBytesInFlight) {
+            while (!hasCapacity()) {
                 LOG.info("In flight data size threshold exceeded: {}", maxBytesInFlight);
                 lock.wait();
             }
             inFlightBytesCounter += bytes;
+            if (!hasCapacity() && isAvailable()) {
+                availabilityFuture = new CompletableFuture<>();
+            }
         }
     }
 
@@ -60,7 +70,22 @@ class UploadThrottle {
     public void releaseCapacity(long bytes) {
         synchronized (lock) {
             inFlightBytesCounter -= bytes;
+            if (hasCapacity() && !isAvailable()) {
+                availabilityFuture.complete(null);
+                availabilityFuture = AVAILABLE;
+            }
             lock.notifyAll();
+        }
+    }
+
+    private boolean hasCapacity() {
+        return inFlightBytesCounter < maxBytesInFlight;
+    }
+
+    @Override
+    public CompletableFuture<?> getAvailableFuture() {
+        synchronized (lock) {
+            return availabilityFuture;
         }
     }
 }
