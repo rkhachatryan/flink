@@ -3883,35 +3883,35 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
         List<ValueStateDescriptor<String>> stateDescriptors = new ArrayList<>(maxParallelism);
         List<Integer> keyInKeyGroups = new ArrayList<>(maxParallelism);
         List<String> expectedValue = new ArrayList<>(maxParallelism);
-        for (int i = 0; i < maxParallelism; ++i) {
+        for (int kg = 0; kg < maxParallelism; ++kg) {
             // all states have different name to mock that all the parallelisms of one operator have
             // different states.
-            stateDescriptors.add(new ValueStateDescriptor<>("state" + i, String.class));
+            stateDescriptors.add(new ValueStateDescriptor<>("state" + kg, String.class));
         }
 
         CheckpointStreamFactory streamFactory = createStreamFactory();
         SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
 
         List<KeyedStateHandle> snapshots = new ArrayList<>(sourceParallelism);
-        for (int i = 0; i < sourceParallelism; ++i) {
+        for (int subtask = 0; subtask < sourceParallelism; ++subtask) {
             KeyGroupRange range =
                     KeyGroupRange.of(
-                            maxParallelism * i / sourceParallelism,
-                            maxParallelism * (i + 1) / sourceParallelism - 1);
+                            maxParallelism * subtask / sourceParallelism,
+                            maxParallelism * (subtask + 1) / sourceParallelism - 1);
             CheckpointableKeyedStateBackend<Integer> backend =
                     createKeyedBackend(IntSerializer.INSTANCE, maxParallelism, range, env);
             try {
-                for (int j = range.getStartKeyGroup(); j <= range.getEndKeyGroup(); ++j) {
+                for (int kg = range.getStartKeyGroup(); kg <= range.getEndKeyGroup(); ++kg) {
                     ValueState<String> state =
                             backend.getPartitionedState(
                                     VoidNamespace.INSTANCE,
                                     VoidNamespaceSerializer.INSTANCE,
-                                    stateDescriptors.get(j));
+                                    stateDescriptors.get(kg));
                     int keyInKeyGroup =
-                            getKeyInKeyGroup(random, maxParallelism, KeyGroupRange.of(j, j));
+                            getKeyInKeyGroup(random, maxParallelism, KeyGroupRange.of(kg, kg));
                     backend.setCurrentKey(keyInKeyGroup);
                     keyInKeyGroups.add(keyInKeyGroup);
-                    String updateValue = i + ":" + j;
+                    String updateValue = subtask + ":" + kg;
                     state.update(updateValue);
                     expectedValue.add(updateValue);
                 }
@@ -3933,39 +3933,39 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 
         // redistribute the stateHandle
         List<KeyGroupRange> keyGroupRangesRestore = new ArrayList<>();
-        for (int i = 0; i < targetParallelism; ++i) {
+        for (int subtask = 0; subtask < targetParallelism; ++subtask) {
             keyGroupRangesRestore.add(
                     KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
-                            maxParallelism, targetParallelism, i));
+                            maxParallelism, targetParallelism, subtask));
         }
         List<List<KeyedStateHandle>> keyGroupStatesAfterDistribute =
                 new ArrayList<>(targetParallelism);
-        for (int i = 0; i < targetParallelism; ++i) {
+        for (int subtask = 0; subtask < targetParallelism; ++subtask) {
             List<KeyedStateHandle> keyedStateHandles = new ArrayList<>();
             StateAssignmentOperation.extractIntersectingState(
-                    snapshots, keyGroupRangesRestore.get(i), keyedStateHandles);
+                    snapshots, keyGroupRangesRestore.get(subtask), keyedStateHandles);
             keyGroupStatesAfterDistribute.add(keyedStateHandles);
         }
 
         // restore and verify
-        for (int i = 0; i < targetParallelism; ++i) {
+        for (int subtask = 0; subtask < targetParallelism; ++subtask) {
             CheckpointableKeyedStateBackend<Integer> backend =
                     restoreKeyedBackend(
                             IntSerializer.INSTANCE,
                             maxParallelism,
-                            keyGroupRangesRestore.get(i),
-                            keyGroupStatesAfterDistribute.get(i),
+                            keyGroupRangesRestore.get(subtask),
+                            keyGroupStatesAfterDistribute.get(subtask),
                             env);
             try {
-                KeyGroupRange range = keyGroupRangesRestore.get(i);
-                for (int j = range.getStartKeyGroup(); j <= range.getEndKeyGroup(); ++j) {
+                KeyGroupRange range = keyGroupRangesRestore.get(subtask);
+                for (int kg = range.getStartKeyGroup(); kg <= range.getEndKeyGroup(); ++kg) {
                     ValueState<String> state =
                             backend.getPartitionedState(
                                     VoidNamespace.INSTANCE,
                                     VoidNamespaceSerializer.INSTANCE,
-                                    stateDescriptors.get(j));
-                    backend.setCurrentKey(keyInKeyGroups.get(j));
-                    assertEquals(expectedValue.get(j), state.value());
+                                    stateDescriptors.get(kg));
+                    backend.setCurrentKey(keyInKeyGroups.get(kg));
+                    assertEquals(expectedValue.get(kg), state.value());
                 }
             } finally {
                 IOUtils.closeQuietly(backend);
