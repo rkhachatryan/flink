@@ -57,7 +57,6 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.queryablestate.client.state.serialization.KvStateSerializer;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.checkpoint.StateAssignmentOperation;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.operators.testutils.DummyEnvironment;
@@ -125,6 +124,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
+import static org.apache.flink.runtime.checkpoint.StateAssignmentOperation.extractIntersectingState;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.isA;
@@ -3880,10 +3880,8 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
                 targetParallelism <= maxParallelism,
                 "Maximum parallelism must not be smaller than parallelism.");
 
-        Random random = new Random();
-
-        List<ValueStateDescriptor<String>> stateDescriptors = new ArrayList<>(maxParallelism);
         Map<Integer, String> expected = new HashMap<>();
+        List<ValueStateDescriptor<String>> stateDescriptors = new ArrayList<>(maxParallelism);
         for (int kg = 0; kg < maxParallelism; ++kg) {
             // all states have different name to mock that all the parallelisms of one operator have
             // different states.
@@ -3894,6 +3892,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
         SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
 
         List<KeyedStateHandle> snapshots = new ArrayList<>(sourceParallelism);
+        Random random = new Random();
         for (int subtask = 0; subtask < sourceParallelism; ++subtask) {
             KeyGroupRange range =
                     KeyGroupRange.of(
@@ -3931,35 +3930,19 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
             }
         }
 
-        // redistribute the stateHandle
-        List<KeyGroupRange> keyGroupRangesRestore = new ArrayList<>();
-        for (int subtask = 0; subtask < targetParallelism; ++subtask) {
-            keyGroupRangesRestore.add(
-                    KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
-                            maxParallelism, targetParallelism, subtask));
-        }
-        List<List<KeyedStateHandle>> keyGroupStatesAfterDistribute =
-                new ArrayList<>(targetParallelism);
-        for (int subtask = 0; subtask < targetParallelism; ++subtask) {
-            List<KeyedStateHandle> keyedStateHandles = new ArrayList<>();
-            StateAssignmentOperation.extractIntersectingState(
-                    snapshots, keyGroupRangesRestore.get(subtask), keyedStateHandles);
-            keyGroupStatesAfterDistribute.add(keyedStateHandles);
-        }
-
         // restore
         NavigableMap<Integer, CheckpointableKeyedStateBackend<Integer>> backendsByStartingKeyGroup =
                 new TreeMap<>();
         for (int subtask = 0; subtask < targetParallelism; ++subtask) {
-            KeyGroupRange keyGroupRange = keyGroupRangesRestore.get(subtask);
-            backendsByStartingKeyGroup.put(
-                    keyGroupRange.getStartKeyGroup(),
+            KeyGroupRange keyGroupRange =
+                    KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
+                            maxParallelism, targetParallelism, subtask);
+            List<KeyedStateHandle> state =
+                    extractIntersectingState(snapshots, keyGroupRange, new ArrayList<>());
+            CheckpointableKeyedStateBackend<Integer> value =
                     restoreKeyedBackend(
-                            IntSerializer.INSTANCE,
-                            maxParallelism,
-                            keyGroupRange,
-                            keyGroupStatesAfterDistribute.get(subtask),
-                            env));
+                            IntSerializer.INSTANCE, maxParallelism, keyGroupRange, state, env);
+            backendsByStartingKeyGroup.put(keyGroupRange.getStartKeyGroup(), value);
         }
 
         // verify

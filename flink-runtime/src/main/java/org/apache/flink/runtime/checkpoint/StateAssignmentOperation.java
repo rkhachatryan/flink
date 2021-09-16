@@ -595,7 +595,7 @@ public class StateAssignmentOperation {
      * collector.
      */
     @VisibleForTesting
-    public static void extractIntersectingState(
+    public static List<KeyedStateHandle> extractIntersectingState(
             Collection<? extends KeyedStateHandle> originalSubtaskStateHandles,
             KeyGroupRange rangeToExtract,
             List<KeyedStateHandle> extractedStateCollector) {
@@ -612,6 +612,7 @@ public class StateAssignmentOperation {
                 }
             }
         }
+        return extractedStateCollector;
     }
 
     /**
