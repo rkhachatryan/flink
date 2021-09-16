@@ -106,11 +106,13 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.PrimitiveIterator;
 import java.util.Random;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -3881,8 +3883,7 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
         Random random = new Random();
 
         List<ValueStateDescriptor<String>> stateDescriptors = new ArrayList<>(maxParallelism);
-        List<Integer> keyInKeyGroups = new ArrayList<>(maxParallelism);
-        List<String> expectedValue = new ArrayList<>(maxParallelism);
+        Map<Integer, String> expected = new HashMap<>();
         for (int kg = 0; kg < maxParallelism; ++kg) {
             // all states have different name to mock that all the parallelisms of one operator have
             // different states.
@@ -3910,10 +3911,9 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
                     int keyInKeyGroup =
                             getKeyInKeyGroup(random, maxParallelism, KeyGroupRange.of(kg, kg));
                     backend.setCurrentKey(keyInKeyGroup);
-                    keyInKeyGroups.add(keyInKeyGroup);
                     String updateValue = subtask + ":" + kg;
                     state.update(updateValue);
-                    expectedValue.add(updateValue);
+                    expected.put(keyInKeyGroup, updateValue);
                 }
 
                 // snapshot
@@ -3947,30 +3947,46 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
             keyGroupStatesAfterDistribute.add(keyedStateHandles);
         }
 
-        // restore and verify
+        // restore
+        NavigableMap<Integer, CheckpointableKeyedStateBackend<Integer>> backendsByStartingKeyGroup =
+                new TreeMap<>();
         for (int subtask = 0; subtask < targetParallelism; ++subtask) {
-            CheckpointableKeyedStateBackend<Integer> backend =
+            KeyGroupRange keyGroupRange = keyGroupRangesRestore.get(subtask);
+            backendsByStartingKeyGroup.put(
+                    keyGroupRange.getStartKeyGroup(),
                     restoreKeyedBackend(
                             IntSerializer.INSTANCE,
                             maxParallelism,
-                            keyGroupRangesRestore.get(subtask),
+                            keyGroupRange,
                             keyGroupStatesAfterDistribute.get(subtask),
-                            env);
-            try {
-                KeyGroupRange range = keyGroupRangesRestore.get(subtask);
-                for (int kg = range.getStartKeyGroup(); kg <= range.getEndKeyGroup(); ++kg) {
-                    ValueState<String> state =
-                            backend.getPartitionedState(
-                                    VoidNamespace.INSTANCE,
-                                    VoidNamespaceSerializer.INSTANCE,
-                                    stateDescriptors.get(kg));
-                    backend.setCurrentKey(keyInKeyGroups.get(kg));
-                    assertEquals(expectedValue.get(kg), state.value());
-                }
-            } finally {
-                IOUtils.closeQuietly(backend);
-                backend.dispose();
+                            env));
+        }
+
+        // verify
+        try {
+            for (Map.Entry<Integer, String> e : expected.entrySet()) {
+                int key = e.getKey();
+                String value = e.getValue();
+                int keyGroup = KeyGroupRangeAssignment.assignToKeyGroup(key, maxParallelism);
+                CheckpointableKeyedStateBackend<Integer> backend =
+                        backendsByStartingKeyGroup.floorEntry(keyGroup).getValue();
+                ValueState<String> state =
+                        backend.getPartitionedState(
+                                VoidNamespace.INSTANCE,
+                                VoidNamespaceSerializer.INSTANCE,
+                                stateDescriptors.get(keyGroup));
+                backend.setCurrentKey(key);
+                assertEquals(value, state.value());
             }
+
+        } finally {
+            backendsByStartingKeyGroup
+                    .values()
+                    .forEach(
+                            backend -> {
+                                IOUtils.closeQuietly(backend);
+                                backend.dispose();
+                            });
         }
     }
 
