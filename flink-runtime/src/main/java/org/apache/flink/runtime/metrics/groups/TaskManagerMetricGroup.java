@@ -21,6 +21,7 @@ package org.apache.flink.runtime.metrics.groups;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -47,6 +48,18 @@ public class TaskManagerMetricGroup extends ComponentMetricGroup<TaskManagerMetr
 
     private final String taskManagerId;
 
+    /**
+     * The storage is created per TM-Job connection which corresponds to {@link
+     * TaskManagerJobMetricGroup}. However, embedding {@link ChangelogStorageMetricGroup} into the
+     * {@link TaskManagerMetricGroup} allows to avoid adding new REST API endpoints and more
+     * changes. OTH, this results in potentially incomplete gauge metrics if a TM is used for
+     * multiple jobs. Currently, {@link ChangelogStorageMetricGroup#registerQueueSizeGauge(Gauge)
+     * QueueSizeGauge} the only gauge used.
+     *
+     * <p>todo: move to TaskManagerJobMetricGroup
+     */
+    private final ChangelogStorageMetricGroup changelogStorageMetricGroup;
+
     TaskManagerMetricGroup(MetricRegistry registry, String hostname, String taskManagerId) {
         super(
                 registry,
@@ -56,6 +69,7 @@ public class TaskManagerMetricGroup extends ComponentMetricGroup<TaskManagerMetr
                 null);
         this.hostname = hostname;
         this.taskManagerId = taskManagerId;
+        this.changelogStorageMetricGroup = new ChangelogStorageMetricGroup(this);
     }
 
     public static TaskManagerMetricGroup createTaskManagerMetricGroup(
@@ -162,5 +176,9 @@ public class TaskManagerMetricGroup extends ComponentMetricGroup<TaskManagerMetr
     @Override
     protected String getGroupName(CharacterFilter filter) {
         return "taskmanager";
+    }
+
+    public ChangelogStorageMetricGroup getChangelogStorageMetricGroup() {
+        return changelogStorageMetricGroup;
     }
 }

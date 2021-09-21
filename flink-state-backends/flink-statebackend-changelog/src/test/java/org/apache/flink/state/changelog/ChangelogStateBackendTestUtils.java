@@ -36,6 +36,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 
+import static org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups.createUnregisteredChangelogStorageMetricGroup;
+
 /** Test Utilities for Changelog StateBackend. */
 public class ChangelogStateBackendTestUtils {
 
@@ -73,7 +75,10 @@ public class ChangelogStateBackendTestUtils {
         return TestTaskStateManager.builder()
                 .setStateChangelogStorage(
                         new FsStateChangelogStorage(
-                                Path.fromLocalFile(changelogStoragePath), false, 1024))
+                                Path.fromLocalFile(changelogStoragePath),
+                                false,
+                                1024,
+                                createUnregisteredChangelogStorageMetricGroup()))
                 .build();
     }
 }

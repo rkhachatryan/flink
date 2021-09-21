@@ -88,4 +88,21 @@ public class MetricNames {
     public static final String PENDING_RECORDS = "pendingRecords";
     public static final String PENDING_BYTES = "pendingBytes";
     public static final String SOURCE_IDLE_TIME = "sourceIdleTime";
+
+    // FLIP-158 changelog
+    private static final String CHANGELOG_STORAGE_PREFIX = "changelogStorage";
+    public static final String CHANGELOG_STORAGE_UPLOAD_REQUESTS =
+            CHANGELOG_STORAGE_PREFIX + ".upload-requests";
+    public static final String CHANGELOG_STORAGE_UPLOAD_FAILURES =
+            CHANGELOG_STORAGE_PREFIX + ".upload-failures";
+    public static final String CHANGELOG_STORAGE_UPLOAD_SIZES =
+            CHANGELOG_STORAGE_PREFIX + ".upload-sizes";
+    public static final String CHANGELOG_STORAGE_UPLOAD_LATENCIES =
+            CHANGELOG_STORAGE_PREFIX + ".upload-latencies";
+    public static final String CHANGELOG_STORAGE_ATTEMPTS_PER_UPLOAD =
+            CHANGELOG_STORAGE_PREFIX + ".attempts-per-upload";
+    public static final String CHANGELOG_STORAGE_LOGS_PER_UPLOAD =
+            CHANGELOG_STORAGE_PREFIX + ".logs-per-upload";
+    public static final String CHANGELOG_STORAGE_QUEUE_SIZE =
+            CHANGELOG_STORAGE_PREFIX + ".queue-size";
 }

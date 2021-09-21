@@ -70,6 +70,10 @@ public class UnregisteredMetricGroups {
         return new UnregisteredOperatorMetricGroup(parent);
     }
 
+    public static ChangelogStorageMetricGroup createUnregisteredChangelogStorageMetricGroup() {
+        return new UnregisteredChangelogStorageMetricGroup();
+    }
+
     /** A safe drop-in replacement for {@link ProcessMetricGroup ProcessMetricGroups}. */
     public static class UnregisteredProcessMetricGroup extends ProcessMetricGroup {
         private static final String UNREGISTERED_HOST = "UnregisteredHost";
@@ -208,6 +212,22 @@ public class UnregisteredMetricGroups {
 
         UnregisteredOperatorMetricGroup(TaskMetricGroup parent) {
             super(NoOpMetricRegistry.INSTANCE, parent, DEFAULT_OPERATOR_ID, DEFAULT_OPERATOR_NAME);
+        }
+    }
+
+    /** A safe drop-in replacement for {@link ChangelogStorageMetricGroup}s. */
+    public static class UnregisteredChangelogStorageMetricGroup
+            extends ChangelogStorageMetricGroup {
+        public UnregisteredChangelogStorageMetricGroup() {
+            super(new UnregisteredTaskManagerMetricGroup());
+        }
+    }
+
+    /** A safe drop-in replacement for {@link TaskIOMetricGroup}s. */
+    public static class UnregisteredTaskIOMetricGroup extends TaskIOMetricGroup {
+
+        public UnregisteredTaskIOMetricGroup() {
+            super(new UnregisteredTaskMetricGroup());
         }
     }
 }
