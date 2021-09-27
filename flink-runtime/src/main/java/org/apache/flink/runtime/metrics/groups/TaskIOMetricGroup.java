@@ -50,6 +50,7 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
     private final TimerGauge idleTimePerSecond;
     private final Gauge busyTimePerSecond;
     private final TimerGauge backPressuredTimePerSecond;
+    private final TimerGauge backPressuredTimePerSecondByIO;
 
     private volatile boolean busyTimeEnabled;
 
@@ -76,6 +77,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
         this.backPressuredTimePerSecond =
                 gauge(MetricNames.TASK_BACK_PRESSURED_TIME, new TimerGauge());
         this.busyTimePerSecond = gauge(MetricNames.TASK_BUSY_TIME, this::getBusyTimePerSecond);
+        this.backPressuredTimePerSecondByIO =
+                gauge(MetricNames.TASK_BACK_PRESSURED_TIME_BY_IO, new TimerGauge());
     }
 
     public IOMetrics createSnapshot() {
@@ -112,6 +115,10 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 
     public TimerGauge getBackPressuredTimePerSecond() {
         return backPressuredTimePerSecond;
+    }
+
+    public TimerGauge getBackPressuredTimePerSecondByIO() {
+        return backPressuredTimePerSecondByIO;
     }
 
     public void setEnableBusyTime(boolean enabled) {

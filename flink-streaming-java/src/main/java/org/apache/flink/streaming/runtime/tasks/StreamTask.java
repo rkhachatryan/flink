@@ -541,7 +541,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
             resumeFuture = inputProcessor.getAvailableFuture();
         } else {
             // todo: add new metrics (FLINK-23486)
-            timer = new GaugePeriodTimer(ioMetrics.getBackPressuredTimePerSecond());
+            timer = new GaugePeriodTimer(ioMetrics.getBackPressuredTimePerSecondByIO());
             resumeFuture = changelogWriterAvailabilityProvider.getAvailableFuture();
         }
         assertNoException(
