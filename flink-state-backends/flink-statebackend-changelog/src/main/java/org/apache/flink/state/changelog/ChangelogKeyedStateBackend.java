@@ -583,7 +583,7 @@ public class ChangelogKeyedStateBackend<K>
                 "Initialize Materialization. Current changelog writers last append to sequence number {}",
                 upTo);
 
-        if (upTo.compareTo(lastMaterializedTo) > 0) {
+        if (hasUnmaterializedChanges()) {
 
             LOG.info("Starting materialization from {} : {}", lastMaterializedTo, upTo);
 
@@ -613,18 +613,8 @@ public class ChangelogKeyedStateBackend<K>
     }
 
     /** Not thread safe. */
-    @VisibleForTesting
-    boolean hasMoreChangelogStateToMaterialize() {
-        SequenceNumber upTo = getLastAppendedTo();
-
-        LOG.info(
-                "To check whether has more change to materialize. "
-                        + "Current changelog writers last append to sequence number {}, "
-                        + "current changelogSnapshotState.lastMaterializedTo {}",
-                upTo,
-                changelogSnapshotState.lastMaterializedTo());
-
-        return upTo.compareTo(changelogSnapshotState.lastMaterializedTo()) > 0;
+    boolean hasUnmaterializedChanges() {
+        return getLastAppendedTo().compareTo(changelogSnapshotState.lastMaterializedTo()) > 0;
     }
 
     // TODO: Remove after fix FLINK-24436
