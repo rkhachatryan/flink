@@ -131,9 +131,16 @@ public class StandaloneCompletedCheckpointStore extends AbstractCompleteCheckpoi
         try {
             LOG.info("Shutting down");
 
+            long lowestRetained = Long.MAX_VALUE;
             for (CompletedCheckpoint checkpoint : checkpoints) {
-                checkpoint.discardOnShutdown(jobStatus);
+                if (!checkpoint.discardOnShutdown(jobStatus)) {
+                    lowestRetained = Math.min(checkpoint.getCheckpointID(), lowestRetained);
+                }
             }
+            if (jobStatus.isGloballyTerminalState()) {
+                getRegistry().unregisterUnusedState(lowestRetained);
+            }
+
         } finally {
             checkpoints.clear();
         }
