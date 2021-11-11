@@ -113,4 +113,6 @@ public interface CompletedCheckpointStore {
 
     /** Returns the {@link SharedStateRegistry} used to register the shared state. */
     SharedStateRegistry getSharedStateRegistry();
+
+    SharedStateRegistry getRegistry();
 }

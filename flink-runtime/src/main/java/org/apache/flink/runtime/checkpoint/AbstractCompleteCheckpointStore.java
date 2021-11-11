@@ -44,4 +44,9 @@ public abstract class AbstractCompleteCheckpointStore implements CompletedCheckp
             sharedStateRegistry.close();
         }
     }
+
+    @Override
+    public SharedStateRegistry getRegistry() {
+        return sharedStateRegistry;
+    }
 }

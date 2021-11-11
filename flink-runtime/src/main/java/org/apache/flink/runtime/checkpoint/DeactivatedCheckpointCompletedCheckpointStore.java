@@ -69,6 +69,11 @@ public enum DeactivatedCheckpointCompletedCheckpointStore implements CompletedCh
         throw unsupportedOperationException();
     }
 
+    @Override
+    public SharedStateRegistry getRegistry() {
+        return SharedStateRegistry.NO_OP;
+    }
+
     private UnsupportedOperationException unsupportedOperationException() {
         return new UnsupportedOperationException(
                 String.format(

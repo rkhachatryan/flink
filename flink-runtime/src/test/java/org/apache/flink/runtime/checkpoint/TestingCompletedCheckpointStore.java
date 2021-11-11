@@ -75,4 +75,9 @@ public final class TestingCompletedCheckpointStore implements CompletedCheckpoin
     public SharedStateRegistry getSharedStateRegistry() {
         throw new UnsupportedOperationException("Not implemented.");
     }
+
+    @Override
+    public SharedStateRegistry getRegistry() {
+        return SharedStateRegistry.NO_OP;
+    }
 }

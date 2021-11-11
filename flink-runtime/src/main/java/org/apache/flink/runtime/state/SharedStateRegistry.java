@@ -42,6 +42,28 @@ public interface SharedStateRegistry extends AutoCloseable {
                 return sharedStateRegistry;
             };
 
+    SharedStateRegistry NO_OP =
+            new SharedStateRegistry() {
+                @Override
+                public void close() {}
+
+                @Override
+                public Result registerReference(
+                        SharedStateRegistryKey registrationKey,
+                        StreamStateHandle state,
+                        long checkpointID) {
+                    return new Result(state, 0);
+                }
+
+                @Override
+                public Result unregisterReference(SharedStateRegistryKey registrationKey) {
+                    return new Result(null, 0);
+                }
+
+                @Override
+                public void registerAll(
+                        Iterable<? extends CompositeStateHandle> stateHandles, long checkpointID) {}
+            };
     /**
      * Register a reference to the given shared state in the registry. This does the following: We
      * check if the state handle is actually new by the registrationKey. If it is new, we register
