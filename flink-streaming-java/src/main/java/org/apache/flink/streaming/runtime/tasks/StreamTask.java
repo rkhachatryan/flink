@@ -296,7 +296,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
     @GuardedBy("shouldInterruptOnCancelLock")
     private boolean shouldInterruptOnCancel = true;
 
-    private final AvailabilityProvider changelogWriterAvailabilityProvider;
+    @Nullable private final AvailabilityProvider changelogWriterAvailabilityProvider;
 
     // ------------------------------------------------------------------------
 
@@ -384,7 +384,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         this.checkpointStorage = createCheckpointStorage(stateBackend);
         this.changelogWriterAvailabilityProvider =
                 environment.getTaskStateManager().getStateChangelogStorage() == null
-                        ? () -> AvailabilityProvider.AVAILABLE // todo: benchmark
+                        ? null
                         : environment
                                 .getTaskStateManager()
                                 .getStateChangelogStorage()
@@ -485,7 +485,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
         switch (status) {
             case MORE_AVAILABLE:
                 if (recordWriter.isAvailable()
-                        && changelogWriterAvailabilityProvider.isApproximatelyAvailable()) {
+                        && (changelogWriterAvailabilityProvider == null
+                                || changelogWriterAvailabilityProvider
+                                        .isApproximatelyAvailable())) {
                     return;
                 }
                 break;
