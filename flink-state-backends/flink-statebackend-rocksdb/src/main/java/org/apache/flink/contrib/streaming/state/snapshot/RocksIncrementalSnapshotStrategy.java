@@ -68,6 +68,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
@@ -97,11 +98,19 @@ public class RocksIncrementalSnapshotStrategy<K>
 
     /**
      * Stores the materialized sstable files from all snapshots that build the incremental history.
+     * Used to check whether {@link PlaceholderStreamStateHandle} can be send or the original {@link
+     * StreamStateHandle} must be used.
      */
     @Nonnull private final SortedMap<Long, Set<StateHandleID>> materializedSstFiles;
 
+    /** Uploaded but not yet confirmed SST files. Used to avoid re-uploading. */
+    @Nonnull private final Map<StateHandleID, StreamStateHandle> lastUploadedSstFiles;
+
     /** The identifier of the last completed checkpoint. */
     private long lastCompletedCheckpointId;
+
+    /** The identifier of the checkpoint for which SST files were uploaded (grows monotonically). */
+    private long lastCheckpointIdUploadedSst = -1;
 
     /** The help class used to upload state files. */
     private final RocksDBStateUploader stateUploader;
@@ -140,6 +149,7 @@ public class RocksIncrementalSnapshotStrategy<K>
         this.stateUploader = rocksDBStateUploader;
         this.lastCompletedCheckpointId = lastCompletedCheckpointId;
         this.localDirectoryName = backendUID.toString().replaceAll("[\\-]", "");
+        this.lastUploadedSstFiles = new HashMap<>();
     }
 
     @Override
@@ -151,13 +161,13 @@ public class RocksIncrementalSnapshotStrategy<K>
 
         final List<StateMetaInfoSnapshot> stateMetaInfoSnapshots =
                 new ArrayList<>(kvStateInformation.size());
-        final Set<StateHandleID> baseSstFiles =
+        final PreviousSnapshot previousSnapshot =
                 snapshotMetaData(checkpointId, stateMetaInfoSnapshots);
 
         takeDBNativeCheckpoint(snapshotDirectory);
 
         return new IncrementalRocksDBSnapshotResources(
-                snapshotDirectory, baseSstFiles, stateMetaInfoSnapshots);
+                snapshotDirectory, previousSnapshot, stateMetaInfoSnapshots);
     }
 
     @Override
@@ -181,7 +191,7 @@ public class RocksIncrementalSnapshotStrategy<K>
                 checkpointId,
                 checkpointStreamFactory,
                 snapshotResources.snapshotDirectory,
-                snapshotResources.baseSstFiles,
+                snapshotResources.previousSnapshot,
                 snapshotResources.stateMetaInfoSnapshots);
     }
 
@@ -258,30 +268,37 @@ public class RocksIncrementalSnapshotStrategy<K>
         }
     }
 
-    private Set<StateHandleID> snapshotMetaData(
+    private PreviousSnapshot snapshotMetaData(
             long checkpointId, @Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
 
         final long lastCompletedCheckpoint;
-        final Set<StateHandleID> baseSstFiles;
+        final Set<StateHandleID> confirmedSstFiles;
+        final Map<StateHandleID, StreamStateHandle> uploadedSstFiles;
 
         // use the last completed checkpoint as the comparison base.
         synchronized (materializedSstFiles) {
             lastCompletedCheckpoint = lastCompletedCheckpointId;
-            baseSstFiles = materializedSstFiles.get(lastCompletedCheckpoint);
+            confirmedSstFiles = materializedSstFiles.get(lastCompletedCheckpoint);
+            uploadedSstFiles = new HashMap<>(lastUploadedSstFiles);
+            LOG.trace(
+                    "Use lastUploadedSstFiles for checkpoint {}: {}",
+                    checkpointId,
+                    uploadedSstFiles);
         }
         LOG.trace(
                 "Taking incremental snapshot for checkpoint {}. Snapshot is based on last completed checkpoint {} "
-                        + "assuming the following (shared) files as base: {}.",
+                        + "assuming the following (shared) confirmed files as base: {}, uploaded: {}.",
                 checkpointId,
                 lastCompletedCheckpoint,
-                baseSstFiles);
+                confirmedSstFiles,
+                uploadedSstFiles);
 
         // snapshot meta data to save
         for (Map.Entry<String, RocksDbKvStateInfo> stateMetaInfoEntry :
                 kvStateInformation.entrySet()) {
             stateMetaInfoSnapshots.add(stateMetaInfoEntry.getValue().metaInfo.snapshot());
         }
-        return baseSstFiles;
+        return new PreviousSnapshot(confirmedSstFiles, uploadedSstFiles);
     }
 
     private void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory)
@@ -319,17 +336,17 @@ public class RocksIncrementalSnapshotStrategy<K>
         @Nonnull private final SnapshotDirectory localBackupDirectory;
 
         /** All sst files that were part of the last previously completed checkpoint. */
-        @Nullable private final Set<StateHandleID> baseSstFiles;
+        @Nonnull private final PreviousSnapshot previousSnapshot;
 
         private RocksDBIncrementalSnapshotOperation(
                 long checkpointId,
                 @Nonnull CheckpointStreamFactory checkpointStreamFactory,
                 @Nonnull SnapshotDirectory localBackupDirectory,
-                @Nullable Set<StateHandleID> baseSstFiles,
+                @Nonnull PreviousSnapshot previousSnapshot,
                 @Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
 
             this.checkpointStreamFactory = checkpointStreamFactory;
-            this.baseSstFiles = baseSstFiles;
+            this.previousSnapshot = previousSnapshot;
             this.checkpointId = checkpointId;
             this.localBackupDirectory = localBackupDirectory;
             this.stateMetaInfoSnapshots = stateMetaInfoSnapshots;
@@ -453,6 +470,19 @@ public class RocksIncrementalSnapshotStrategy<K>
                 miscFiles.putAll(
                         stateUploader.uploadFilesToCheckpointFs(
                                 miscFilePaths, checkpointStreamFactory, snapshotCloseableRegistry));
+
+                synchronized (materializedSstFiles) {
+                    // ignore an older upload if it completed after a newer one has completed
+                    if (checkpointId > lastCheckpointIdUploadedSst) {
+                        lastCheckpointIdUploadedSst = checkpointId;
+                        lastUploadedSstFiles.clear();
+                        LOG.trace(
+                                "Update lastUploadedSstFiles for checkpoint {}: {}",
+                                checkpointId,
+                                sstFiles);
+                        lastUploadedSstFiles.putAll(sstFiles);
+                    }
+                }
             }
         }
 
@@ -466,16 +496,11 @@ public class RocksIncrementalSnapshotStrategy<K>
                 final StateHandleID stateHandleID = new StateHandleID(fileName);
 
                 if (fileName.endsWith(SST_FILE_SUFFIX)) {
-                    final boolean existsAlready =
-                            baseSstFiles != null && baseSstFiles.contains(stateHandleID);
-
-                    if (existsAlready) {
-                        // we introduce a placeholder state handle, that is replaced with the
-                        // original from the shared state registry (created from a previous
-                        // checkpoint)
-                        sstFiles.put(stateHandleID, new PlaceholderStreamStateHandle());
+                    Optional<StreamStateHandle> uploaded = previousSnapshot.get(stateHandleID);
+                    if (uploaded.isPresent()) {
+                        sstFiles.put(stateHandleID, uploaded.get());
                     } else {
-                        sstFilePaths.put(stateHandleID, filePath);
+                        sstFilePaths.put(stateHandleID, filePath); // re-upload
                     }
                 } else {
                     miscFilePaths.put(stateHandleID, filePath);
@@ -531,15 +556,15 @@ public class RocksIncrementalSnapshotStrategy<K>
 
     static class IncrementalRocksDBSnapshotResources implements SnapshotResources {
         @Nonnull private final SnapshotDirectory snapshotDirectory;
-        @Nonnull private final Set<StateHandleID> baseSstFiles;
+        @Nonnull private final PreviousSnapshot previousSnapshot;
         @Nonnull private final List<StateMetaInfoSnapshot> stateMetaInfoSnapshots;
 
         public IncrementalRocksDBSnapshotResources(
                 SnapshotDirectory snapshotDirectory,
-                Set<StateHandleID> baseSstFiles,
+                PreviousSnapshot previousSnapshot,
                 List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
             this.snapshotDirectory = snapshotDirectory;
-            this.baseSstFiles = baseSstFiles;
+            this.previousSnapshot = previousSnapshot;
             this.stateMetaInfoSnapshots = stateMetaInfoSnapshots;
         }
 
@@ -559,6 +584,39 @@ public class RocksIncrementalSnapshotStrategy<K>
             } catch (IOException e) {
                 LOG.warn("Could not properly cleanup local RocksDB backup directory.", e);
             }
+        }
+    }
+
+    private static class PreviousSnapshot {
+
+        @Nullable private final Set<StateHandleID> confirmedSstFiles;
+        private final Map<StateHandleID, StreamStateHandle> uploadedSstFiles;
+
+        private PreviousSnapshot(
+                @Nullable Set<StateHandleID> confirmedSstFiles,
+                @Nonnull Map<StateHandleID, StreamStateHandle> uploadedSstFiles) {
+            this.confirmedSstFiles = confirmedSstFiles;
+            this.uploadedSstFiles = Preconditions.checkNotNull(uploadedSstFiles);
+        }
+
+        private Optional<StreamStateHandle> get(StateHandleID stateHandleID) {
+            if (isConfirmed(stateHandleID)) {
+                // we introduce a placeholder state handle, that is replaced with the
+                // original from the shared state registry (created from a previous checkpoint)
+                return Optional.of(new PlaceholderStreamStateHandle());
+            } else {
+                // If the file was uploaded but not confirmed by JM the handle has to be resent
+                // because JM might lose it during changing the  leadership
+                StreamStateHandle value = uploadedSstFiles.get(stateHandleID);
+                if (value != null) {
+                    LOG.trace("Using uploaded non-confirmed file: {}", value);
+                }
+                return Optional.ofNullable(value);
+            }
+        }
+
+        private boolean isConfirmed(StateHandleID stateHandleID) {
+            return confirmedSstFiles != null && confirmedSstFiles.contains(stateHandleID);
         }
     }
 }
