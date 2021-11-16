@@ -29,6 +29,9 @@ import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.CheckedSupplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
@@ -43,6 +46,7 @@ import java.util.function.Supplier;
 
 /** Help class for uploading RocksDB state files. */
 public class RocksDBStateUploader extends RocksDBStateDataTransfer {
+    private static final Logger LOG = LoggerFactory.getLogger(RocksDBStateUploader.class);
     private static final int READ_BUFFER_SIZE = 16 * 1024;
 
     public RocksDBStateUploader(int numberOfSnapshottingThreads) {
@@ -72,7 +76,13 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 
             for (Map.Entry<StateHandleID, CompletableFuture<StreamStateHandle>> entry :
                     futures.entrySet()) {
-                handles.put(entry.getKey(), entry.getValue().get());
+                StreamStateHandle handle = entry.getValue().get();
+                LOG.debug(
+                        "Uploaded {} ({} bytes) for key: {}",
+                        handle,
+                        handle.getStateSize(),
+                        entry.getKey());
+                handles.put(entry.getKey(), handle);
             }
         } catch (ExecutionException e) {
             Throwable throwable = ExceptionUtils.stripExecutionException(e);

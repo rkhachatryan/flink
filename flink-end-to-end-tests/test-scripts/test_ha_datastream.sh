@@ -36,7 +36,7 @@ function run_ha_test() {
     local INCREM=$4
     local ZOOKEEPER_VERSION=$5
 
-    local JM_KILLS=2
+    local JM_KILLS=5
     local CHECKPOINT_DIR="${TEST_DATA_DIR}/checkpoints/"
 
     CLEARED=0
@@ -47,6 +47,9 @@ function run_ha_test() {
     # jm killing loop
     set_config_key "env.pid.dir" "${TEST_DATA_DIR}"
     set_config_key "env.java.opts" "-ea"
+    # set_config_key "state.storage.fs.memory-threshold" "20 kb"
+    # set_config_key "state.backend.local-recovery" "true"
+
     setup_flink_shaded_zookeeper ${ZOOKEEPER_VERSION}
     start_local_zk
     start_cluster
@@ -100,4 +103,4 @@ STATE_BACKEND_FILE_ASYNC=${2:-true}
 STATE_BACKEND_ROCKS_INCREMENTAL=${3:-false}
 ZOOKEEPER_VERSION=${4:-3.4}
 
-run_test_with_timeout 900 run_ha_test 4 ${STATE_BACKEND_TYPE} ${STATE_BACKEND_FILE_ASYNC} ${STATE_BACKEND_ROCKS_INCREMENTAL} ${ZOOKEEPER_VERSION}
+run_test_with_timeout 1200 run_ha_test 4 ${STATE_BACKEND_TYPE} ${STATE_BACKEND_FILE_ASYNC} ${STATE_BACKEND_ROCKS_INCREMENTAL} ${ZOOKEEPER_VERSION}
