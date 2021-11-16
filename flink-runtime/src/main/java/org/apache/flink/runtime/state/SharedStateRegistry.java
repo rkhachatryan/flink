@@ -79,5 +79,10 @@ public interface SharedStateRegistry extends AutoCloseable {
                 @Override
                 public void registerAll(
                         Iterable<? extends CompositeStateHandle> stateHandles, long checkpointID) {}
+
+                @Override
+                public void checkpointCompleted(long checkpointId) {}
             };
+
+    void checkpointCompleted(long checkpointId);
 }

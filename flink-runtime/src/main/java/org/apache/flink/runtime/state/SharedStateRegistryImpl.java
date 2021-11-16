@@ -93,7 +93,16 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
                 // if the confirmation notification was missing.
                 // However, it's also not required to use exactly the same handle or placeholder
                 if (!Objects.equals(state, entry.stateHandle)) {
-                    scheduledStateDeletion = state;
+                    if (entry.confirmed || isPlaceholder(state)) {
+                        scheduledStateDeletion = state;
+                    } else {
+                        // Collision resulted from registering state and then restarting the task
+                        // without completing checkpoint and restarting JM. Key is formed by:
+                        // - backend UUID which is read from the checkpoint on recovery
+                        // - local filename which is the next SST number (same as in existing key)
+                        scheduledStateDeletion = entry.stateHandle;
+                        entry.stateHandle = state;
+                    }
                     LOG.trace(
                             "Identified duplicate state registration under key {}. New state {} was determined to "
                                     + "be an unnecessary copy of existing state {} and will be dropped.",
@@ -148,6 +157,15 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
         synchronized (registeredStates) {
             for (CompositeStateHandle stateHandle : stateHandles) {
                 stateHandle.registerSharedStates(this, checkpointID);
+            }
+        }
+    }
+
+    @Override
+    public void checkpointCompleted(long checkpointId) {
+        for (SharedStateEntry entry : registeredStates.values()) {
+            if (entry.lastUsedCheckpointID == checkpointId) {
+                entry.confirmed = true;
             }
         }
     }
@@ -218,9 +236,12 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
     private static final class SharedStateEntry {
 
         /** The shared state handle */
-        final StreamStateHandle stateHandle;
+        StreamStateHandle stateHandle;
 
         private long lastUsedCheckpointID;
+
+        /** Whether this entry is included into a confirmed checkpoint. */
+        private boolean confirmed;
 
         SharedStateEntry(StreamStateHandle value, long checkpointID) {
             this.stateHandle = value;
