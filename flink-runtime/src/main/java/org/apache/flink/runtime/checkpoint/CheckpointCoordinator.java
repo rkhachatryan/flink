@@ -1211,6 +1211,8 @@ public class CheckpointCoordinator {
         final long checkpointId = pendingCheckpoint.getCheckpointId();
         final CompletedCheckpoint completedCheckpoint;
 
+        completedCheckpointStore.getRegistry().checkpointCompleted(checkpointId);
+
         long lastSubsumedCheckpointId = CheckpointStoreUtil.INVALID_CHECKPOINT_ID;
 
         try {

@@ -60,6 +60,9 @@ public interface SharedStateRegistry extends AutoCloseable {
                 @Override
                 public void registerAll(
                         Iterable<? extends CompositeStateHandle> stateHandles, long checkpointID) {}
+
+                @Override
+                public void checkpointCompleted(long checkpointId) {}
             };
     /**
      * Register a reference to the given shared state in the registry. If there is already a state
@@ -90,4 +93,6 @@ public interface SharedStateRegistry extends AutoCloseable {
      * @param checkpointID which uses the states.
      */
     void registerAll(Iterable<? extends CompositeStateHandle> stateHandles, long checkpointID);
+
+    void checkpointCompleted(long checkpointId);
 }
