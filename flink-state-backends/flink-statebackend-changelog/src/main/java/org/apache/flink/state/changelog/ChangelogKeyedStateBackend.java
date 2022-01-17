@@ -77,8 +77,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RunnableFuture;
@@ -153,7 +155,7 @@ public class ChangelogKeyedStateBackend<K>
 
     private final TtlTimeProvider ttlTimeProvider;
 
-    private final StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter;
+    private final StateChangelogWriter<? extends ChangelogStateHandle> stateChangelogWriter;
 
     private final Closer closer = Closer.create();
 
@@ -200,12 +202,14 @@ public class ChangelogKeyedStateBackend<K>
      */
     private short lastCreatedStateId = -1;
 
+    private final NavigableMap<Long, Long> materializationIdByCheckpointId = new TreeMap<>();
+
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
             String subtaskName,
             ExecutionConfig executionConfig,
             TtlTimeProvider ttlTimeProvider,
-            StateChangelogWriter<ChangelogStateHandle> stateChangelogWriter,
+            StateChangelogWriter<? extends ChangelogStateHandle> stateChangelogWriter,
             Collection<ChangelogStateBackendHandle> initialState,
             CheckpointStorageWorkerView checkpointStorageWorkerView) {
         this.keyedStateBackend = keyedStateBackend;
@@ -353,6 +357,9 @@ public class ChangelogKeyedStateBackend<K>
 
         ChangelogSnapshotState changelogStateBackendStateCopy = changelogSnapshotState;
 
+        materializationIdByCheckpointId.put(
+                checkpointId, changelogStateBackendStateCopy.materializationID);
+
         return toRunnableFuture(
                 stateChangelogWriter
                         .persist(lastUploadedFrom)
@@ -380,7 +387,8 @@ public class ChangelogKeyedStateBackend<K>
                     new ChangelogStateBackendHandleImpl(
                             changelogStateBackendStateCopy.getMaterializedSnapshot(),
                             prevDeltaCopy,
-                            getKeyGroupRange()));
+                            getKeyGroupRange(),
+                            changelogStateBackendStateCopy.materializationID));
         }
     }
 
@@ -441,7 +449,11 @@ public class ChangelogKeyedStateBackend<K>
             // This might change if the log ownership changes (the method won't likely be needed).
             stateChangelogWriter.confirm(lastUploadedFrom, lastUploadedTo);
         }
-        keyedStateBackend.notifyCheckpointComplete(checkpointId);
+        Long materializationID = materializationIdByCheckpointId.remove(checkpointId);
+        if (materializationID != null) {
+            keyedStateBackend.notifyCheckpointComplete(materializationID);
+        }
+        materializationIdByCheckpointId.headMap(checkpointId, true).clear();
     }
 
     @Override
@@ -453,7 +465,10 @@ public class ChangelogKeyedStateBackend<K>
             // This might change if the log ownership changes (the method won't likely be needed).
             stateChangelogWriter.reset(lastUploadedFrom, lastUploadedTo);
         }
-        keyedStateBackend.notifyCheckpointAborted(checkpointId);
+        Long materializationID = materializationIdByCheckpointId.remove(checkpointId);
+        if (materializationID != null) {
+            keyedStateBackend.notifyCheckpointAborted(materializationID);
+        }
     }
 
     // -------- Methods not simply delegating to wrapped state backend ---------
@@ -547,6 +562,7 @@ public class ChangelogKeyedStateBackend<K>
 
     private ChangelogSnapshotState completeRestore(
             Collection<ChangelogStateBackendHandle> stateHandles) {
+        long materializationId = 0L;
 
         List<KeyedStateHandle> materialized = new ArrayList<>();
         List<ChangelogStateHandle> restoredNonMaterialized = new ArrayList<>();
@@ -555,13 +571,17 @@ public class ChangelogKeyedStateBackend<K>
             if (h != null) {
                 materialized.addAll(h.getMaterializedStateHandles());
                 restoredNonMaterialized.addAll(h.getNonMaterializedStateHandles());
+                // choose max materializationID to handle rescaling
+                materializationId = Math.max(materializationId, h.getMaterializationID());
             }
         }
+        this.materializedId = materializationId + 1;
 
         return new ChangelogSnapshotState(
                 materialized,
                 restoredNonMaterialized,
-                stateChangelogWriter.initialSequenceNumber());
+                stateChangelogWriter.initialSequenceNumber(),
+                materializationId);
     }
 
     /**
@@ -586,19 +606,20 @@ public class ChangelogKeyedStateBackend<K>
 
             LOG.info("Starting materialization from {} : {}", lastMaterializedTo, upTo);
 
+            // This ID is not needed for materialization; But since we are re-using the
+            // streamFactory that is designed for state backend snapshot, which requires unique
+            // checkpoint ID. A faked materialized Id is provided here.
+            // TODO: implement its own streamFactory.
+            long materializationID = materializedId++;
+
             MaterializationRunnable materializationRunnable =
                     new MaterializationRunnable(
                             keyedStateBackend.snapshot(
-                                    // This ID is not needed for materialization;
-                                    // But since we are re-using the streamFactory
-                                    // that is designed for state backend snapshot,
-                                    // which requires unique checkpoint ID.
-                                    // A faked materialized Id is provided here.
-                                    // TODO: implement its own streamFactory.
-                                    materializedId++,
+                                    materializationID,
                                     System.currentTimeMillis(),
                                     streamFactory,
                                     CHECKPOINT_OPTIONS),
+                            materializationID,
                             upTo);
 
             // log metadata after materialization is triggered
@@ -635,7 +656,10 @@ public class ChangelogKeyedStateBackend<K>
      * mailbox executor.
      */
     public void updateChangelogSnapshotState(
-            SnapshotResult<KeyedStateHandle> materializedSnapshot, SequenceNumber upTo) {
+            SnapshotResult<KeyedStateHandle> materializedSnapshot,
+            long materializationID,
+            SequenceNumber upTo)
+            throws Exception {
 
         LOG.info(
                 "Task {} finishes materialization, updates the snapshotState upTo {} : {}",
@@ -644,7 +668,10 @@ public class ChangelogKeyedStateBackend<K>
                 materializedSnapshot);
         changelogSnapshotState =
                 new ChangelogSnapshotState(
-                        getMaterializedResult(materializedSnapshot), Collections.emptyList(), upTo);
+                        getMaterializedResult(materializedSnapshot),
+                        Collections.emptyList(),
+                        upTo,
+                        materializationID);
 
         stateChangelogWriter.truncate(upTo);
     }
@@ -763,13 +790,18 @@ public class ChangelogKeyedStateBackend<K>
          */
         private final List<ChangelogStateHandle> restoredNonMaterialized;
 
+        /** ID of this materialization corresponding to the nested backend checkpoint ID. */
+        private final long materializationID;
+
         public ChangelogSnapshotState(
                 List<KeyedStateHandle> materializedSnapshot,
                 List<ChangelogStateHandle> restoredNonMaterialized,
-                SequenceNumber materializedTo) {
+                SequenceNumber materializedTo,
+                long materializationID) {
             this.materializedSnapshot = unmodifiableList((materializedSnapshot));
             this.restoredNonMaterialized = unmodifiableList(restoredNonMaterialized);
             this.materializedTo = materializedTo;
+            this.materializationID = materializationID;
         }
 
         public List<KeyedStateHandle> getMaterializedSnapshot() {
@@ -783,10 +815,14 @@ public class ChangelogKeyedStateBackend<K>
         public List<ChangelogStateHandle> getRestoredNonMaterialized() {
             return restoredNonMaterialized;
         }
+
+        public long getMaterializationID() {
+            return materializationID;
+        }
     }
 
     @VisibleForTesting
-    StateChangelogWriter<ChangelogStateHandle> getChangelogWriter() {
+    StateChangelogWriter<? extends ChangelogStateHandle> getChangelogWriter() {
         return stateChangelogWriter;
     }
 }
