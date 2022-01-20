@@ -29,9 +29,9 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
+import org.apache.flink.runtime.state.CheckpointBoundKeyedStateHandle;
 import org.apache.flink.runtime.state.CheckpointableKeyedStateBackend;
 import org.apache.flink.runtime.state.ConfigurableStateBackend;
-import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateBackend;
@@ -279,8 +279,8 @@ public class ChangelogStateBackend implements DelegatingStateBackend, Configurab
     }
 
     private long getMaterializationID(KeyedStateHandle keyedStateHandle) {
-        if (keyedStateHandle instanceof IncrementalKeyedStateHandle) {
-            return ((IncrementalKeyedStateHandle) keyedStateHandle).getCheckpointId();
+        if (keyedStateHandle instanceof CheckpointBoundKeyedStateHandle) {
+            return ((CheckpointBoundKeyedStateHandle) keyedStateHandle).getCheckpointId();
         } else {
             return 0L;
         }
