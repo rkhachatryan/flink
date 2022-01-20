@@ -645,7 +645,6 @@ public class ChangelogKeyedStateBackend<K>
             // This ID is not needed for materialization; But since we are re-using the
             // streamFactory that is designed for state backend snapshot, which requires unique
             // checkpoint ID. A faked materialized Id is provided here.
-            // TODO: implement its own streamFactory.
             long materializationID = materializedId++;
 
             MaterializationRunnable materializationRunnable =
@@ -653,6 +652,7 @@ public class ChangelogKeyedStateBackend<K>
                             keyedStateBackend.snapshot(
                                     materializationID,
                                     System.currentTimeMillis(),
+                                    // TODO: implement its own streamFactory.
                                     streamFactory,
                                     CHECKPOINT_OPTIONS),
                             materializationID,
