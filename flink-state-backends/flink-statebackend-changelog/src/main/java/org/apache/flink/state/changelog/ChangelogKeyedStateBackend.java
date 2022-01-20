@@ -75,11 +75,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -202,7 +204,13 @@ public class ChangelogKeyedStateBackend<K>
      */
     private short lastCreatedStateId = -1;
 
+    /** NOTE that cleanup of this map relies on notifications from JM for every checkpoint. */
     private final NavigableMap<Long, Long> materializationIdByCheckpointId = new TreeMap<>();
+    /**
+     * Materialization ID mapped to Checkpoint IDs - used to notify nested backend of abortion. NOTE
+     * that cleanup of this map relies on notifications from JM for every checkpoint.
+     */
+    private final Map<Long, Set<Long>> pendingMaterializationConfirmations = new HashMap<>();
 
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
@@ -359,6 +367,10 @@ public class ChangelogKeyedStateBackend<K>
 
         materializationIdByCheckpointId.put(
                 checkpointId, changelogStateBackendStateCopy.materializationID);
+        pendingMaterializationConfirmations
+                .computeIfAbsent(
+                        changelogStateBackendStateCopy.materializationID, ign -> new HashSet<>())
+                .add(checkpointId);
 
         return toRunnableFuture(
                 stateChangelogWriter
@@ -451,9 +463,9 @@ public class ChangelogKeyedStateBackend<K>
         }
         Long materializationID = materializationIdByCheckpointId.remove(checkpointId);
         if (materializationID != null) {
+            pendingMaterializationConfirmations.remove(materializationID);
             keyedStateBackend.notifyCheckpointComplete(materializationID);
         }
-        materializationIdByCheckpointId.headMap(checkpointId, true).clear();
     }
 
     @Override
@@ -467,7 +479,12 @@ public class ChangelogKeyedStateBackend<K>
         }
         Long materializationID = materializationIdByCheckpointId.remove(checkpointId);
         if (materializationID != null) {
-            keyedStateBackend.notifyCheckpointAborted(materializationID);
+            Set<Long> checkpoints = pendingMaterializationConfirmations.get(materializationID);
+            checkpoints.remove(checkpointId);
+            if (checkpoints.isEmpty()) {
+                keyedStateBackend.notifyCheckpointAborted(materializationID);
+                pendingMaterializationConfirmations.remove(materializationID);
+            }
         }
     }
 
