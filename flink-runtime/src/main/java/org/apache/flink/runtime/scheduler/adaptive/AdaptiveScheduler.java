@@ -96,8 +96,10 @@ import org.apache.flink.runtime.scheduler.SchedulerUtils;
 import org.apache.flink.runtime.scheduler.UpdateSchedulerNgOnInternalFailuresListener;
 import org.apache.flink.runtime.scheduler.VertexParallelismInformation;
 import org.apache.flink.runtime.scheduler.VertexParallelismStore;
+import org.apache.flink.runtime.scheduler.adaptive.allocator.DefaultSlotAssigner;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.ReservedSlots;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotAllocator;
+import org.apache.flink.runtime.scheduler.adaptive.allocator.StateLocalitySlotAssigner;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.VertexParallelism;
 import org.apache.flink.runtime.scheduler.adaptive.scalingpolicy.ReactiveScaleUpController;
 import org.apache.flink.runtime.scheduler.adaptive.scalingpolicy.ScaleUpController;
@@ -760,11 +762,17 @@ public class AdaptiveScheduler
                 .isPresent();
     }
 
-    private VertexParallelism determineParallelism(SlotAllocator slotAllocator)
+    private VertexParallelism determineParallelism(
+            SlotAllocator slotAllocator, @Nullable ExecutionGraph previousExecutionGraph)
             throws NoResourceAvailableException {
 
         return slotAllocator
-                .determineParallelism(jobInformation, declarativeSlotPool.getFreeSlotsInformation())
+                .determineParallelismAndCalculateAssignment(
+                        jobInformation,
+                        declarativeSlotPool.getFreeSlotsInformation(),
+                        previousExecutionGraph == null
+                                ? new DefaultSlotAssigner()
+                                : new StateLocalitySlotAssigner(previousExecutionGraph))
                 .orElseThrow(
                         () ->
                                 new NoResourceAvailableException(
@@ -935,20 +943,20 @@ public class AdaptiveScheduler
     public void goToCreatingExecutionGraph(@Nullable ExecutionGraph previousExecutionGraph) {
         final CompletableFuture<CreatingExecutionGraph.ExecutionGraphWithVertexParallelism>
                 executionGraphWithAvailableResourcesFuture =
-                        createExecutionGraphWithAvailableResourcesAsync();
-
+                        createExecutionGraphWithAvailableResourcesAsync(previousExecutionGraph);
         transitionToState(
                 new CreatingExecutionGraph.Factory(
                         this, executionGraphWithAvailableResourcesFuture, LOG));
     }
 
     private CompletableFuture<CreatingExecutionGraph.ExecutionGraphWithVertexParallelism>
-            createExecutionGraphWithAvailableResourcesAsync() {
+            createExecutionGraphWithAvailableResourcesAsync(
+                    @Nullable ExecutionGraph previousExecutionGraph) {
         final VertexParallelism vertexParallelism;
         final VertexParallelismStore adjustedParallelismStore;
 
         try {
-            vertexParallelism = determineParallelism(slotAllocator);
+            vertexParallelism = determineParallelism(slotAllocator, previousExecutionGraph);
             JobGraph adjustedJobGraph = jobInformation.copyJobGraph();
 
             for (JobVertex vertex : adjustedJobGraph.getVertices()) {

@@ -55,6 +55,18 @@ public interface SlotAllocator {
             JobInformation jobInformation, Collection<? extends SlotInfo> slots);
 
     /**
+     * Same as {@link #determineParallelism(JobInformation, Collection)} but additionally determine
+     * assignment of slots to execution slot sharing groups.
+     */
+    default Optional<? extends VertexParallelismWithSlotSharing>
+            determineParallelismAndCalculateAssignment(
+                    JobInformation jobInformation,
+                    Collection<? extends SlotInfo> slots,
+                    SlotAssigner slotAssigner) {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * Reserves slots according to the given assignment if possible. If the underlying set of
      * resources has changed and the reservation with respect to vertexParallelism is no longer
      * possible, then this method returns {@link Optional#empty()}.

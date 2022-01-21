@@ -17,6 +17,7 @@
 
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
+import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
@@ -24,23 +25,30 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.TestingPhysicalSlot;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.topology.VertexID;
 import org.apache.flink.runtime.util.ResourceCounter;
 import org.apache.flink.util.TestLogger;
 
 import org.assertj.core.api.Assertions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.Matchers.contains;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 
@@ -77,12 +85,11 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         final ResourceCounter resourceCounter =
                 slotAllocator.calculateRequiredSlots(Arrays.asList(vertex1, vertex2, vertex3));
 
-        assertThat(resourceCounter.getResources(), contains(ResourceProfile.UNKNOWN));
-        assertThat(
-                resourceCounter.getResourceCount(ResourceProfile.UNKNOWN),
-                is(
+        assertThat(resourceCounter.getResources()).contains(ResourceProfile.UNKNOWN);
+        assertThat(resourceCounter.getResourceCount(ResourceProfile.UNKNOWN))
+                .isEqualTo(
                         Math.max(vertex1.getParallelism(), vertex2.getParallelism())
-                                + vertex3.getParallelism()));
+                                + vertex3.getParallelism());
     }
 
     @Test
@@ -180,7 +187,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         final JobInformation jobInformation =
                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3));
 
-        final Optional<VertexParallelismWithSlotSharing> slotSharingAssignments =
+        final Optional<? extends VertexParallelism> slotSharingAssignments =
                 slotAllocator.determineParallelism(jobInformation, getSlots(1));
 
         assertThat(slotSharingAssignments.isPresent(), is(false));
@@ -198,7 +205,8 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3));
 
         final VertexParallelismWithSlotSharing slotAssignments =
-                slotAllocator.determineParallelism(jobInformation, getSlots(50)).get();
+                (VertexParallelismWithSlotSharing)
+                        slotAllocator.determineParallelism(jobInformation, getSlots(50)).get();
 
         final ReservedSlots reservedSlots =
                 slotAllocator
@@ -235,12 +243,72 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3));
 
         final VertexParallelismWithSlotSharing slotAssignments =
-                slotSharingSlotAllocator.determineParallelism(jobInformation, getSlots(50)).get();
+                (VertexParallelismWithSlotSharing)
+                        slotSharingSlotAllocator
+                                .determineParallelism(jobInformation, getSlots(50))
+                                .get();
 
         final Optional<? extends ReservedSlots> reservedSlots =
                 slotSharingSlotAllocator.tryReserveResources(slotAssignments);
 
         assertFalse(reservedSlots.isPresent());
+    }
+
+    /**
+     * Basic test to verify that allocation takes previous allocations into account to facilitate
+     * Local Recovery.
+     */
+    @Test
+    public void testStickyAllocation() {
+        HashMap<AllocationID, Map<JobVertexID, KeyGroupRange>> locality = new HashMap<>();
+
+        // previous allocation allocation1: v1, v2
+        AllocationID allocation1 = new AllocationID();
+        locality.put(allocation1, new HashMap<>());
+        locality.get(allocation1).put(vertex1.getJobVertexID(), KeyGroupRange.of(1, 100));
+        locality.get(allocation1).put(vertex2.getJobVertexID(), KeyGroupRange.of(1, 10));
+
+        // previous allocation allocation2: v3
+        AllocationID allocation2 = new AllocationID();
+        locality.put(allocation2, new HashMap<>());
+        locality.get(allocation2).put(vertex3.getJobVertexID(), KeyGroupRange.of(1, 100));
+
+        List<SlotInfo> freeSlots = new ArrayList<>();
+        IntStream.range(0, 10).forEach(i -> freeSlots.add(new TestSlotInfo(new AllocationID())));
+        freeSlots.add(new TestSlotInfo(allocation1));
+        freeSlots.add(new TestSlotInfo(allocation2));
+
+        Map<JobVertexID, Integer> maxDoP =
+                Stream.of(vertex1, vertex2, vertex3)
+                        .collect(
+                                Collectors.toMap(
+                                        JobInformation.VertexInformation::getJobVertexID,
+                                        v -> 100));
+        VertexParallelismWithSlotSharing ass =
+                SlotSharingSlotAllocator.createSlotSharingSlotAllocator(
+                                (allocationId, resourceProfile) ->
+                                        TestingPhysicalSlot.builder().build(),
+                                (allocationID, cause, ts) -> {},
+                                id -> false)
+                        .determineParallelismAndCalculateAssignment(
+                                new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3)),
+                                freeSlots,
+                                new StateLocalitySlotAssigner(locality, maxDoP))
+                        .get();
+
+        Map<AllocationID, Set<VertexID>> allocated = new HashMap<>();
+        for (SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot as : ass.getAssignments()) {
+            Set<VertexID> set =
+                    allocated.computeIfAbsent(
+                            as.getSlotInfo().getAllocationId(), ign -> new HashSet<>());
+            for (ExecutionVertexID id :
+                    as.getExecutionSlotSharingGroup().getContainedExecutionVertices()) {
+                set.add(id.getJobVertexId());
+            }
+        }
+        assertThat(allocated.get(allocation1)).contains(vertex1.getJobVertexID());
+        assertThat(allocated.get(allocation1)).contains(vertex2.getJobVertexID());
+        assertThat(allocated.get(allocation2)).contains(vertex3.getJobVertexID());
     }
 
     private static Collection<SlotInfo> getSlots(int count) {
@@ -256,7 +324,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         private final Map<JobVertexID, VertexInformation> vertexIdToInformation;
         private final Collection<SlotSharingGroup> slotSharingGroups;
 
-        private TestJobInformation(Collection<VertexInformation> vertexIdToInformation) {
+        private TestJobInformation(Collection<? extends VertexInformation> vertexIdToInformation) {
             this.vertexIdToInformation =
                     vertexIdToInformation.stream()
                             .collect(
@@ -307,6 +375,11 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         @Override
         public int getParallelism() {
             return parallelism;
+        }
+
+        @Override
+        public int getMaxParallelism() {
+            return 128;
         }
 
         @Override
