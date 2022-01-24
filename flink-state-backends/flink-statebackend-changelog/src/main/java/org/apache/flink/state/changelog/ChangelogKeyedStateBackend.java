@@ -220,6 +220,9 @@ public class ChangelogKeyedStateBackend<K>
      */
     private final Map<Long, Set<Long>> pendingMaterializationConfirmations = new HashMap<>();
 
+    // trying out https://github.com/apache/flink/pull/18382#pullrequestreview-860338408
+    private long lastConfirmedMaterializationId = -1L;
+
     public ChangelogKeyedStateBackend(
             AbstractKeyedStateBackend<K> keyedStateBackend,
             String subtaskName,
@@ -373,12 +376,15 @@ public class ChangelogKeyedStateBackend<K>
 
         ChangelogSnapshotState changelogStateBackendStateCopy = changelogSnapshotState;
 
-        materializationIdByCheckpointId.put(
-                checkpointId, changelogStateBackendStateCopy.materializationID);
-        pendingMaterializationConfirmations
-                .computeIfAbsent(
-                        changelogStateBackendStateCopy.materializationID, ign -> new HashSet<>())
-                .add(checkpointId);
+        if (changelogStateBackendStateCopy.materializationID > lastConfirmedMaterializationId) {
+            materializationIdByCheckpointId.put(
+                    checkpointId, changelogStateBackendStateCopy.materializationID);
+            pendingMaterializationConfirmations
+                    .computeIfAbsent(
+                            changelogStateBackendStateCopy.materializationID,
+                            ign -> new HashSet<>())
+                    .add(checkpointId);
+        }
 
         return toRunnableFuture(
                 stateChangelogWriter
@@ -470,7 +476,8 @@ public class ChangelogKeyedStateBackend<K>
             stateChangelogWriter.confirm(lastUploadedFrom, lastUploadedTo);
         }
         Long materializationID = materializationIdByCheckpointId.remove(checkpointId);
-        if (materializationID != null) {
+        if (materializationID != null && materializationID > lastConfirmedMaterializationId) {
+            lastConfirmedMaterializationId = materializationID;
             keyedStateBackend.notifyCheckpointComplete(materializationID);
             pendingMaterializationConfirmations.remove(materializationID);
         }
