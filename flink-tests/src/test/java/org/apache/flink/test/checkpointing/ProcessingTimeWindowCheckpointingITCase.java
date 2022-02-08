@@ -23,6 +23,7 @@ import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.changelog.fs.FsStateChangelogStorageFactory;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -42,8 +43,13 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Map;
 
 import static org.apache.flink.test.util.TestUtils.tryExecute;
@@ -58,10 +64,14 @@ import static org.junit.Assert.fail;
 @SuppressWarnings("serial")
 public class ProcessingTimeWindowCheckpointingITCase extends TestLogger {
 
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ProcessingTimeWindowCheckpointingITCase.class);
     private static final int PARALLELISM = 4;
 
-    @ClassRule
-    public static final MiniClusterWithClientResource MINI_CLUSTER_RESOURCE =
+    @ClassRule public static TemporaryFolder tempFolder = new TemporaryFolder();
+
+    @Rule
+    public final MiniClusterWithClientResource miniClusterWithClientResource =
             new MiniClusterWithClientResource(
                     new MiniClusterResourceConfiguration.Builder()
                             .setConfiguration(getConfiguration())
@@ -69,9 +79,12 @@ public class ProcessingTimeWindowCheckpointingITCase extends TestLogger {
                             .setNumberSlotsPerTaskManager(PARALLELISM / 2)
                             .build());
 
-    private static Configuration getConfiguration() {
+    public ProcessingTimeWindowCheckpointingITCase() throws IOException {}
+
+    private static Configuration getConfiguration() throws IOException {
         Configuration config = new Configuration();
         config.set(TaskManagerOptions.MANAGED_MEMORY_SIZE, MemorySize.parse("48m"));
+        FsStateChangelogStorageFactory.configure(config, tempFolder.newFolder());
         return config;
     }
 
