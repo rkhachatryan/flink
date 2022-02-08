@@ -45,7 +45,7 @@ public class FsStateChangelogOptions {
     public static final ConfigOption<MemorySize> PREEMPTIVE_PERSIST_THRESHOLD =
             ConfigOptions.key("dstl.dfs.preemptive-persist-threshold")
                     .memoryType()
-                    .defaultValue(MemorySize.parse("5Mb"))
+                    .defaultValue(MemorySize.parse("1Gb"))
                     .withDescription(
                             "Size threshold for state changes of a single operator "
                                     + "beyond which they are persisted pre-emptively without waiting for a checkpoint. "
@@ -55,7 +55,7 @@ public class FsStateChangelogOptions {
     public static final ConfigOption<Duration> PERSIST_DELAY =
             ConfigOptions.key("dstl.dfs.batch.persist-delay")
                     .durationType()
-                    .defaultValue(Duration.ofMillis(10))
+                    .defaultValue(Duration.ofMillis(1))
                     .withDescription(
                             "Delay before persisting changelog after receiving persist request (on checkpoint). "
                                     + "Minimizes the number of files and requests "
@@ -65,7 +65,7 @@ public class FsStateChangelogOptions {
     public static final ConfigOption<MemorySize> PERSIST_SIZE_THRESHOLD =
             ConfigOptions.key("dstl.dfs.batch.persist-size-threshold")
                     .memoryType()
-                    .defaultValue(MemorySize.parse("10Mb"))
+                    .defaultValue(MemorySize.parse("1b"))
                     .withDescription(
                             "Size threshold for state changes that were requested to be persisted but are waiting for "
                                     + PERSIST_DELAY.key()
