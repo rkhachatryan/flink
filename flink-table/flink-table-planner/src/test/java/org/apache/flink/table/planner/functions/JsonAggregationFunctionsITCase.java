@@ -45,22 +45,26 @@ public class JsonAggregationFunctionsITCase extends BuiltInAggregateFunctionTest
     public static List<TestSpec> testData() throws Exception {
         return Arrays.asList(
                 // JSON_OBJECTAGG
-                TestSpec.forFunction(BuiltInFunctionDefinitions.JSON_OBJECTAGG_NULL_ON_NULL)
-                        .withDescription("Basic Aggregation")
-                        .withSource(
-                                ROW(STRING(), INT()),
-                                Arrays.asList(
-                                        Row.ofKind(INSERT, "A", 1),
-                                        Row.ofKind(INSERT, "B", null),
-                                        Row.ofKind(INSERT, "C", 3)))
-                        .testResult(
-                                source -> "SELECT JSON_OBJECTAGG(f0 VALUE f1) FROM " + source,
-                                source ->
-                                        source.select(
-                                                jsonObjectAgg(JsonOnNull.NULL, $("f0"), $("f1"))),
-                                ROW(VARCHAR(2000).notNull()),
-                                ROW(STRING().notNull()),
-                                Collections.singletonList(Row.of("{\"A\":1,\"B\":null,\"C\":3}"))),
+                //
+                // TestSpec.forFunction(BuiltInFunctionDefinitions.JSON_OBJECTAGG_NULL_ON_NULL)
+                //                        .withDescription("Basic Aggregation")
+                //                        .withSource(
+                //                                ROW(STRING(), INT()),
+                //                                Arrays.asList(
+                //                                        Row.ofKind(INSERT, "A", 1),
+                //                                        Row.ofKind(INSERT, "B", null),
+                //                                        Row.ofKind(INSERT, "C", 3)))
+                //                        .testResult(
+                //                                source -> "SELECT JSON_OBJECTAGG(f0 VALUE f1) FROM
+                // " + source,
+                //                                source ->
+                //                                        source.select(
+                //                                                jsonObjectAgg(JsonOnNull.NULL,
+                // $("f0"), $("f1"))),
+                //                                ROW(VARCHAR(2000).notNull()),
+                //                                ROW(STRING().notNull()),
+                //
+                // Collections.singletonList(Row.of("{\"A\":1,\"B\":null,\"C\":3}"))),
                 TestSpec.forFunction(BuiltInFunctionDefinitions.JSON_OBJECTAGG_ABSENT_ON_NULL)
                         .withDescription("Omits NULLs")
                         .withSource(
