@@ -25,7 +25,9 @@ import java.util.Optional;
 
 /**
  * A {@link StateObject} that represents state that was written to a stream. The data can be read
- * back via {@link #openInputStream()}.
+ * back via {@link #openInputStream()}. WARNING: please consider overriding {@link
+ * #equals(Object)}/{@link #hashCode()} - these methods can be used to detect duplicates in {@link
+ * SharedStateRegistry}.
  */
 public interface StreamStateHandle extends StateObject {
 
