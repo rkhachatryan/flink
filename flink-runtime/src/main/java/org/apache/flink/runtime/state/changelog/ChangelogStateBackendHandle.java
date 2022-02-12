@@ -117,7 +117,8 @@ public interface ChangelogStateBackendHandle extends KeyedStateHandle {
                 // state handle. To avoid unexpected unregister, this registry key would not change
                 // even rescaled.
                 stateRegistry.registerReference(
-                        new SharedStateRegistryKey(keyedStateHandle.getStateHandleId().toString()),
+                        new SharedStateRegistryKey(
+                                keyedStateHandle.getStateHandleId().getKeyString()),
                         new StreamStateHandleWrapper(keyedStateHandle),
                         checkpointID);
             }
@@ -236,6 +237,29 @@ public interface ChangelogStateBackendHandle extends KeyedStateHandle {
             @Override
             public Optional<byte[]> asBytesIfInMemory() {
                 throw new UnsupportedOperationException("Should not call here.");
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) {
+                    return true;
+                } else if (!(o instanceof StreamStateHandleWrapper)) {
+                    return false;
+                } else {
+                    return Objects.equals(
+                            keyedStateHandle.getStateHandleId(),
+                            ((StreamStateHandleWrapper) o).keyedStateHandle.getStateHandleId());
+                }
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(keyedStateHandle.getStateHandleId());
+            }
+
+            @Override
+            public String toString() {
+                return "Wrapped " + keyedStateHandle;
             }
         }
     }
