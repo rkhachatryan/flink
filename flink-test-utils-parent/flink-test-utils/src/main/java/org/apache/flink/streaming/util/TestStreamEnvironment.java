@@ -125,6 +125,9 @@ public class TestStreamEnvironment extends StreamExecutionEnvironment {
             if (STATE_CHANGE_LOG_CONFIG.equalsIgnoreCase(STATE_CHANGE_LOG_CONFIG_ON)) {
                 if (!conf.contains(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG)) {
                     conf.set(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG, true);
+                    conf.set(
+                            StateChangelogOptions.PERIODIC_MATERIALIZATION_INTERVAL,
+                            Duration.ofMillis(100));
                     miniCluster.overrideRestoreModeForRandomizedChangelogStateBackend();
                 }
             } else if (STATE_CHANGE_LOG_CONFIG.equalsIgnoreCase(STATE_CHANGE_LOG_CONFIG_RAND)) {
