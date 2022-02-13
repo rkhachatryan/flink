@@ -316,6 +316,7 @@ public class SavepointFormatITCase {
         env.setParallelism(4);
         env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
         env.disableOperatorChaining();
+        env.enableChangelogStateBackend(false); // https://issues.apache.org/jira/browse/FLINK-26093
 
         env.fromSequence(Long.MIN_VALUE, Long.MAX_VALUE)
                 .keyBy(i -> i % 1000)
