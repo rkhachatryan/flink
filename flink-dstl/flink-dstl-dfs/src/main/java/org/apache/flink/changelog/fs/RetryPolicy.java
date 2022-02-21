@@ -34,6 +34,11 @@ public interface RetryPolicy {
                         config.get(FsStateChangelogOptions.RETRY_MAX_ATTEMPTS),
                         config.get(FsStateChangelogOptions.UPLOAD_TIMEOUT).toMillis(),
                         config.get(FsStateChangelogOptions.RETRY_DELAY_AFTER_FAILURE).toMillis());
+            case "exponential":
+                return exponential(
+                        config.get(FsStateChangelogOptions.RETRY_MAX_ATTEMPTS),
+                        config.get(FsStateChangelogOptions.UPLOAD_TIMEOUT).toMillis(),
+                        config.get(FsStateChangelogOptions.RETRY_DELAY_AFTER_FAILURE).toMillis());
             case "none":
                 return NONE;
             default:
@@ -71,6 +76,52 @@ public interface RetryPolicy {
 
     static RetryPolicy fixed(int maxAttempts, long timeout, long delayAfterFailure) {
         return new FixedRetryPolicy(maxAttempts, timeout, delayAfterFailure);
+    }
+
+    static RetryPolicy exponential(int maxAttempts, long timeout, long delayAfterFailure) {
+        return new ExponentialRetryPolicy(maxAttempts, timeout, delayAfterFailure);
+    }
+
+    /** {@link RetryPolicy} with exponential timeout and fixed delay and max attempts. */
+    class ExponentialRetryPolicy implements RetryPolicy {
+
+        private final long startingTimeout;
+        private final int maxAttempts;
+        private final long delayAfterFailure;
+
+        ExponentialRetryPolicy(int maxAttempts, long startingTimeout, long delayAfterFailure) {
+            this.maxAttempts = maxAttempts;
+            this.startingTimeout = startingTimeout;
+            this.delayAfterFailure = delayAfterFailure;
+        }
+
+        @Override
+        public long timeoutFor(int attempt) {
+            return (long) (startingTimeout * Math.pow(2, attempt - 1));
+        }
+
+        @Override
+        public long retryAfter(int attempt, Exception exception) {
+            if (attempt >= maxAttempts) {
+                return -1L;
+            } else if (exception instanceof TimeoutException) {
+                return 0L;
+            } else if (exception instanceof IOException) {
+                return delayAfterFailure;
+            } else {
+                return -1L;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "timeout="
+                    + startingTimeout
+                    + ", maxAttempts="
+                    + maxAttempts
+                    + ", delay="
+                    + delayAfterFailure;
+        }
     }
 
     /** {@link RetryPolicy} with fixed timeout, delay and max attempts. */
