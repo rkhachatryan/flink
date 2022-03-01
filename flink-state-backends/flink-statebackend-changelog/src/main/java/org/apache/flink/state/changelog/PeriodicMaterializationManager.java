@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -104,7 +105,7 @@ class PeriodicMaterializationManager implements Closeable {
 
             LOG.info("Task {} starts periodic materialization", subtaskName);
 
-            scheduleNextMaterialization();
+            scheduleNextMaterialization(new Random().nextInt((int) periodicMaterializeDelay));
         }
     }
 
@@ -134,7 +135,7 @@ class PeriodicMaterializationManager implements Closeable {
                                                 runnable.getMaterializationID(),
                                                 runnable.getMaterializedTo()));
                     } else {
-                        scheduleNextMaterialization();
+                        scheduleNextMaterialization(0);
 
                         LOG.info(
                                 "Task {} has no state updates since last materialization, "
@@ -166,7 +167,7 @@ class PeriodicMaterializationManager implements Closeable {
                                         subtaskName,
                                         upTo);
 
-                                scheduleNextMaterialization();
+                                scheduleNextMaterialization(0);
                             } else {
                                 // if failed
                                 int retryTime = numberOfConsecutiveFailures.incrementAndGet();
@@ -179,7 +180,7 @@ class PeriodicMaterializationManager implements Closeable {
                                             retryTime,
                                             throwable);
 
-                                    scheduleNextMaterialization();
+                                    scheduleNextMaterialization(0);
                                 } else {
                                     // Fail the task externally, this causes task failover
                                     asyncExceptionHandler.handleAsyncException(
@@ -241,7 +242,7 @@ class PeriodicMaterializationManager implements Closeable {
     }
 
     // task thread and asyncOperationsThreadPool can access this method
-    private synchronized void scheduleNextMaterialization() {
+    private synchronized void scheduleNextMaterialization(long offset) {
         if (started && !periodicExecutor.isShutdown()) {
 
             LOG.info(
@@ -250,7 +251,9 @@ class PeriodicMaterializationManager implements Closeable {
                     periodicMaterializeDelay / 1000);
 
             periodicExecutor.schedule(
-                    this::triggerMaterialization, periodicMaterializeDelay, TimeUnit.MILLISECONDS);
+                    this::triggerMaterialization,
+                    periodicMaterializeDelay + offset,
+                    TimeUnit.MILLISECONDS);
         }
     }
 
