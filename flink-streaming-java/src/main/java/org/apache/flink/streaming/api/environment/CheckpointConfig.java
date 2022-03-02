@@ -137,6 +137,8 @@ public class CheckpointConfig implements java.io.Serializable {
      */
     private transient CheckpointStorage storage;
 
+    private int asyncDeletionBatchSize = 1;
+
     /**
      * Creates a deep copy of the provided {@link CheckpointConfig}.
      *
@@ -160,6 +162,7 @@ public class CheckpointConfig implements java.io.Serializable {
         this.storage = checkpointConfig.getCheckpointStorage();
         this.checkpointIdOfIgnoredInFlightData =
                 checkpointConfig.getCheckpointIdOfIgnoredInFlightData();
+        this.asyncDeletionBatchSize = checkpointConfig.getAsyncDeletionBatchSize();
     }
 
     public CheckpointConfig() {}
@@ -735,6 +738,17 @@ public class CheckpointConfig implements java.io.Serializable {
         return checkpointIdOfIgnoredInFlightData;
     }
 
+    @PublicEvolving
+    public int getAsyncDeletionBatchSize() {
+        return asyncDeletionBatchSize;
+    }
+
+    @PublicEvolving
+    public void setAsyncDeletionBatchSize(int asyncDeletionBatchSize) {
+        Preconditions.checkArgument(asyncDeletionBatchSize > 0);
+        this.asyncDeletionBatchSize = asyncDeletionBatchSize;
+    }
+
     /** Cleanup behaviour for externalized checkpoints when the job is cancelled. */
     @PublicEvolving
     public enum ExternalizedCheckpointCleanup implements DescribedEnum {
@@ -838,5 +852,8 @@ public class CheckpointConfig implements java.io.Serializable {
         configuration
                 .getOptional(CheckpointingOptions.CHECKPOINTS_DIRECTORY)
                 .ifPresent(this::setCheckpointStorage);
+        configuration
+                .getOptional(ExecutionCheckpointingOptions.ASYNC_DELETE_BATCH_SIZE)
+                .ifPresent(this::setAsyncDeletionBatchSize);
     }
 }

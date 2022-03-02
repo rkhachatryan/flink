@@ -39,7 +39,8 @@ public class TestingCheckpointRecoveryFactory implements CheckpointRecoveryFacto
             JobID jobId,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor) {
+            Executor ioExecutor,
+            int asyncDeletionBatchSize) {
         return store;
     }
 

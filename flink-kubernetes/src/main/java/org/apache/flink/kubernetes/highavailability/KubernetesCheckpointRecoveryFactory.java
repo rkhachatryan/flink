@@ -81,7 +81,8 @@ public class KubernetesCheckpointRecoveryFactory implements CheckpointRecoveryFa
             JobID jobID,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor)
+            Executor ioExecutor,
+            int asyncDeletionBatchSize)
             throws Exception {
         final String configMapName = getConfigMapNameFunction.apply(jobID);
         KubernetesUtils.createConfigMapIfItDoesNotExist(kubeClient, configMapName, clusterId);
@@ -94,7 +95,8 @@ public class KubernetesCheckpointRecoveryFactory implements CheckpointRecoveryFa
                 lockIdentity,
                 maxNumberOfCheckpointsToRetain,
                 sharedStateRegistryFactory,
-                ioExecutor);
+                ioExecutor,
+                asyncDeletionBatchSize);
     }
 
     @Override

@@ -190,7 +190,8 @@ public class SchedulerTestingUtils {
                         serializedStateBackend,
                         TernaryBoolean.UNDEFINED,
                         serializedCheckpointStorage,
-                        null));
+                        null,
+                        1));
     }
 
     public static Collection<ExecutionAttemptID> getAllCurrentExecutionAttempts(

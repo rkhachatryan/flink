@@ -55,7 +55,12 @@ public final class SchedulerUtils {
         if (DefaultExecutionGraphBuilder.isCheckpointingEnabled(jobGraph)) {
             try {
                 return createCompletedCheckpointStore(
-                        configuration, checkpointRecoveryFactory, ioExecutor, log, jobId);
+                        configuration,
+                        checkpointRecoveryFactory,
+                        ioExecutor,
+                        log,
+                        jobId,
+                        jobGraph.getCheckpointingSettings().getAsyncDeletionBatchSize());
             } catch (Exception e) {
                 throw new JobExecutionException(
                         jobId,
@@ -73,14 +78,16 @@ public final class SchedulerUtils {
             CheckpointRecoveryFactory recoveryFactory,
             Executor ioExecutor,
             Logger log,
-            JobID jobId)
+            JobID jobId,
+            int asyncDeletionBatchSize)
             throws Exception {
         return recoveryFactory.createRecoveredCompletedCheckpointStore(
                 jobId,
                 DefaultCompletedCheckpointStoreUtils.getMaximumNumberOfRetainedCheckpoints(
                         jobManagerConfig, log),
                 SharedStateRegistry.DEFAULT_FACTORY,
-                ioExecutor);
+                ioExecutor,
+                asyncDeletionBatchSize);
     }
 
     public static CheckpointIDCounter createCheckpointIDCounterIfCheckpointingIsEnabled(

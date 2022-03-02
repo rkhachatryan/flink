@@ -31,10 +31,11 @@ import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 public interface SharedStateRegistry extends AutoCloseable {
 
     /** A singleton object for the default implementation of a {@link SharedStateRegistryFactory} */
+    // todo: inline and pass asyncDeleteBatchSize from config
     SharedStateRegistryFactory DEFAULT_FACTORY =
-            (deleteExecutor, checkpoints) -> {
+            (deleteExecutor, checkpoints, asyncDeleteBatchSize) -> {
                 SharedStateRegistry sharedStateRegistry =
-                        new SharedStateRegistryImpl(deleteExecutor);
+                        new SharedStateRegistryImpl(deleteExecutor, asyncDeleteBatchSize);
                 for (CompletedCheckpoint checkpoint : checkpoints) {
                     checkpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
                 }

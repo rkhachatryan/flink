@@ -48,21 +48,24 @@ public class EmbeddedCompletedCheckpointStore extends AbstractCompleteCheckpoint
 
     @VisibleForTesting
     public EmbeddedCompletedCheckpointStore() {
-        this(1);
+        this(1, 1);
     }
 
     @VisibleForTesting
-    public EmbeddedCompletedCheckpointStore(int maxRetainedCheckpoints) {
-        this(maxRetainedCheckpoints, Collections.emptyList());
+    public EmbeddedCompletedCheckpointStore(
+            int maxRetainedCheckpoints, int asyncDeletionBatchSize) {
+        this(maxRetainedCheckpoints, asyncDeletionBatchSize, Collections.emptyList());
     }
 
     public EmbeddedCompletedCheckpointStore(
-            int maxRetainedCheckpoints, Collection<CompletedCheckpoint> initialCheckpoints) {
+            int maxRetainedCheckpoints,
+            int asyncDeletionBatchSize,
+            Collection<CompletedCheckpoint> initialCheckpoints) {
         this(
                 maxRetainedCheckpoints,
                 initialCheckpoints,
                 SharedStateRegistry.DEFAULT_FACTORY.create(
-                        Executors.directExecutor(), initialCheckpoints));
+                        Executors.directExecutor(), initialCheckpoints, asyncDeletionBatchSize));
     }
 
     public EmbeddedCompletedCheckpointStore(

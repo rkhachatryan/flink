@@ -2875,7 +2875,9 @@ public class CheckpointCoordinatorTest extends TestLogger {
         List<CompletedCheckpoint> checkpoints = Collections.emptyList();
         SharedStateRegistry firstInstance =
                 SharedStateRegistry.DEFAULT_FACTORY.create(
-                        org.apache.flink.util.concurrent.Executors.directExecutor(), checkpoints);
+                        org.apache.flink.util.concurrent.Executors.directExecutor(),
+                        checkpoints,
+                        1);
         final EmbeddedCompletedCheckpointStore store =
                 new EmbeddedCompletedCheckpointStore(10, checkpoints, firstInstance);
 
@@ -2973,7 +2975,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
         SharedStateRegistry secondInstance =
                 SharedStateRegistry.DEFAULT_FACTORY.create(
                         org.apache.flink.util.concurrent.Executors.directExecutor(),
-                        store.getAllCheckpoints());
+                        store.getAllCheckpoints(),
+                        1);
         final EmbeddedCompletedCheckpointStore secondStore =
                 new EmbeddedCompletedCheckpointStore(10, store.getAllCheckpoints(), secondInstance);
         final CheckpointCoordinator secondCoordinator =

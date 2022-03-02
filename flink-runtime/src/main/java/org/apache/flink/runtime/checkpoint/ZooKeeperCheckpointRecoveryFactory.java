@@ -51,7 +51,8 @@ public class ZooKeeperCheckpointRecoveryFactory implements CheckpointRecoveryFac
             JobID jobId,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor)
+            Executor ioExecutor,
+            int asyncDeletionBatchSize)
             throws Exception {
 
         return ZooKeeperUtils.createCompletedCheckpoints(
@@ -61,7 +62,8 @@ public class ZooKeeperCheckpointRecoveryFactory implements CheckpointRecoveryFac
                 maxNumberOfCheckpointsToRetain,
                 sharedStateRegistryFactory,
                 ioExecutor,
-                executor);
+                executor,
+                asyncDeletionBatchSize);
     }
 
     @Override

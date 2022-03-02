@@ -52,11 +52,13 @@ public class JobCheckpointingSettings implements Serializable {
     /** (Factories for) hooks that are executed on the checkpoint coordinator */
     @Nullable private final SerializedValue<MasterTriggerRestoreHook.Factory[]> masterHooks;
 
+    private final int asyncDeletionBatchSize;
+
     public JobCheckpointingSettings(
             CheckpointCoordinatorConfiguration checkpointCoordinatorConfiguration,
             @Nullable SerializedValue<StateBackend> defaultStateBackend) {
 
-        this(checkpointCoordinatorConfiguration, defaultStateBackend, null, null, null);
+        this(checkpointCoordinatorConfiguration, defaultStateBackend, null, null, null, 1);
     }
 
     public JobCheckpointingSettings(
@@ -64,7 +66,8 @@ public class JobCheckpointingSettings implements Serializable {
             @Nullable SerializedValue<StateBackend> defaultStateBackend,
             @Nullable TernaryBoolean changelogStateBackendEnabled,
             @Nullable SerializedValue<CheckpointStorage> defaultCheckpointStorage,
-            @Nullable SerializedValue<MasterTriggerRestoreHook.Factory[]> masterHooks) {
+            @Nullable SerializedValue<MasterTriggerRestoreHook.Factory[]> masterHooks,
+            int asyncDeletionBatchSize) {
 
         this.checkpointCoordinatorConfiguration =
                 Preconditions.checkNotNull(checkpointCoordinatorConfiguration);
@@ -75,6 +78,7 @@ public class JobCheckpointingSettings implements Serializable {
                         : changelogStateBackendEnabled;
         this.defaultCheckpointStorage = defaultCheckpointStorage;
         this.masterHooks = masterHooks;
+        this.asyncDeletionBatchSize = asyncDeletionBatchSize;
     }
 
     // --------------------------------------------------------------------------------------------
@@ -107,5 +111,9 @@ public class JobCheckpointingSettings implements Serializable {
     @Override
     public String toString() {
         return String.format("SnapshotSettings: config=%s", checkpointCoordinatorConfiguration);
+    }
+
+    public int getAsyncDeletionBatchSize() {
+        return asyncDeletionBatchSize;
     }
 }

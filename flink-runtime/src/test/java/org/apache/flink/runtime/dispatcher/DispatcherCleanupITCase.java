@@ -89,7 +89,11 @@ public class DispatcherCleanupITCase extends AbstractDispatcherTest {
         super.setUp();
         haServices.setCheckpointRecoveryFactory(
                 new PerJobCheckpointRecoveryFactory<EmbeddedCompletedCheckpointStore>(
-                        (maxCheckpoints, previous, sharedStateRegistryFactory, ioExecutor) -> {
+                        (maxCheckpoints,
+                                previous,
+                                sharedStateRegistryFactory,
+                                ioExecutor,
+                                asyncDeletionBatchSize) -> {
                             if (previous != null) {
                                 // First job cleanup still succeeded for the
                                 // CompletedCheckpointStore because the JobGraph cleanup happens
@@ -100,13 +104,13 @@ public class DispatcherCleanupITCase extends AbstractDispatcherTest {
                                         maxCheckpoints,
                                         previous.getAllCheckpoints(),
                                         sharedStateRegistryFactory.create(
-                                                ioExecutor, previous.getAllCheckpoints()));
+                                                ioExecutor, previous.getAllCheckpoints(), 1));
                             }
                             return new EmbeddedCompletedCheckpointStore(
                                     maxCheckpoints,
                                     Collections.emptyList(),
                                     sharedStateRegistryFactory.create(
-                                            ioExecutor, Collections.emptyList()));
+                                            ioExecutor, Collections.emptyList(), 1));
                         }));
     }
 

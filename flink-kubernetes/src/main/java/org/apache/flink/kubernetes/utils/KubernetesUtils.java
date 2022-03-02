@@ -291,11 +291,12 @@ public class KubernetesUtils {
      *
      * @param configuration configuration to build a RetrievableStateStorageHelper
      * @param kubeClient flink kubernetes client
-     * @param configMapName ConfigMap name
      * @param executor executor to run blocking calls
+     * @param configMapName ConfigMap name
      * @param lockIdentity lock identity to check the leadership
      * @param maxNumberOfCheckpointsToRetain max number of checkpoints to retain on state store
      *     handle
+     * @param asyncDeletionBatchSize
      * @return a {@link DefaultCompletedCheckpointStore} with {@link KubernetesStateHandleStore}.
      * @throws Exception when create the storage helper failed
      */
@@ -307,7 +308,8 @@ public class KubernetesUtils {
             @Nullable String lockIdentity,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor)
+            Executor ioExecutor,
+            int asyncDeletionBatchSize)
             throws Exception {
 
         final RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage =
@@ -331,7 +333,7 @@ public class KubernetesUtils {
                 stateHandleStore,
                 KubernetesCheckpointStoreUtil.INSTANCE,
                 checkpoints,
-                sharedStateRegistryFactory.create(ioExecutor, checkpoints),
+                sharedStateRegistryFactory.create(ioExecutor, checkpoints, asyncDeletionBatchSize),
                 executor);
     }
 

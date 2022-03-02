@@ -78,7 +78,8 @@ public class SchedulerUtilsTest extends TestLogger {
                         new StandaloneCheckpointRecoveryFactory(),
                         Executors.directExecutor(),
                         log,
-                        new JobID());
+                        new JobID(),
+                        1);
 
         assertEquals(
                 maxNumberOfCheckpointsToRetain,
@@ -104,7 +105,8 @@ public class SchedulerUtilsTest extends TestLogger {
                         recoveryFactory,
                         Executors.directExecutor(),
                         log,
-                        new JobID());
+                        new JobID(),
+                        1);
 
         SharedStateRegistry sharedStateRegistry = checkpointStore.getSharedStateRegistry();
 
@@ -122,12 +124,14 @@ public class SchedulerUtilsTest extends TestLogger {
                     JobID jobId,
                     int maxNumberOfCheckpointsToRetain,
                     SharedStateRegistryFactory sharedStateRegistryFactory,
-                    Executor ioExecutor) {
+                    Executor ioExecutor,
+                    int asyncDeletionBatchSize) {
                 List<CompletedCheckpoint> checkpoints = singletonList(checkpoint);
                 return new EmbeddedCompletedCheckpointStore(
                         maxNumberOfCheckpointsToRetain,
                         checkpoints,
-                        sharedStateRegistryFactory.create(ioExecutor, checkpoints));
+                        sharedStateRegistryFactory.create(
+                                ioExecutor, checkpoints, asyncDeletionBatchSize));
             }
 
             @Override

@@ -49,7 +49,8 @@ public class PerJobCheckpointRecoveryTest extends TestLogger {
                         firstJobId,
                         1,
                         SharedStateRegistry.DEFAULT_FACTORY,
-                        Executors.directExecutor()));
+                        Executors.directExecutor(),
+                        1));
         assertThrows(
                 UnsupportedOperationException.class,
                 () ->
@@ -57,7 +58,8 @@ public class PerJobCheckpointRecoveryTest extends TestLogger {
                                 firstJobId,
                                 1,
                                 SharedStateRegistry.DEFAULT_FACTORY,
-                                Executors.directExecutor()));
+                                Executors.directExecutor(),
+                                1));
 
         final JobID secondJobId = new JobID();
         assertSame(
@@ -66,7 +68,8 @@ public class PerJobCheckpointRecoveryTest extends TestLogger {
                         secondJobId,
                         1,
                         SharedStateRegistry.DEFAULT_FACTORY,
-                        Executors.directExecutor()));
+                        Executors.directExecutor(),
+                        1));
         assertThrows(
                 UnsupportedOperationException.class,
                 () ->
@@ -74,6 +77,7 @@ public class PerJobCheckpointRecoveryTest extends TestLogger {
                                 secondJobId,
                                 1,
                                 SharedStateRegistry.DEFAULT_FACTORY,
-                                Executors.directExecutor()));
+                                Executors.directExecutor(),
+                                1));
     }
 }

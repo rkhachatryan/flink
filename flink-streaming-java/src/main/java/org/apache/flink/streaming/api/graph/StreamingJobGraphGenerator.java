@@ -1528,7 +1528,8 @@ public class StreamingJobGraphGenerator {
                         serializedStateBackend,
                         streamGraph.isChangelogStateBackendEnabled(),
                         serializedCheckpointStorage,
-                        serializedHooks);
+                        serializedHooks,
+                        cfg.getAsyncDeletionBatchSize());
 
         jobGraph.setSnapshotSettings(settings);
     }

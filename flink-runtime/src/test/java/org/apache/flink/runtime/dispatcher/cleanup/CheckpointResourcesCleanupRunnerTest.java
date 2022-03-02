@@ -622,7 +622,8 @@ public class CheckpointResourcesCleanupRunnerTest {
                 JobID jobId,
                 int maxNumberOfCheckpointsToRetain,
                 SharedStateRegistryFactory sharedStateRegistryFactory,
-                Executor ioExecutor)
+                Executor ioExecutor,
+                int asyncDeletionBatchSize)
                 throws Exception {
             creationLatch.await();
             return completedCheckpointStore;

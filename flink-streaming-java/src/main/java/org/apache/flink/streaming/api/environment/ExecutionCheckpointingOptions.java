@@ -248,4 +248,11 @@ public class ExecutionCheckpointingOptions {
                                                     "{{.Site.BaseURL}}{{.Site.LanguagePrefix}}/docs/dev/datastream/fault-tolerance/checkpointing/#checkpointing-with-parts-of-the-graph-finished-beta",
                                                     "the important considerations"))
                                     .build());
+
+    public static final ConfigOption<Integer> ASYNC_DELETE_BATCH_SIZE =
+            ConfigOptions.key("execution.checkpointing.async-delete-batch-size")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "The size of the batch to discard the unused shared state on checkpoint subsumption");
 }

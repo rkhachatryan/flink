@@ -32,11 +32,15 @@ public class StandaloneCheckpointRecoveryFactory implements CheckpointRecoveryFa
             JobID jobId,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor)
+            Executor ioExecutor,
+            int asyncDeletionBatchSize)
             throws Exception {
 
         return new StandaloneCompletedCheckpointStore(
-                maxNumberOfCheckpointsToRetain, sharedStateRegistryFactory, ioExecutor);
+                maxNumberOfCheckpointsToRetain,
+                sharedStateRegistryFactory,
+                ioExecutor,
+                asyncDeletionBatchSize);
     }
 
     @Override

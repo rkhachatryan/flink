@@ -569,6 +569,7 @@ public class ZooKeeperUtils {
      * @param configuration {@link Configuration} object
      * @param maxNumberOfCheckpointsToRetain The maximum number of checkpoints to retain
      * @param executor to run ZooKeeper callbacks
+     * @param asyncDeletionBatchSize
      * @return {@link DefaultCompletedCheckpointStore} instance
      * @throws Exception if the completed checkpoint store cannot be created
      */
@@ -578,7 +579,8 @@ public class ZooKeeperUtils {
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
             Executor ioExecutor,
-            Executor executor)
+            Executor executor,
+            int asyncDeletionBatchSize)
             throws Exception {
 
         checkNotNull(configuration, "Configuration");
@@ -597,7 +599,8 @@ public class ZooKeeperUtils {
                         completedCheckpointStateHandleStore,
                         ZooKeeperCheckpointStoreUtil.INSTANCE,
                         completedCheckpoints,
-                        sharedStateRegistryFactory.create(ioExecutor, completedCheckpoints),
+                        sharedStateRegistryFactory.create(
+                                ioExecutor, completedCheckpoints, asyncDeletionBatchSize),
                         executor);
         LOG.info(
                 "Initialized {} in '{}' with {}.",

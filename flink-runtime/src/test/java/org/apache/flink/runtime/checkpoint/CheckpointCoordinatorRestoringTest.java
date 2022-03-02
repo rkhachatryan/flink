@@ -234,7 +234,7 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
         final ExecutionGraph executionGraph = createExecutionGraph(vertices);
         final EmbeddedCompletedCheckpointStore store =
                 new EmbeddedCompletedCheckpointStore(
-                        completedCheckpoints.size(), completedCheckpoints);
+                        completedCheckpoints.size(), 1, completedCheckpoints);
 
         // set up the coordinator and validate the initial state
         final CheckpointCoordinator coordinator =
@@ -778,7 +778,8 @@ public class CheckpointCoordinatorRestoringTest extends TestLogger {
 
         // set up the coordinator and validate the initial state
         SharedStateRegistry sharedStateRegistry =
-                SharedStateRegistry.DEFAULT_FACTORY.create(Executors.directExecutor(), emptyList());
+                SharedStateRegistry.DEFAULT_FACTORY.create(
+                        Executors.directExecutor(), emptyList(), 1);
         CheckpointCoordinator coord =
                 new CheckpointCoordinatorBuilder()
                         .setExecutionGraph(newGraph)

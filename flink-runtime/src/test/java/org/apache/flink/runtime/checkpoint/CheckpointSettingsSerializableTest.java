@@ -92,7 +92,8 @@ public class CheckpointSettingsSerializableTest extends TestLogger {
                         TernaryBoolean.UNDEFINED,
                         new SerializedValue<CheckpointStorage>(
                                 new CustomCheckpointStorage(outOfClassPath)),
-                        serHooks);
+                        serHooks,
+                        1);
 
         final JobGraph jobGraph =
                 JobGraphBuilder.newStreamingJobGraphBuilder()

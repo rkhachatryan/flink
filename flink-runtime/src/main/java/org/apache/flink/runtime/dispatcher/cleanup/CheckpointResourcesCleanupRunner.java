@@ -145,7 +145,8 @@ public class CheckpointResourcesCleanupRunner implements JobManagerRunner {
                 DefaultCompletedCheckpointStoreUtils.getMaximumNumberOfRetainedCheckpoints(
                         jobManagerConfiguration, LOG),
                 sharedStateRegistryFactory,
-                cleanupExecutor);
+                cleanupExecutor,
+                1);
     }
 
     private CheckpointIDCounter createCheckpointIDCounter() throws Exception {

@@ -51,15 +51,22 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
     /** Executor for async state deletion */
     private final Executor asyncDisposalExecutor;
 
+    private final int asyncDeleteBatchSize;
+
     /** Default uses direct executor to delete unreferenced state */
     public SharedStateRegistryImpl() {
         this(Executors.directExecutor());
     }
 
     public SharedStateRegistryImpl(Executor asyncDisposalExecutor) {
+        this(asyncDisposalExecutor, 1);
+    }
+
+    public SharedStateRegistryImpl(Executor asyncDisposalExecutor, int asyncDeleteBatchSize) {
         this.registeredStates = new HashMap<>();
         this.asyncDisposalExecutor = checkNotNull(asyncDisposalExecutor);
         this.open = true;
+        this.asyncDeleteBatchSize = asyncDeleteBatchSize;
     }
 
     public StreamStateHandle registerReference(
@@ -153,10 +160,41 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
             }
         }
 
-        LOG.trace("Discard {} state asynchronously", subsumed.size());
-        for (StreamStateHandle handle : subsumed) {
-            scheduleAsyncDelete(handle);
+        LOG.trace(
+                "Discard {} state asynchronously, batch size: {}",
+                subsumed.size(),
+                asyncDeleteBatchSize);
+        for (Iterator<StreamStateHandle> iterator = subsumed.iterator(); iterator.hasNext(); ) {
+            scheduleAsyncDelete(
+                    asyncDeleteBatchSize > 1
+                            ? collectBatch(iterator, asyncDeleteBatchSize)
+                            : iterator.next());
         }
+    }
+
+    private StateObject collectBatch(
+            Iterator<StreamStateHandle> iterator, int asyncDeleteBatchSize) {
+        List<StreamStateHandle> handles = new ArrayList<>(asyncDeleteBatchSize);
+        for (int i = 0; i < asyncDeleteBatchSize && iterator.hasNext(); i++) {
+            handles.add(iterator.next());
+        }
+        return asSingleStateObject(handles);
+    }
+
+    private StateObject asSingleStateObject(List<StreamStateHandle> batch) {
+        return new StateObject() {
+            @Override
+            public void discardState() {
+                for (StreamStateHandle handle : batch) {
+                    discardQuietly(handle);
+                }
+            }
+
+            @Override
+            public long getStateSize() {
+                return 0;
+            }
+        };
     }
 
     @Override
@@ -190,30 +228,33 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
         }
     }
 
-    private void scheduleAsyncDelete(StreamStateHandle streamStateHandle) {
-        // We do the small optimization to not issue discards for placeholders, which are NOPs.
-        if (streamStateHandle != null && !isPlaceholder(streamStateHandle)) {
-            LOG.trace("Scheduled delete of state handle {}.", streamStateHandle);
-            AsyncDisposalRunnable asyncDisposalRunnable =
-                    new AsyncDisposalRunnable(streamStateHandle);
-            try {
-                asyncDisposalExecutor.execute(asyncDisposalRunnable);
-            } catch (RejectedExecutionException ex) {
-                // TODO This is a temporary fix for a problem during
-                // ZooKeeperCompletedCheckpointStore#shutdown:
-                // Disposal is issued in another async thread and the shutdown proceeds to close the
-                // I/O Executor pool.
-                // This leads to RejectedExecutionException once the async deletes are triggered by
-                // ZK. We need to
-                // wait for all pending ZK deletes before closing the I/O Executor pool. We can
-                // simply call #run()
-                // because we are already in the async ZK thread that disposes the handles.
-                asyncDisposalRunnable.run();
-            }
+    private boolean shouldDiscard(StateObject streamStateHandle) {
+        return streamStateHandle != null && !isPlaceholder(streamStateHandle);
+    }
+
+    private void scheduleAsyncDelete(StateObject stateObject) {
+        if (!shouldDiscard(stateObject)) {
+            return;
+        }
+        LOG.trace("Scheduled delete of state handle {}.", stateObject);
+        AsyncDisposalRunnable asyncDisposalRunnable = new AsyncDisposalRunnable(stateObject);
+        try {
+            asyncDisposalExecutor.execute(asyncDisposalRunnable);
+        } catch (RejectedExecutionException ex) {
+            // TODO This is a temporary fix for a problem during
+            // ZooKeeperCompletedCheckpointStore#shutdown:
+            // Disposal is issued in another async thread and the shutdown proceeds to close the
+            // I/O Executor pool.
+            // This leads to RejectedExecutionException once the async deletes are triggered by
+            // ZK. We need to
+            // wait for all pending ZK deletes before closing the I/O Executor pool. We can
+            // simply call #run()
+            // because we are already in the async ZK thread that disposes the handles.
+            asyncDisposalRunnable.run();
         }
     }
 
-    private boolean isPlaceholder(StreamStateHandle stateHandle) {
+    private boolean isPlaceholder(StateObject stateHandle) {
         return stateHandle instanceof PlaceholderStreamStateHandle;
     }
 
@@ -235,14 +276,18 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
 
         @Override
         public void run() {
-            try {
-                toDispose.discardState();
-            } catch (Exception e) {
-                LOG.warn(
-                        "A problem occurred during asynchronous disposal of a shared state object: {}",
-                        toDispose,
-                        e);
-            }
+            discardQuietly(toDispose);
+        }
+    }
+
+    private static void discardQuietly(StateObject toDispose) {
+        try {
+            toDispose.discardState();
+        } catch (Exception e) {
+            LOG.warn(
+                    "A problem occurred during asynchronous disposal of a shared state object: {}",
+                    toDispose,
+                    e);
         }
     }
     /** An entry in the registry, tracking the handle and the corresponding reference count. */

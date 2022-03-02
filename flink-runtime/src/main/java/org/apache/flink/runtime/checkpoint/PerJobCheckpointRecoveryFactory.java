@@ -42,7 +42,11 @@ public class PerJobCheckpointRecoveryFactory<T extends CompletedCheckpointStore>
     public static <T extends CompletedCheckpointStore>
             CheckpointRecoveryFactory withoutCheckpointStoreRecovery(IntFunction<T> storeFn) {
         return new PerJobCheckpointRecoveryFactory<>(
-                (maxCheckpoints, previous, sharedStateRegistry, ioExecutor) -> {
+                (maxCheckpoints,
+                        previous,
+                        sharedStateRegistry,
+                        ioExecutor,
+                        asyncDeletionBatchSize) -> {
                     if (previous != null) {
                         throw new UnsupportedOperationException(
                                 "Checkpoint store recovery is not supported.");
@@ -75,7 +79,8 @@ public class PerJobCheckpointRecoveryFactory<T extends CompletedCheckpointStore>
             JobID jobId,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor) {
+            Executor ioExecutor,
+            int asyncDeletionBatchSize) {
         return store.compute(
                 jobId,
                 (key, previous) ->
@@ -83,7 +88,8 @@ public class PerJobCheckpointRecoveryFactory<T extends CompletedCheckpointStore>
                                 maxNumberOfCheckpointsToRetain,
                                 previous,
                                 sharedStateRegistryFactory,
-                                ioExecutor));
+                                ioExecutor,
+                                asyncDeletionBatchSize));
     }
 
     @Override
@@ -98,6 +104,7 @@ public class PerJobCheckpointRecoveryFactory<T extends CompletedCheckpointStore>
                 int maxNumberOfCheckpointsToRetain,
                 @Nullable StoreType previousStore,
                 SharedStateRegistryFactory sharedStateRegistryFactory,
-                Executor ioExecutor);
+                Executor ioExecutor,
+                int asyncDeletionBatchSize);
     }
 }

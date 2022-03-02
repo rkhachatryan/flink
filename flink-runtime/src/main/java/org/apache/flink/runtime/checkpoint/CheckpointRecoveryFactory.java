@@ -37,13 +37,15 @@ public interface CheckpointRecoveryFactory {
      * @param sharedStateRegistryFactory Simple factory to produce {@link SharedStateRegistry}
      *     objects.
      * @param ioExecutor Executor used to run (async) deletes.
+     * @param asyncDeletionBatchSize the size of batch for asynchronous deletion of shared state
      * @return {@link CompletedCheckpointStore} instance for the job
      */
     CompletedCheckpointStore createRecoveredCompletedCheckpointStore(
             JobID jobId,
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor)
+            Executor ioExecutor,
+            int asyncDeletionBatchSize)
             throws Exception;
 
     /**

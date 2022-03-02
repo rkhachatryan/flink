@@ -56,7 +56,8 @@ public class StandaloneCompletedCheckpointStore extends AbstractCompleteCheckpoi
         this(
                 maxNumberOfCheckpointsToRetain,
                 SharedStateRegistry.DEFAULT_FACTORY,
-                Executors.directExecutor());
+                Executors.directExecutor(),
+                1);
     }
 
     /**
@@ -68,20 +69,23 @@ public class StandaloneCompletedCheckpointStore extends AbstractCompleteCheckpoi
     public StandaloneCompletedCheckpointStore(
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
-            Executor ioExecutor) {
+            Executor ioExecutor,
+            int asyncDeletionBatchSize) {
         this(
                 maxNumberOfCheckpointsToRetain,
                 sharedStateRegistryFactory,
                 new ArrayDeque<>(maxNumberOfCheckpointsToRetain + 1),
-                ioExecutor);
+                ioExecutor,
+                asyncDeletionBatchSize);
     }
 
     private StandaloneCompletedCheckpointStore(
             int maxNumberOfCheckpointsToRetain,
             SharedStateRegistryFactory sharedStateRegistryFactory,
             ArrayDeque<CompletedCheckpoint> checkpoints,
-            Executor ioExecutor) {
-        super(sharedStateRegistryFactory.create(ioExecutor, checkpoints));
+            Executor ioExecutor,
+            int asyncDeletionBatchSize) {
+        super(sharedStateRegistryFactory.create(ioExecutor, checkpoints, asyncDeletionBatchSize));
         checkArgument(maxNumberOfCheckpointsToRetain >= 1, "Must retain at least one checkpoint.");
         this.maxNumberOfCheckpointsToRetain = maxNumberOfCheckpointsToRetain;
         this.checkpoints = checkpoints;

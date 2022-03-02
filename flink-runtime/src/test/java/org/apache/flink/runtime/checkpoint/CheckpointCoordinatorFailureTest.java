@@ -280,7 +280,7 @@ public class CheckpointCoordinatorFailureTest extends TestLogger {
         public FailingCompletedCheckpointStore(Exception addCheckpointFailure) {
             super(
                     SharedStateRegistry.DEFAULT_FACTORY.create(
-                            Executors.directExecutor(), emptyList()));
+                            Executors.directExecutor(), emptyList(), 1));
             this.addCheckpointFailure = addCheckpointFailure;
         }
 

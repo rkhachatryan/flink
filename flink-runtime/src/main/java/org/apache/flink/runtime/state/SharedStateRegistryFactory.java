@@ -34,5 +34,7 @@ public interface SharedStateRegistryFactory {
      * @return a SharedStateRegistry object
      */
     SharedStateRegistry create(
-            Executor deleteExecutor, Collection<CompletedCheckpoint> checkpoints);
+            Executor deleteExecutor,
+            Collection<CompletedCheckpoint> checkpoints,
+            int asyncDeletionBatchSize);
 }

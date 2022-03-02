@@ -397,7 +397,9 @@ public class DefaultCompletedCheckpointStoreTest extends TestLogger {
                 DefaultCompletedCheckpointStoreUtils.retrieveCompletedCheckpoints(
                         stateHandleStore, checkpointStoreUtil),
                 SharedStateRegistry.DEFAULT_FACTORY.create(
-                        org.apache.flink.util.concurrent.Executors.directExecutor(), emptyList()),
+                        org.apache.flink.util.concurrent.Executors.directExecutor(),
+                        emptyList(),
+                        1),
                 executorService);
     }
 

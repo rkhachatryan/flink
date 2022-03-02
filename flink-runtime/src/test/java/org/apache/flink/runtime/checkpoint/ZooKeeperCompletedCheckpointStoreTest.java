@@ -196,7 +196,8 @@ public class ZooKeeperCompletedCheckpointStoreTest extends TestLogger {
                 checkpointsInZooKeeper,
                 zooKeeperCheckpointStoreUtil,
                 Collections.emptyList(),
-                SharedStateRegistry.DEFAULT_FACTORY.create(Executors.directExecutor(), emptyList()),
+                SharedStateRegistry.DEFAULT_FACTORY.create(
+                        Executors.directExecutor(), emptyList(), 1),
                 Executors.directExecutor());
     }
 
