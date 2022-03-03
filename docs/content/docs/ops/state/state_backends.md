@@ -393,6 +393,11 @@ execution.checkpointing.max-concurrent-checkpoints: 1
 state.backend.local-recovery: false
 ```
 
+To avoid delays in checkpoints caused by spikes in state deletion after materialization, you'll probably want to:
+
+- increase 'execution.checkpointing.async-delete-batch-size' (default: 1)
+- increase 'jobmanager.io-pool.size' (default: number of cores)
+
 Please refer to the [configuration section]({{< ref "docs/deployment/config#state-changelog-options" >}}) for other options.
 
 Changelog can also be enabled or disabled per job programmatically:
