@@ -86,7 +86,8 @@ public class FsStateChangelogWriterSqnTest {
                         KeyGroupRange.of(0, 0),
                         StateChangeUploadScheduler.directScheduler(
                                 new TestingStateChangeUploader()),
-                        Long.MAX_VALUE)) {
+                        Long.MAX_VALUE,
+                        false)) {
             if (test.withAppend) {
                 append(writer);
             }

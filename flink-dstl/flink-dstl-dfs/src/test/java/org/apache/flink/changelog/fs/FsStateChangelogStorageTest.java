@@ -91,7 +91,7 @@ public class FsStateChangelogStorageTest extends StateChangelogStorageTest {
                             }
                         };
                 StateChangelogWriter<?> writer =
-                        new FsStateChangelogStorage(scheduler, 0 /* persist immediately */)
+                        new FsStateChangelogStorage(scheduler, 0, false /* persist immediately */)
                                 .createWriter(
                                         new OperatorID().toString(), KeyGroupRange.of(0, 0)); ) {
             // 1. start with 1-byte request - releasing only it will NOT allow proceeding in 3, but

@@ -92,6 +92,7 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
     private final KeyGroupRange keyGroupRange;
     private final StateChangeUploadScheduler uploader;
     private final long preEmptivePersistThresholdInBytes;
+    private final boolean preventDeadlock;
 
     /** Lock to synchronize handling of upload completion with new upload requests. */
     // todo: replace with mailbox executor (after FLINK-23204)
@@ -143,11 +144,13 @@ class FsStateChangelogWriter implements StateChangelogWriter<ChangelogStateHandl
             UUID logId,
             KeyGroupRange keyGroupRange,
             StateChangeUploadScheduler uploader,
-            long preEmptivePersistThresholdInBytes) {
+            long preEmptivePersistThresholdInBytes,
+            boolean preventDeadlock) {
         this.logId = logId;
         this.keyGroupRange = keyGroupRange;
         this.uploader = uploader;
         this.preEmptivePersistThresholdInBytes = preEmptivePersistThresholdInBytes;
+        this.preventDeadlock = preventDeadlock;
     }
 
     @Override

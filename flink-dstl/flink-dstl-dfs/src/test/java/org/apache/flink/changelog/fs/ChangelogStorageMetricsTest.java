@@ -146,7 +146,8 @@ public class ChangelogStorageMetricsTest {
                         new RetryingExecutor(1, metrics.getAttemptsPerUpload()),
                         metrics);
 
-        FsStateChangelogStorage storage = new FsStateChangelogStorage(batcher, Integer.MAX_VALUE);
+        FsStateChangelogStorage storage =
+                new FsStateChangelogStorage(batcher, Integer.MAX_VALUE, false);
         FsStateChangelogWriter[] writers = new FsStateChangelogWriter[numWriters];
         for (int i = 0; i < numWriters; i++) {
             writers[i] = storage.createWriter(Integer.toString(i), EMPTY_KEY_GROUP_RANGE);
@@ -189,7 +190,8 @@ public class ChangelogStorageMetricsTest {
                         new RetryingExecutor(1, metrics.getAttemptsPerUpload()),
                         metrics);
 
-        FsStateChangelogStorage storage = new FsStateChangelogStorage(batcher, Integer.MAX_VALUE);
+        FsStateChangelogStorage storage =
+                new FsStateChangelogStorage(batcher, Integer.MAX_VALUE, false);
         FsStateChangelogWriter writer = storage.createWriter("writer", EMPTY_KEY_GROUP_RANGE);
 
         try {
@@ -241,7 +243,7 @@ public class ChangelogStorageMetricsTest {
                         new RetryingExecutor(1, metrics.getAttemptsPerUpload()),
                         metrics);
         try (FsStateChangelogStorage storage =
-                new FsStateChangelogStorage(batcher, Long.MAX_VALUE)) {
+                new FsStateChangelogStorage(batcher, Long.MAX_VALUE, false)) {
             FsStateChangelogWriter writer = storage.createWriter("writer", EMPTY_KEY_GROUP_RANGE);
             int numUploads = 11;
             for (int i = 0; i < numUploads; i++) {

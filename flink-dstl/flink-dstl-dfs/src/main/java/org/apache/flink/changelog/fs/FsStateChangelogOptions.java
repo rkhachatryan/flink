@@ -137,4 +137,10 @@ public class FsStateChangelogOptions {
                     .defaultValue(Duration.ofMillis(500))
                     .withDescription(
                             "Delay before the next attempt (if the failure was not caused by a timeout).");
+
+    public static final ConfigOption<Boolean> PREVENT_DEADLOCK =
+            ConfigOptions.key("dstl.dfs.prevent-deadlock")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("DEBUG: wither to prevent deadlock in fs writer");
 }
