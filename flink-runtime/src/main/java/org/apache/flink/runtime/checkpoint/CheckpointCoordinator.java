@@ -524,6 +524,8 @@ public class CheckpointCoordinator {
                 preCheckGlobalState(request.isPeriodic);
             }
 
+            LOG.info("executor state at the start of triggering: {}", executor);
+
             // we will actually trigger this checkpoint!
             Preconditions.checkState(!isTriggering);
             isTriggering = true;
@@ -540,12 +542,14 @@ public class CheckpointCoordinator {
                     checkpointPlanFuture
                             .thenApplyAsync(
                                     plan -> {
+                                        long start = System.nanoTime();
                                         try {
                                             // this must happen outside the coordinator-wide lock,
                                             // because it communicates with external services
                                             // (in HA mode) and may block for a while.
                                             long checkpointID =
                                                     checkpointIdCounter.getAndIncrement();
+                                            LOG.info("checkpointID took: {} ms", (System.nanoTime() - start) / 1000000);
                                             return new Tuple2<>(plan, checkpointID);
                                         } catch (Throwable e) {
                                             throw new CompletionException(e);
@@ -568,12 +572,14 @@ public class CheckpointCoordinator {
                             .thenApplyAsync(
                                     pendingCheckpoint -> {
                                         try {
+                                            long start = System.nanoTime();
                                             CheckpointStorageLocation checkpointStorageLocation =
                                                     initializeCheckpointLocation(
                                                             pendingCheckpoint.getCheckpointID(),
                                                             request.props,
                                                             request.externalSavepointLocation,
                                                             initializeBaseLocations);
+                                            LOG.info("initializeCheckpointLocation took: {} ms", (System.nanoTime() - start) / 1000000);
                                             return Tuple2.of(
                                                     pendingCheckpoint, checkpointStorageLocation);
                                         } catch (Throwable e) {

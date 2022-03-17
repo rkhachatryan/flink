@@ -153,7 +153,7 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
             }
         }
 
-        LOG.trace("Discard {} state asynchronously", subsumed.size());
+        LOG.info("Discard {} state asynchronously", subsumed.size());
         for (StreamStateHandle handle : subsumed) {
             scheduleAsyncDelete(handle);
         }
@@ -236,7 +236,12 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
         @Override
         public void run() {
             try {
+                long start = System.nanoTime();
                 toDispose.discardState();
+                long duration = (System.nanoTime() - start) / 1000000;
+                if (duration > 2000) {
+                    LOG.info("AsyncDisposalRunnable took: {} ms", duration);
+                }
             } catch (Exception e) {
                 LOG.warn(
                         "A problem occurred during asynchronous disposal of a shared state object: {}",

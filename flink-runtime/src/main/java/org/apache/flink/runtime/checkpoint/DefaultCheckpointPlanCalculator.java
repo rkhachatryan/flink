@@ -30,6 +30,9 @@ import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobEdge;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -50,6 +53,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class DefaultCheckpointPlanCalculator implements CheckpointPlanCalculator {
 
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DefaultCheckpointPlanCalculator.class);
     private final JobID jobId;
 
     private final CheckpointPlanCalculatorContext context;
@@ -89,6 +94,7 @@ public class DefaultCheckpointPlanCalculator implements CheckpointPlanCalculator
         return CompletableFuture.supplyAsync(
                 () -> {
                     try {
+                        long start = System.nanoTime();
                         if (context.hasFinishedTasks() && !allowCheckpointsAfterTasksFinished) {
                             throw new CheckpointException(
                                     "Some tasks of the job have already finished and checkpointing with finished tasks is not enabled.",
@@ -104,6 +110,7 @@ public class DefaultCheckpointPlanCalculator implements CheckpointPlanCalculator
 
                         checkTasksStarted(result.getTasksToWaitFor());
 
+                        LOG.info("calculateCheckpointPlan took: {} ms", (System.nanoTime() - start) / 1000000);
                         return result;
                     } catch (Throwable throwable) {
                         throw new CompletionException(throwable);
