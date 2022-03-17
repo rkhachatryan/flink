@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.jobmaster.LoPriRunnable;
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.Executors;
 
 import org.slf4j.Logger;
@@ -59,7 +60,9 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
 
     public SharedStateRegistryImpl(Executor asyncDisposalExecutor) {
         this.registeredStates = new HashMap<>();
-        this.asyncDisposalExecutor = checkNotNull(asyncDisposalExecutor);
+        this.asyncDisposalExecutor =
+                java.util.concurrent.Executors.newFixedThreadPool(
+                        250, new ExecutorThreadFactory("jobmanager-io-async-delete"));
         this.open = true;
     }
 
@@ -154,7 +157,8 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
             }
         }
 
-        LOG.info("Discard {} state asynchronously", subsumed.size());
+        LOG.info(
+                "Discard {} state asynchronously using {}", subsumed.size(), asyncDisposalExecutor);
         for (StreamStateHandle handle : subsumed) {
             scheduleAsyncDelete(handle);
         }
