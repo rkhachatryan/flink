@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.jobmaster.LoPriRunnable;
 import org.apache.flink.util.concurrent.Executors;
 
 import org.slf4j.Logger;
@@ -225,7 +226,7 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
     }
 
     /** Encapsulates the operation the delete state handles asynchronously. */
-    private static final class AsyncDisposalRunnable implements Runnable {
+    private static final class AsyncDisposalRunnable implements LoPriRunnable {
 
         private final StateObject toDispose;
 

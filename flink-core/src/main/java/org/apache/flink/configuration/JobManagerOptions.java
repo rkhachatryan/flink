@@ -381,6 +381,9 @@ public class JobManagerOptions {
         Documentation.Sections.EXPERT_JOB_MANAGER,
         Documentation.Sections.ALL_JOB_MANAGER
     })
+    public static final ConfigOption<Integer> JOB_MANAGER_IO_POOL_QUEUE_THRESHOLD =
+            key("jobmanager.io-pool.queue-threshold").intType().noDefaultValue();
+
     public static final ConfigOption<Integer> JOB_MANAGER_IO_POOL_SIZE =
             key("jobmanager.io-pool.size")
                     .intType()
