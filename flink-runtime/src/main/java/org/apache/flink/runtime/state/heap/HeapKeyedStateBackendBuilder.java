@@ -25,10 +25,15 @@ import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackendBuilder;
 import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyedBackendSerializationProxy;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.RestoreOperation;
 import org.apache.flink.runtime.state.SavepointKeyedStateHandle;
+import org.apache.flink.runtime.state.SnapshotResources;
+import org.apache.flink.runtime.state.SnapshotStrategy;
+import org.apache.flink.runtime.state.StateSerializerProvider;
+import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.metrics.LatencyTrackingStateConfig;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
@@ -38,6 +43,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.apache.flink.runtime.state.SnapshotExecutionType.ASYNCHRONOUS;
 import static org.apache.flink.runtime.state.SnapshotExecutionType.SYNCHRONOUS;
@@ -56,6 +62,12 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
     /** Whether asynchronous snapshot is enabled. */
     private final boolean asynchronousSnapshots;
 
+    private final SnapshotStrategyFactory<K> snapshotStrategyFactory;
+    private final StateTableFactory<K> stateTableFactory;
+    private final HeapRestoreOperation.KeyGroupReaderFactory keyGroupReaderFactory;
+    private final Function<ClassLoader, KeyedBackendSerializationProxy<K>>
+            serializationProxyProvider;
+
     public HeapKeyedStateBackendBuilder(
             TaskKvStateRegistry kvStateRegistry,
             TypeSerializer<K> keySerializer,
@@ -71,6 +83,55 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
             HeapPriorityQueueSetFactory priorityQueueSetFactory,
             boolean asynchronousSnapshots,
             CloseableRegistry cancelStreamRegistry) {
+        this(
+                kvStateRegistry,
+                keySerializer,
+                userCodeClassLoader,
+                numberOfKeyGroups,
+                keyGroupRange,
+                executionConfig,
+                ttlTimeProvider,
+                latencyTrackingStateConfig,
+                stateHandles,
+                keyGroupCompressionDecorator,
+                localRecoveryConfig,
+                priorityQueueSetFactory,
+                asynchronousSnapshots,
+                cancelStreamRegistry,
+                (kvStates, pqStates, keySerializerProvider) ->
+                        new HeapSnapshotStrategy<>(
+                                kvStates,
+                                pqStates,
+                                keyGroupCompressionDecorator,
+                                localRecoveryConfig,
+                                keyGroupRange,
+                                keySerializerProvider,
+                                numberOfKeyGroups,
+                                StateSnapshotWriter.DEFAULT),
+                CopyOnWriteStateTable::new,
+                StateSnapshotRestore::keyGroupReader,
+                KeyedBackendSerializationProxy::new);
+    }
+
+    public HeapKeyedStateBackendBuilder(
+            TaskKvStateRegistry kvStateRegistry,
+            TypeSerializer<K> keySerializer,
+            ClassLoader userCodeClassLoader,
+            int numberOfKeyGroups,
+            KeyGroupRange keyGroupRange,
+            ExecutionConfig executionConfig,
+            TtlTimeProvider ttlTimeProvider,
+            LatencyTrackingStateConfig latencyTrackingStateConfig,
+            @Nonnull Collection<KeyedStateHandle> stateHandles,
+            StreamCompressionDecorator keyGroupCompressionDecorator,
+            LocalRecoveryConfig localRecoveryConfig,
+            HeapPriorityQueueSetFactory priorityQueueSetFactory,
+            boolean asynchronousSnapshots,
+            CloseableRegistry cancelStreamRegistry,
+            SnapshotStrategyFactory<K> snapshotStrategyFactory,
+            StateTableFactory<K> stateTableFactory,
+            HeapRestoreOperation.KeyGroupReaderFactory keyGroupReaderFactory,
+            Function<ClassLoader, KeyedBackendSerializationProxy<K>> serializationProxyProvider) {
         super(
                 kvStateRegistry,
                 keySerializer,
@@ -86,6 +147,10 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
         this.localRecoveryConfig = localRecoveryConfig;
         this.priorityQueueSetFactory = priorityQueueSetFactory;
         this.asynchronousSnapshots = asynchronousSnapshots;
+        this.snapshotStrategyFactory = snapshotStrategyFactory;
+        this.stateTableFactory = stateTableFactory;
+        this.keyGroupReaderFactory = keyGroupReaderFactory;
+        this.serializationProxyProvider = serializationProxyProvider;
     }
 
     @Override
@@ -96,12 +161,11 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
         Map<String, HeapPriorityQueueSnapshotRestoreWrapper<?>> registeredPQStates =
                 new HashMap<>();
         CloseableRegistry cancelStreamRegistryForBackend = new CloseableRegistry();
-        HeapSnapshotStrategy<K> snapshotStrategy =
-                initSnapshotStrategy(registeredKVStates, registeredPQStates);
+        SnapshotStrategy<KeyedStateHandle, ?> snapshotStrategy =
+                snapshotStrategyFactory.initSnapshotStrategy(
+                        registeredKVStates, registeredPQStates, keySerializerProvider);
         InternalKeyContext<K> keyContext =
                 new InternalKeyContextImpl<>(keyGroupRange, numberOfKeyGroups);
-
-        final StateTableFactory<K> stateTableFactory = CopyOnWriteStateTable::new;
 
         restoreState(registeredKVStates, registeredPQStates, keyContext, stateTableFactory);
         return new HeapKeyedStateBackend<>(
@@ -163,7 +227,9 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
                             keyGroupRange,
                             numberOfKeyGroups,
                             stateTableFactory,
-                            keyContext);
+                            keyContext,
+                            keyGroupReaderFactory,
+                            serializationProxyProvider);
         }
         try {
             restoreOperation.restore();
@@ -173,16 +239,10 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
         }
     }
 
-    private HeapSnapshotStrategy<K> initSnapshotStrategy(
-            Map<String, StateTable<K, ?, ?>> registeredKVStates,
-            Map<String, HeapPriorityQueueSnapshotRestoreWrapper<?>> registeredPQStates) {
-        return new HeapSnapshotStrategy<>(
-                registeredKVStates,
-                registeredPQStates,
-                keyGroupCompressionDecorator,
-                localRecoveryConfig,
-                keyGroupRange,
-                keySerializerProvider,
-                numberOfKeyGroups);
+    public interface SnapshotStrategyFactory<K> {
+        SnapshotStrategy<KeyedStateHandle, ? extends SnapshotResources> initSnapshotStrategy(
+                Map<String, StateTable<K, ?, ?>> registeredKVStates,
+                Map<String, HeapPriorityQueueSnapshotRestoreWrapper<?>> registeredPQStates,
+                StateSerializerProvider<K> stateSerializerProvider);
     }
 }
