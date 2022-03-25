@@ -102,6 +102,13 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-statebackend-heap-incremental</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
 		<!-- Other 3rd party dependencies (included in the uber) -->
 
 		<dependency>

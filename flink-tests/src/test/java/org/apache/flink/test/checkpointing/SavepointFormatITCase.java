@@ -86,11 +86,13 @@ public class SavepointFormatITCase {
             for (boolean incremental : new boolean[] {true, false}) {
                 for (boolean changelog : new boolean[] {true, false}) {
                     for (SavepointFormatType formatType : SavepointFormatType.values()) {
-                        if (changelog && formatType == SavepointFormatType.NATIVE) {
+                        StateBackendConfig config = builder.apply(incremental, changelog);
+                        if ((config.getName().equals("HEAP") || changelog)
+                                && formatType == SavepointFormatType.NATIVE) {
                             // not supported
                             continue;
                         }
-                        result.add(Arguments.of(formatType, builder.apply(incremental, changelog)));
+                        result.add(Arguments.of(formatType, config));
                     }
                 }
             }

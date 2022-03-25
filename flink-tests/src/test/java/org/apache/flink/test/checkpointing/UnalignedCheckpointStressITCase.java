@@ -155,7 +155,8 @@ public class UnalignedCheckpointStressITCase extends TestLogger {
         while (deadline.hasTimeLeft()) {
             externalizedCheckpoint =
                     Optional.of(runAndTakeExternalCheckpoint(externalizedCheckpoint));
-            cleanDirectoryExcept(externalizedCheckpoint.get());
+            // don't discard shared state of incremental checkpoints
+            // cleanDirectoryExcept(externalizedCheckpoint.get());
         }
     }
 

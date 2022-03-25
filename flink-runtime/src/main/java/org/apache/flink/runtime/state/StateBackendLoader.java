@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.configuration.StateBackendOptions;
 import org.apache.flink.configuration.StateChangelogOptions;
 import org.apache.flink.runtime.state.delegate.DelegatingStateBackend;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackendFactory;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
@@ -40,7 +41,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -74,6 +78,14 @@ public class StateBackendLoader {
 
     /** The shortcut configuration name for the RocksDB State Backend. */
     public static final String ROCKSDB_STATE_BACKEND_NAME = "rocksdb";
+
+    @SuppressWarnings("deprecation")
+    private static final Set<Class<?>> HASHMAP_BACKEND_CLASSES =
+            new HashSet<>(
+                    Arrays.asList(
+                            HashMapStateBackend.class,
+                            FsStateBackend.class,
+                            MemoryStateBackend.class));
 
     // ------------------------------------------------------------------------
     //  Loading the state backend from a configuration
@@ -144,8 +156,13 @@ public class StateBackendLoader {
                 // fall through and use the HashMapStateBackend instead which
                 // utilizes the same HeapKeyedStateBackend runtime implementation.
             case HASHMAP_STATE_BACKEND_NAME:
-                HashMapStateBackend hashMapStateBackend =
-                        new HashMapStateBackendFactory().createFromConfig(config, classLoader);
+                StateBackend hashMapStateBackend =
+                        replaceHeapWithIncremental(
+                                config,
+                                classLoader,
+                                logger,
+                                new HashMapStateBackendFactory()
+                                        .createFromConfig(config, classLoader));
                 if (logger != null) {
                     logger.info("State backend is set to heap memory {}", hashMapStateBackend);
                 }
@@ -158,34 +175,43 @@ public class StateBackendLoader {
                 // that way we can keep RocksDB in a separate module
 
             default:
-                if (logger != null) {
-                    logger.info("Loading state backend via factory {}", factoryClassName);
-                }
-
-                StateBackendFactory<?> factory;
-                try {
-                    @SuppressWarnings("rawtypes")
-                    Class<? extends StateBackendFactory> clazz =
-                            Class.forName(factoryClassName, false, classLoader)
-                                    .asSubclass(StateBackendFactory.class);
-
-                    factory = clazz.newInstance();
-                } catch (ClassNotFoundException e) {
-                    throw new DynamicCodeLoadingException(
-                            "Cannot find configured state backend factory class: " + backendName,
-                            e);
-                } catch (ClassCastException | InstantiationException | IllegalAccessException e) {
-                    throw new DynamicCodeLoadingException(
-                            "The class configured under '"
-                                    + StateBackendOptions.STATE_BACKEND.key()
-                                    + "' is not a valid state backend factory ("
-                                    + backendName
-                                    + ')',
-                            e);
-                }
-
-                return factory.createFromConfig(config, classLoader);
+                return loadWithFactory(factoryClassName, classLoader, config, backendName, logger);
         }
+    }
+
+    private static StateBackend loadWithFactory(
+            String factoryClassName,
+            ClassLoader classLoader,
+            ReadableConfig config,
+            String backendName,
+            @Nullable Logger logger)
+            throws DynamicCodeLoadingException, IOException {
+        if (logger != null) {
+            logger.info("Loading state backend via factory {}", factoryClassName);
+        }
+
+        StateBackendFactory<?> factory;
+        try {
+            @SuppressWarnings("rawtypes")
+            Class<? extends StateBackendFactory> clazz =
+                    Class.forName(factoryClassName, false, classLoader)
+                            .asSubclass(StateBackendFactory.class);
+
+            factory = clazz.newInstance();
+        } catch (ClassNotFoundException e) {
+            throw new DynamicCodeLoadingException(
+                    "Cannot find configured state backend factory class: " + backendName, e);
+        } catch (ClassCastException | InstantiationException | IllegalAccessException e) {
+            throw new DynamicCodeLoadingException(
+                    "The class configured under '"
+                            + StateBackendOptions.STATE_BACKEND.key()
+                            + "' is not a valid state backend factory ("
+                            + backendName
+                            + ')',
+                    e);
+        }
+
+        return factory.createFromConfig(config, classLoader);
     }
 
     /**
@@ -261,7 +287,7 @@ public class StateBackendLoader {
             }
         }
 
-        return backend;
+        return replaceHeapWithIncremental(config, classLoader, logger, backend);
     }
 
     /**
@@ -385,4 +411,32 @@ public class StateBackendLoader {
 
     /** This class is not meant to be instantiated. */
     private StateBackendLoader() {}
+
+    private static StateBackend replaceHeapWithIncremental(
+            ReadableConfig config,
+            ClassLoader classLoader,
+            @Nullable Logger logger,
+            StateBackend backend)
+            throws IOException {
+        // check instance of explicitly to avoid matching test subclasses
+        if (HASHMAP_BACKEND_CLASSES.contains(backend.getClass())) {
+            if (logger != null) {
+                logger.info("try to load incremental heap state backend");
+            }
+            try {
+                return loadWithFactory(
+                        "org.apache.flink.state.hashmap.IncrementalHashMapStateBackendFactory",
+                        classLoader,
+                        config,
+                        "org.apache.flink.state.hashmap.IncrementalHashMapStateBackendFactory",
+                        logger);
+            } catch (DynamicCodeLoadingException e) {
+                if (logger != null) {
+                    logger.debug(
+                            "unable to load incremental heap state backend: " + e.getMessage());
+                }
+            }
+        }
+        return backend;
+    }
 }
