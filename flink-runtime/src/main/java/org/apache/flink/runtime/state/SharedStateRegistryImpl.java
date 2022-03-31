@@ -157,6 +157,10 @@ public class SharedStateRegistryImpl implements SharedStateRegistry {
         for (StreamStateHandle handle : subsumed) {
             scheduleAsyncDelete(handle);
         }
+        LOG.info(
+                "io pool state, end of unregisterUnusedState, scheduled: {}, {}",
+                subsumed.size(),
+                asyncDisposalExecutor);
     }
 
     @Override

@@ -519,6 +519,7 @@ public class CheckpointCoordinator {
     }
 
     private void startTriggeringCheckpoint(CheckpointTriggerRequest request) {
+        LOG.info("io pool state, very start of startTriggeringCheckpoint: {}", this.executor);
         try {
             synchronized (lock) {
                 preCheckGlobalState(request.isPeriodic);
@@ -540,6 +541,7 @@ public class CheckpointCoordinator {
                     checkpointPlanFuture
                             .thenApplyAsync(
                                     plan -> {
+                                        LOG.info("io pool state, generating checkpoint ID: {}", executor);
                                         try {
                                             // this must happen outside the coordinator-wide lock,
                                             // because it communicates with external services
@@ -756,6 +758,7 @@ public class CheckpointCoordinator {
             @Nullable String externalSavepointLocation,
             boolean initializeBaseLocations)
             throws Exception {
+        LOG.info("io pool state, start of initializeCheckpointLocation: {}", executor);
         final CheckpointStorageLocation checkpointStorageLocation;
         if (props.isSavepoint()) {
             checkpointStorageLocation =
@@ -779,6 +782,7 @@ public class CheckpointCoordinator {
             boolean isPeriodic,
             long checkpointID,
             CompletableFuture<CompletedCheckpoint> onCompletionPromise) {
+        LOG.info("io pool state, start of createPendingCheckpoint: {}", executor);
 
         synchronized (lock) {
             try {
