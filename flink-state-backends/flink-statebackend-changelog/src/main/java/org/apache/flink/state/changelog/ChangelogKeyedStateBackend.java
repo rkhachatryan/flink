@@ -407,8 +407,12 @@ public class ChangelogKeyedStateBackend<K>
                                         metrics.reportSnapshotResult(snapshotResult))
                         .thenApply(
                                 snapshotResult ->
-                                        SnapshotResult.of(
-                                                snapshotResult.getJobManagerOwnedSnapshot())));
+                                        snapshotResult.getTaskLocalSnapshot() == null
+                                                ? SnapshotResult.of(
+                                                        snapshotResult.getJobManagerOwnedSnapshot())
+                                                : SnapshotResult.withLocalState(
+                                                        snapshotResult.getJobManagerOwnedSnapshot(),
+                                                        snapshotResult.getTaskLocalSnapshot())));
     }
 
     private SnapshotResult<ChangelogStateBackendHandle> buildSnapshotResult(
@@ -428,6 +432,26 @@ public class ChangelogKeyedStateBackend<K>
         if (prevDeltaCopy.isEmpty()
                 && changelogStateBackendStateCopy.getMaterializedSnapshot().isEmpty()) {
             return SnapshotResult.empty();
+        } else if (!changelogStateBackendStateCopy.getLocalMaterializedSnapshot().isEmpty()) {
+            return SnapshotResult.withLocalState(
+                    new ChangelogStateBackendHandleImpl(
+                            changelogStateBackendStateCopy.getMaterializedSnapshot(),
+                            prevDeltaCopy,
+                            getKeyGroupRange(),
+                            checkpointId,
+                            changelogStateBackendStateCopy.materializationID,
+                            persistedSizeOfThisCheckpoint),
+                    new ChangelogStateBackendHandleImpl(
+                            changelogStateBackendStateCopy.getLocalMaterializedSnapshot(),
+                            // TODO: Restore ChangelogStateHandles from remote temporarily, because
+                            // ChangelogStateHandles are small(about 10MB).
+                            //  In the future, the double-stream option may be implemented according
+                            // to the test results.
+                            prevDeltaCopy,
+                            getKeyGroupRange(),
+                            checkpointId,
+                            changelogStateBackendStateCopy.materializationID,
+                            persistedSizeOfThisCheckpoint));
         } else {
             return SnapshotResult.of(
                     new ChangelogStateBackendHandleImpl(
@@ -621,6 +645,7 @@ public class ChangelogKeyedStateBackend<K>
 
         return new ChangelogSnapshotState(
                 materialized,
+                Collections.emptyList(),
                 restoredNonMaterialized,
                 stateChangelogWriter.initialSequenceNumber(),
                 materializationId);
@@ -695,6 +720,7 @@ public class ChangelogKeyedStateBackend<K>
         changelogSnapshotState =
                 new ChangelogSnapshotState(
                         getMaterializedResult(materializedSnapshot),
+                        getLocalMaterializedResult(materializedSnapshot),
                         Collections.emptyList(),
                         upTo,
                         materializationID);
@@ -706,6 +732,12 @@ public class ChangelogKeyedStateBackend<K>
             @Nonnull SnapshotResult<KeyedStateHandle> materializedSnapshot) {
         KeyedStateHandle jobManagerOwned = materializedSnapshot.getJobManagerOwnedSnapshot();
         return jobManagerOwned == null ? emptyList() : singletonList(jobManagerOwned);
+    }
+
+    private List<KeyedStateHandle> getLocalMaterializedResult(
+            @Nonnull SnapshotResult<KeyedStateHandle> materializedSnapshot) {
+        KeyedStateHandle taskLocalSnapshot = materializedSnapshot.getTaskLocalSnapshot();
+        return taskLocalSnapshot == null ? emptyList() : singletonList(taskLocalSnapshot);
     }
 
     @Override
@@ -804,6 +836,9 @@ public class ChangelogKeyedStateBackend<K>
          */
         private final List<KeyedStateHandle> materializedSnapshot;
 
+        /** Materialized snapshot from the underlying delegated state backend for local recovery. */
+        private final List<KeyedStateHandle> localMaterializedSnapshot;
+
         /**
          * The {@link SequenceNumber} up to which the state is materialized, exclusive. This
          * indicates the non-materialized part of the current changelog.
@@ -821,10 +856,12 @@ public class ChangelogKeyedStateBackend<K>
 
         public ChangelogSnapshotState(
                 List<KeyedStateHandle> materializedSnapshot,
+                List<KeyedStateHandle> localMaterializedSnapshot,
                 List<ChangelogStateHandle> restoredNonMaterialized,
                 SequenceNumber materializedTo,
                 long materializationID) {
             this.materializedSnapshot = unmodifiableList((materializedSnapshot));
+            this.localMaterializedSnapshot = unmodifiableList(localMaterializedSnapshot);
             this.restoredNonMaterialized = unmodifiableList(restoredNonMaterialized);
             this.materializedTo = materializedTo;
             this.materializationID = materializationID;
@@ -832,6 +869,10 @@ public class ChangelogKeyedStateBackend<K>
 
         public List<KeyedStateHandle> getMaterializedSnapshot() {
             return materializedSnapshot;
+        }
+
+        public List<KeyedStateHandle> getLocalMaterializedSnapshot() {
+            return localMaterializedSnapshot;
         }
 
         public SequenceNumber lastMaterializedTo() {

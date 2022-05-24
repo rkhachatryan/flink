@@ -131,10 +131,12 @@ import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkExpectedException;
+import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -685,13 +687,27 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                     jobManagerConnection.getClassLoaderHandle();
             PartitionProducerStateChecker partitionStateChecker =
                     jobManagerConnection.getPartitionStateChecker();
+            TernaryBoolean changelogEnabled = TernaryBoolean.FALSE;
+            try {
+                changelogEnabled =
+                        InstantiationUtil.readObjectFromConfig(
+                                taskInformation.getTaskConfiguration(),
+                                "enablechangelog",
+                                getClass().getClassLoader());
+            } catch (Exception ex) {
+                log.warn("Could not deserialize changelog config:{}.", ex.getMessage());
+            }
+            if (changelogEnabled == null) {
+                changelogEnabled = TernaryBoolean.FALSE;
+            }
 
             final TaskLocalStateStore localStateStore =
                     localStateStoresManager.localStateStoreForSubtask(
                             jobId,
                             tdd.getAllocationId(),
                             taskInformation.getJobVertexId(),
-                            tdd.getSubtaskIndex());
+                            tdd.getSubtaskIndex(),
+                            changelogEnabled.getOrDefault(false));
 
             // TODO: Pass config value from user program and do overriding here.
             final StateChangelogStorage<?> changelogStorage;

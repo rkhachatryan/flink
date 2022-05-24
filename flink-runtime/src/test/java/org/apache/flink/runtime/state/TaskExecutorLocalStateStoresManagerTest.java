@@ -166,7 +166,7 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         TaskLocalStateStore taskLocalStateStore =
                 storesManager.localStateStoreForSubtask(
-                        jobID, allocationID, jobVertexID, subtaskIdx);
+                        jobID, allocationID, jobVertexID, subtaskIdx, false);
 
         Assert.assertFalse(taskLocalStateStore.getLocalRecoveryConfig().isLocalRecoveryEnabled());
         Assert.assertNull(
@@ -202,7 +202,7 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         TaskLocalStateStore taskLocalStateStore =
                 storesManager.localStateStoreForSubtask(
-                        jobID, allocationID, jobVertexID, subtaskIdx);
+                        jobID, allocationID, jobVertexID, subtaskIdx, false);
 
         LocalRecoveryDirectoryProvider directoryProvider =
                 taskLocalStateStore
@@ -258,7 +258,7 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         taskLocalStateStore =
                 storesManager.localStateStoreForSubtask(
-                        jobID, otherAllocationID, jobVertexID, subtaskIdx);
+                        jobID, otherAllocationID, jobVertexID, subtaskIdx, false);
 
         directoryProvider =
                 taskLocalStateStore
@@ -338,9 +338,9 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         // register local state stores
         taskExecutorLocalStateStoresManager.localStateStoreForSubtask(
-                jobId, retainedAllocationId, jobVertexId, 0);
+                jobId, retainedAllocationId, jobVertexId, 0, false);
         taskExecutorLocalStateStoresManager.localStateStoreForSubtask(
-                jobId, otherAllocationId, jobVertexId, 1);
+                jobId, otherAllocationId, jobVertexId, 1, false);
 
         final Collection<Path> allocationDirectories =
                 TaskExecutorLocalStateStoresManager.listAllocationDirectoriesIn(localStateStore);
