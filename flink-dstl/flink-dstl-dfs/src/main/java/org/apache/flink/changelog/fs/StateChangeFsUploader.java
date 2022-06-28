@@ -18,6 +18,7 @@
 package org.apache.flink.changelog.fs;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.changelog.fs.StateChangeUploadScheduler.UploadTask;
 import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.fs.FileSystem;
@@ -54,6 +55,8 @@ import static org.apache.flink.core.fs.FileSystem.WriteMode.NO_OVERWRITE;
 public class StateChangeFsUploader implements StateChangeUploader {
     private static final Logger LOG = LoggerFactory.getLogger(StateChangeFsUploader.class);
 
+    private static final String DSTL_SUB_PATH = "%s/dstl";
+
     private final Path basePath;
     private final FileSystem fileSystem;
     private final StateChangeFormat format;
@@ -66,6 +69,7 @@ public class StateChangeFsUploader implements StateChangeUploader {
 
     @VisibleForTesting
     public StateChangeFsUploader(
+            JobID jobID,
             Path basePath,
             FileSystem fileSystem,
             boolean compression,
@@ -73,6 +77,7 @@ public class StateChangeFsUploader implements StateChangeUploader {
             ChangelogStorageMetricGroup metrics,
             TaskChangelogRegistry changelogRegistry) {
         this(
+                jobID,
                 basePath,
                 fileSystem,
                 compression,
@@ -83,6 +88,7 @@ public class StateChangeFsUploader implements StateChangeUploader {
     }
 
     public StateChangeFsUploader(
+            JobID jobID,
             Path basePath,
             FileSystem fileSystem,
             boolean compression,
@@ -90,7 +96,7 @@ public class StateChangeFsUploader implements StateChangeUploader {
             ChangelogStorageMetricGroup metrics,
             TaskChangelogRegistry changelogRegistry,
             BiFunction<Path, Long, StreamStateHandle> handleFactory) {
-        this.basePath = basePath;
+        this.basePath = new Path(basePath, String.format(DSTL_SUB_PATH, jobID.toString()));
         this.fileSystem = fileSystem;
         this.format = new StateChangeFormat();
         this.compression = compression;
