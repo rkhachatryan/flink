@@ -96,7 +96,7 @@ public class StateChangeFsUploader implements StateChangeUploader {
             ChangelogStorageMetricGroup metrics,
             TaskChangelogRegistry changelogRegistry,
             BiFunction<Path, Long, StreamStateHandle> handleFactory) {
-        this.basePath = new Path(basePath, String.format(DSTL_SUB_PATH, jobID.toString()));
+        this.basePath = new Path(basePath, String.format(DSTL_SUB_PATH, jobID.toHexString()));
         this.fileSystem = fileSystem;
         this.format = new StateChangeFormat();
         this.compression = compression;
@@ -105,6 +105,11 @@ public class StateChangeFsUploader implements StateChangeUploader {
         this.clock = SystemClock.getInstance();
         this.changelogRegistry = changelogRegistry;
         this.handleFactory = handleFactory;
+    }
+
+    @VisibleForTesting
+    public Path getBasePath() {
+        return this.basePath;
     }
 
     public UploadTasksResult upload(Collection<UploadTask> tasks) throws IOException {
