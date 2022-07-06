@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 
 import static org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups.createUnregisteredTaskManagerJobMetricGroup;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** {@link StateChangeFsUploader} test. */
 class StateChangeFsUploaderTest {
@@ -34,7 +34,8 @@ class StateChangeFsUploaderTest {
     @Test
     void testBasePath() throws IOException {
         JobID jobID = JobID.generate();
-        Path oriBasePath = new Path("file:///dstl-base-path");
+        String rootPath = "/dstl-root-path";
+        Path oriBasePath = new Path(rootPath);
 
         ChangelogStorageMetricGroup metrics =
                 new ChangelogStorageMetricGroup(createUnregisteredTaskManagerJobMetricGroup());
@@ -49,10 +50,10 @@ class StateChangeFsUploaderTest {
                         metrics,
                         TaskChangelogRegistry.NO_OP);
 
-        Path basePath = uploader.getBasePath();
-
-        assertThat(basePath.getName()).isEqualTo("dstl");
-        assertThat(basePath.getParent().getName()).isEqualTo(jobID.toHexString());
-        assertThat(basePath.getParent().getParent()).isEqualTo(oriBasePath);
+        assertEquals(
+                uploader.getBasePath().getPath(),
+                String.format(
+                        "%s/%s/%s",
+                        rootPath, jobID.toHexString(), StateChangeFsUploader.PATH_SUB_DIR));
     }
 }

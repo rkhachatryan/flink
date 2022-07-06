@@ -55,7 +55,7 @@ import static org.apache.flink.core.fs.FileSystem.WriteMode.NO_OVERWRITE;
 public class StateChangeFsUploader implements StateChangeUploader {
     private static final Logger LOG = LoggerFactory.getLogger(StateChangeFsUploader.class);
 
-    private static final String DSTL_SUB_PATH = "%s/dstl";
+    @VisibleForTesting public static final String PATH_SUB_DIR = "dstl";
 
     private final Path basePath;
     private final FileSystem fileSystem;
@@ -96,7 +96,8 @@ public class StateChangeFsUploader implements StateChangeUploader {
             ChangelogStorageMetricGroup metrics,
             TaskChangelogRegistry changelogRegistry,
             BiFunction<Path, Long, StreamStateHandle> handleFactory) {
-        this.basePath = new Path(basePath, String.format(DSTL_SUB_PATH, jobID.toHexString()));
+        this.basePath =
+                new Path(basePath, String.format("%s/%s", jobID.toHexString(), PATH_SUB_DIR));
         this.fileSystem = fileSystem;
         this.format = new StateChangeFormat();
         this.compression = compression;
