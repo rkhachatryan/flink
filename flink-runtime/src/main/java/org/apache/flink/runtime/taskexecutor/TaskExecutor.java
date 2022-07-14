@@ -22,6 +22,8 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
+import org.apache.flink.configuration.StateChangelogOptions;
+import org.apache.flink.configuration.StateChangelogOptionsInternal;
 import org.apache.flink.management.jmx.JMXService;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.JobPermanentBlobService;
@@ -131,12 +133,10 @@ import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.FlinkExpectedException;
-import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
-import org.apache.flink.util.TernaryBoolean;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -687,19 +687,18 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                     jobManagerConnection.getClassLoaderHandle();
             PartitionProducerStateChecker partitionStateChecker =
                     jobManagerConnection.getPartitionStateChecker();
-            TernaryBoolean changelogEnabled = TernaryBoolean.FALSE;
-            try {
-                changelogEnabled =
-                        InstantiationUtil.readObjectFromConfig(
-                                taskInformation.getTaskConfiguration(),
-                                "enablechangelog",
-                                getClass().getClassLoader());
-            } catch (Exception ex) {
-                log.warn("Could not deserialize changelog config:{}.", ex.getMessage());
-            }
-            if (changelogEnabled == null) {
-                changelogEnabled = TernaryBoolean.FALSE;
-            }
+
+            // Configuration from application will override the one from env.
+            boolean envChangelogEnabled =
+                    taskManagerConfiguration
+                            .getConfiguration()
+                            .getBoolean(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG);
+            boolean changelogEnabled =
+                    jobInformation
+                            .getJobConfiguration()
+                            .getOptional(
+                                    StateChangelogOptionsInternal.ENABLE_CHANGE_LOG_FOR_APPLICATION)
+                            .orElse(envChangelogEnabled);
 
             final TaskLocalStateStore localStateStore =
                     localStateStoresManager.localStateStoreForSubtask(
@@ -707,7 +706,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                             tdd.getAllocationId(),
                             taskInformation.getJobVertexId(),
                             tdd.getSubtaskIndex(),
-                            changelogEnabled.getOrDefault(false));
+                            changelogEnabled);
 
             // TODO: Pass config value from user program and do overriding here.
             final StateChangelogStorage<?> changelogStorage;

@@ -22,17 +22,17 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.StateHandleID;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.util.List;
 
+/**
+ * State handle for local copies of {@link ChangelogStateHandleStreamImpl}. Consists of a
+ * remoteHandle that maintains the mapping of local handle and remote handle, like
+ * sharedStateHandleIDs in {@link org.apache.flink.runtime.state.IncrementalLocalKeyedStateHandle}.
+ */
 public class ChangelogStateBackendLocalHandle implements ChangelogStateBackendHandle {
     private static final long serialVersionUID = 1L;
-    private static final Logger LOG =
-            LoggerFactory.getLogger(ChangelogStateBackendLocalHandle.class);
     private final List<KeyedStateHandle> localMaterialized;
     private final List<ChangelogStateHandle> localNonMaterialized;
     private final ChangelogStateBackendHandleImpl remoteHandle;
@@ -63,7 +63,7 @@ public class ChangelogStateBackendLocalHandle implements ChangelogStateBackendHa
 
     @Override
     public ChangelogStateBackendHandle rebound(long checkpointId) {
-        return remoteHandle.rebound(checkpointId);
+        throw new UnsupportedOperationException("Should not call here.");
     }
 
     public List<KeyedStateHandle> getRemoteMaterializedStateHandles() {
