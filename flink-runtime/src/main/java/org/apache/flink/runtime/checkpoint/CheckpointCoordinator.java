@@ -1362,10 +1362,26 @@ public class CheckpointCoordinator {
             // abort the current pending checkpoint if we fails to finalize the pending
             // checkpoint.
             if (!pendingCheckpoint.isDisposed()) {
-                abortPendingCheckpoint(
-                        pendingCheckpoint,
-                        new CheckpointException(
-                                CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, e1));
+                if (e1 instanceof FlinkRuntimeException) {
+                    abortPendingCheckpoint(
+                            pendingCheckpoint,
+                            new CheckpointException(
+                                    CheckpointFailureReason
+                                            .CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING,
+                                    e1));
+
+                    throw new CheckpointException(
+                            "Aborted checkpoint due to part of the tasks have finished "
+                                    + pendingCheckpoint.getCheckpointID()
+                                    + '.',
+                            CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING,
+                            e1);
+                } else {
+                    abortPendingCheckpoint(
+                            pendingCheckpoint,
+                            new CheckpointException(
+                                    CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, e1));
+                }
             }
 
             throw new CheckpointException(
