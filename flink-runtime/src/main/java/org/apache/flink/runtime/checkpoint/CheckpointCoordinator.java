@@ -1364,7 +1364,7 @@ public class CheckpointCoordinator {
             // checkpoint.
             final CheckpointFailureReason failureReason =
                     e1 instanceof PartialFinishingNotSupportedByStateException
-                            ? CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING
+                            ? CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_CLOSING
                             : CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE;
             if (!pendingCheckpoint.isDisposed()) {
                 abortPendingCheckpoint(
