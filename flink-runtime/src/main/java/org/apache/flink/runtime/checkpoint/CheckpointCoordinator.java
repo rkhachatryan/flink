@@ -1361,34 +1361,20 @@ public class CheckpointCoordinator {
         } catch (Exception e1) {
             // abort the current pending checkpoint if we fails to finalize the pending
             // checkpoint.
+            final CheckpointFailureReason failureReason =
+                    e1 instanceof FlinkRuntimeException
+                            ? CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING
+                            : CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE;
             if (!pendingCheckpoint.isDisposed()) {
-                if (e1 instanceof FlinkRuntimeException) {
-                    abortPendingCheckpoint(
-                            pendingCheckpoint,
-                            new CheckpointException(
-                                    CheckpointFailureReason
-                                            .CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING,
-                                    e1));
-
-                    throw new CheckpointException(
-                            "Aborted checkpoint due to part of the tasks have finished "
-                                    + pendingCheckpoint.getCheckpointID()
-                                    + '.',
-                            CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING,
-                            e1);
-                } else {
-                    abortPendingCheckpoint(
-                            pendingCheckpoint,
-                            new CheckpointException(
-                                    CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, e1));
-                }
+                abortPendingCheckpoint(
+                        pendingCheckpoint, new CheckpointException(failureReason, e1));
             }
 
             throw new CheckpointException(
                     "Could not finalize the pending checkpoint "
                             + pendingCheckpoint.getCheckpointID()
                             + '.',
-                    CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE,
+                    failureReason,
                     e1);
         }
     }
