@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.execution.SavepointFormatType;
+import org.apache.flink.runtime.checkpoint.FinishedTaskStateProvider.PartialFinishingNotSupportedByStateException;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -1362,7 +1363,7 @@ public class CheckpointCoordinator {
             // abort the current pending checkpoint if we fails to finalize the pending
             // checkpoint.
             final CheckpointFailureReason failureReason =
-                    e1 instanceof FlinkRuntimeException
+                    e1 instanceof PartialFinishingNotSupportedByStateException
                             ? CheckpointFailureReason.CHECKPOINT_DECLINED_TASK_NOT_CHECKPOINTING
                             : CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE;
             if (!pendingCheckpoint.isDisposed()) {
