@@ -17,6 +17,7 @@
 
 package org.apache.flink.test.checkpointing;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.changelog.fs.FsStateChangelogStorageFactory;
 import org.apache.flink.configuration.CheckpointingOptions;
@@ -36,7 +37,9 @@ import org.apache.flink.test.checkpointing.ChangelogPeriodicMaterializationTestB
 import org.apache.flink.test.checkpointing.ChangelogPeriodicMaterializationTestBase.CountFunction;
 import org.apache.flink.test.util.InfiniteIntegerSource;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
+import org.apache.flink.util.TestLogger;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -64,7 +67,7 @@ import static org.apache.flink.runtime.testutils.CommonTestUtils.waitForAllTaskR
  * necessary.
  */
 @RunWith(Parameterized.class)
-public class ChangelogLocalRecoveryITCase {
+public class ChangelogLocalRecoveryITCase extends TestLogger {
 
     private static final int NUM_TASK_MANAGERS = 2;
     private static final int NUM_TASK_SLOTS = 1;
@@ -111,6 +114,11 @@ public class ChangelogLocalRecoveryITCase {
         cluster.getMiniCluster().overrideRestoreModeForChangelogStateBackend();
     }
 
+    @After
+    public void teardown() {
+        cluster.after();
+    }
+
     private JobGraph buildJobGraph(StreamExecutionEnvironment env) {
         env.addSource(new InfiniteIntegerSource())
                 .setParallelism(1)
@@ -119,6 +127,18 @@ public class ChangelogLocalRecoveryITCase {
                 .addSink(new CollectionSink())
                 .setParallelism(1);
         return env.getStreamGraph().getJobGraph();
+    }
+
+    public void waitForMaterialization(String checkpointPath, JobID jobID) throws Exception {
+        String taskOwnedPath = checkpointPath + "/" + jobID.toString() + "/taskowned";
+        File taskOwned = new File(taskOwnedPath);
+        while (taskOwned.exists()) {
+            if (taskOwned.listFiles().length <= 0) {
+                Thread.sleep(50);
+            } else {
+                break;
+            }
+        }
     }
 
     @Test
@@ -132,7 +152,7 @@ public class ChangelogLocalRecoveryITCase {
         miniCluster.submitJob(firstJobGraph).get();
         waitForAllTaskRunning(miniCluster, firstJobGraph.getJobID(), false);
         // wait job for doing materialization.
-        Thread.sleep(2000);
+        waitForMaterialization(checkpointFolder.getAbsolutePath(), firstJobGraph.getJobID());
         miniCluster.triggerCheckpoint(firstJobGraph.getJobID()).get();
         CompletableFuture<Void> terminationFuture = miniCluster.terminateTaskManager(1);
         terminationFuture.get();

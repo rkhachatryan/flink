@@ -688,25 +688,20 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
             PartitionProducerStateChecker partitionStateChecker =
                     jobManagerConnection.getPartitionStateChecker();
 
-            // Configuration from application will override the one from env.
-            boolean envChangelogEnabled =
-                    taskManagerConfiguration
-                            .getConfiguration()
-                            .getBoolean(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG);
-            boolean changelogEnabled =
-                    jobInformation
-                            .getJobConfiguration()
-                            .getOptional(
-                                    StateChangelogOptionsInternal.ENABLE_CHANGE_LOG_FOR_APPLICATION)
-                            .orElse(envChangelogEnabled);
-
             final TaskLocalStateStore localStateStore =
                     localStateStoresManager.localStateStoreForSubtask(
                             jobId,
                             tdd.getAllocationId(),
                             taskInformation.getJobVertexId(),
                             tdd.getSubtaskIndex(),
-                            changelogEnabled);
+                            taskManagerConfiguration
+                                    .getConfiguration()
+                                    .getBoolean(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG),
+                            jobInformation
+                                    .getJobConfiguration()
+                                    .getOptional(
+                                            StateChangelogOptionsInternal
+                                                    .ENABLE_CHANGE_LOG_FOR_APPLICATION));
 
             // TODO: Pass config value from user program and do overriding here.
             final StateChangelogStorage<?> changelogStorage;

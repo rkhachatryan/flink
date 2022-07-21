@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -123,7 +124,8 @@ public class TaskExecutorLocalStateStoresManager {
             @Nonnull AllocationID allocationID,
             @Nonnull JobVertexID jobVertexID,
             @Nonnegative int subtaskIndex,
-            boolean changelogEnabled) {
+            boolean envChangelogEnabled,
+            Optional<Boolean> jobChangelogEnabled) {
 
         synchronized (lock) {
             if (closed) {
@@ -165,23 +167,25 @@ public class TaskExecutorLocalStateStoresManager {
                 LocalRecoveryConfig localRecoveryConfig =
                         new LocalRecoveryConfig(directoryProvider);
 
-                if (localRecoveryConfig.isLocalRecoveryEnabled()) {
+                if (localRecoveryConfig.isLocalRecoveryEnabled()
+                        && jobChangelogEnabled.orElse(envChangelogEnabled)) {
                     taskLocalStateStore =
-                            changelogEnabled
-                                    ? new ChangelogTaskLocalStateStore(
-                                            jobId,
-                                            allocationID,
-                                            jobVertexID,
-                                            subtaskIndex,
-                                            localRecoveryConfig,
-                                            discardExecutor)
-                                    : new TaskLocalStateStoreImpl(
-                                            jobId,
-                                            allocationID,
-                                            jobVertexID,
-                                            subtaskIndex,
-                                            localRecoveryConfig,
-                                            discardExecutor);
+                            new ChangelogTaskLocalStateStore(
+                                    jobId,
+                                    allocationID,
+                                    jobVertexID,
+                                    subtaskIndex,
+                                    localRecoveryConfig,
+                                    discardExecutor);
+                } else if (localRecoveryConfig.isLocalRecoveryEnabled()) {
+                    taskLocalStateStore =
+                            new TaskLocalStateStoreImpl(
+                                    jobId,
+                                    allocationID,
+                                    jobVertexID,
+                                    subtaskIndex,
+                                    localRecoveryConfig,
+                                    discardExecutor);
                 } else {
                     // NOP implementation if local recovery is disabled
                     taskLocalStateStore = new NoOpTaskLocalStateStoreImpl(localRecoveryConfig);

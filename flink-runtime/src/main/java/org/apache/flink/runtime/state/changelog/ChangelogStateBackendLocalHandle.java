@@ -107,7 +107,11 @@ public class ChangelogStateBackendLocalHandle implements ChangelogStateBackendHa
     }
 
     @Override
-    public void discardState() throws Exception {}
+    public void discardState() throws Exception {
+        for (KeyedStateHandle keyedStateHandle : localMaterialized) {
+            keyedStateHandle.discardState();
+        }
+    }
 
     @Override
     public long getStateSize() {

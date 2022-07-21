@@ -25,7 +25,6 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.changelog.ChangelogStateBackendHandle;
-import org.apache.flink.util.FlinkRuntimeException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +36,14 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.LongPredicate;
+import java.util.stream.Collectors;
+
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** Changelog's implementation of a {@link TaskLocalStateStore}. */
 public class ChangelogTaskLocalStateStore extends TaskLocalStateStoreImpl {
@@ -85,15 +84,13 @@ public class ChangelogTaskLocalStateStore extends TaskLocalStateStoreImpl {
                     ChangelogStateBackendHandle changelogStateBackendHandle =
                             (ChangelogStateBackendHandle) keyedStateHandle;
                     long materializationID = changelogStateBackendHandle.getMaterializationID();
-                    if (mapToMaterializationId.getOrDefault(checkpointId, Long.MAX_VALUE)
-                            < materializationID) {
-                        LOG.info(
-                                "Update checkpoint {}, old materializationID {}, new materializationID {}.",
-                                checkpointId,
-                                mapToMaterializationId.get(checkpointId),
-                                materializationID);
+                    if (mapToMaterializationId.containsKey(checkpointId)) {
+                        checkState(
+                                materializationID == mapToMaterializationId.get(checkpointId),
+                                "one checkpoint contains at most one materializationID");
+                    } else {
+                        mapToMaterializationId.put(checkpointId, materializationID);
                     }
-                    mapToMaterializationId.put(checkpointId, materializationID);
                 }
             }
         }
@@ -118,74 +115,45 @@ public class ChangelogTaskLocalStateStore extends TaskLocalStateStoreImpl {
 
     @Override
     protected File getCheckpointDirectory(long checkpointId) {
-        final File checkpointDirectory =
-                localRecoveryConfig
-                        .getLocalStateDirectoryProvider()
-                        .orElseThrow(
-                                () -> new IllegalStateException("Local recovery must be enabled."))
-                        .subtaskBaseDirectory(checkpointId);
-        File directoryForChangelog =
-                new File(checkpointDirectory, CHANGE_LOG_CHECKPOINT_PREFIX + checkpointId);
-
-        if (!directoryForChangelog.exists() && !directoryForChangelog.mkdirs()) {
-            throw new FlinkRuntimeException(
-                    String.format(
-                            "Could not create the checkpoint directory '%s'",
-                            directoryForChangelog));
-        }
-
-        return directoryForChangelog;
+        return new File(
+                getLocalRecoveryDirectoryProvider().subtaskBaseDirectory(checkpointId),
+                CHANGE_LOG_CHECKPOINT_PREFIX + checkpointId);
     }
 
     private void deleteMaterialization(LongPredicate pruningChecker) {
-        final Set<Long> materializationToRemove = new HashSet<>();
+        Set<Long> materializationToRemove;
         synchronized (lock) {
-            Iterator<Entry<Long, Long>> iterator = mapToMaterializationId.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<Long, Long> entry = iterator.next();
-                long entryCheckpointId = entry.getKey();
-                if (pruningChecker.test(entryCheckpointId)) {
-                    materializationToRemove.add(entry.getValue());
-                    iterator.remove();
-                }
-            }
-
-            iterator = mapToMaterializationId.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<Long, Long> entry = iterator.next();
-                materializationToRemove.remove(entry.getValue());
-            }
+            Set<Long> checkpoints =
+                    mapToMaterializationId.keySet().stream()
+                            .filter(pruningChecker::test)
+                            .collect(Collectors.toSet());
+            materializationToRemove =
+                    checkpoints.stream()
+                            .map(mapToMaterializationId::remove)
+                            .collect(Collectors.toSet());
+            materializationToRemove.removeAll(mapToMaterializationId.values());
         }
 
         for (Long materializationId : materializationToRemove) {
-            File materializedDir =
-                    localRecoveryConfig
-                            .getLocalStateDirectoryProvider()
-                            .orElseThrow(
-                                    () ->
-                                            new IllegalStateException(
-                                                    "Local recovery must be enabled."))
-                            .subtaskSpecificCheckpointDirectory(materializationId);
-
-            if (!materializedDir.exists()) {
-                continue;
-            }
-            try {
-                deleteDirectory(materializedDir);
-            } catch (IOException ex) {
-                LOG.warn(
-                        "Exception while deleting local state directory of materialized part {} in subtask ({} - {} - {}).",
-                        materializedDir,
-                        jobID,
-                        jobVertexID,
-                        subtaskIndex,
-                        ex);
+            File materializedDir = super.getCheckpointDirectory(materializationId);
+            if (materializedDir.exists()) {
+                try {
+                    deleteDirectory(materializedDir);
+                } catch (IOException ex) {
+                    LOG.warn(
+                            "Exception while deleting local state directory of materialized part {} in subtask ({} - {} - {}).",
+                            materializedDir,
+                            jobID,
+                            jobVertexID,
+                            subtaskIndex,
+                            ex);
+                }
             }
         }
     }
 
     @Override
-    public void confirmCheckpoint(long confirmedCheckpointId) {
+    public void pruneCheckpoints(LongPredicate pruningChecker, boolean breakOnceCheckerFalse) {
         // Scenarios:
         //   c1,m1
         //   confirm c1, do nothing.
@@ -193,35 +161,10 @@ public class ChangelogTaskLocalStateStore extends TaskLocalStateStoreImpl {
         //   confirm c2, delete c1, don't delete m1
         //   c3,m2
         //   confirm c3, delete c2, delete m1
-        LOG.debug(
-                "Received confirmation for checkpoint {} in subtask ({} - {} - {}). Starting to prune history.",
-                confirmedCheckpointId,
-                jobID,
-                jobVertexID,
-                subtaskIndex);
+
         // delete changelog-chk
-        pruneCheckpoints(checkpointId -> checkpointId < confirmedCheckpointId, false);
-
-        deleteMaterialization(checkpointId -> checkpointId < confirmedCheckpointId);
-    }
-
-    @Override
-    public void abortCheckpoint(long abortedCheckpointId) {
-        LOG.debug(
-                "Received abort information for checkpoint {} in subtask ({} - {} - {}). Starting to prune history.",
-                abortedCheckpointId,
-                jobID,
-                jobVertexID,
-                subtaskIndex);
-
-        pruneCheckpoints(checkpointId -> checkpointId == abortedCheckpointId, false);
-        deleteMaterialization(checkpointId -> checkpointId == abortedCheckpointId);
-    }
-
-    @Override
-    public void pruneMatchingCheckpoints(@Nonnull LongPredicate matcher) {
-        pruneCheckpoints(matcher, false);
-        deleteMaterialization(matcher);
+        super.pruneCheckpoints(pruningChecker, false);
+        deleteMaterialization(pruningChecker);
     }
 
     @Override
