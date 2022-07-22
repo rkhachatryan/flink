@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -134,15 +135,28 @@ public class ChangelogTaskLocalStateStore extends TaskLocalStateStoreImpl {
             materializationToRemove.removeAll(mapToMaterializationId.values());
         }
 
-        for (Long materializationId : materializationToRemove) {
-            File materializedDir = super.getCheckpointDirectory(materializationId);
-            if (materializedDir.exists()) {
+        discardExecutor.execute(
+                () ->
+                        syncDiscardDirectoryForCollection(
+                                materializationToRemove.stream()
+                                        .map(
+                                                materializationId ->
+                                                        super.getCheckpointDirectory(
+                                                                materializationId))
+                                        .collect(Collectors.toList())));
+    }
+
+    private void syncDiscardDirectoryForCollection(Collection<File> toDiscard) {
+        for (File directory : toDiscard) {
+            if (directory.exists()) {
                 try {
-                    deleteDirectory(materializedDir);
+                    // TODO: This is guaranteed by the wrapped backend only using this folder for
+                    // its local state, the materialized handle should be discarded here too.
+                    deleteDirectory(directory);
                 } catch (IOException ex) {
                     LOG.warn(
-                            "Exception while deleting local state directory of materialized part {} in subtask ({} - {} - {}).",
-                            materializedDir,
+                            "Exception while deleting local state directory of {} in subtask ({} - {} - {}).",
+                            directory,
                             jobID,
                             jobVertexID,
                             subtaskIndex,

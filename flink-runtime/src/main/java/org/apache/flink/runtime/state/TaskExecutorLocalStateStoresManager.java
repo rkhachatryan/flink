@@ -20,6 +20,9 @@ package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.StateChangelogOptions;
+import org.apache.flink.configuration.StateChangelogOptionsInternal;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.FileUtils;
@@ -41,7 +44,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -124,8 +126,8 @@ public class TaskExecutorLocalStateStoresManager {
             @Nonnull AllocationID allocationID,
             @Nonnull JobVertexID jobVertexID,
             @Nonnegative int subtaskIndex,
-            boolean envChangelogEnabled,
-            Optional<Boolean> jobChangelogEnabled) {
+            Configuration clusterConfiguration,
+            Configuration jobConfiguration) {
 
         synchronized (lock) {
             if (closed) {
@@ -167,8 +169,16 @@ public class TaskExecutorLocalStateStoresManager {
                 LocalRecoveryConfig localRecoveryConfig =
                         new LocalRecoveryConfig(directoryProvider);
 
-                if (localRecoveryConfig.isLocalRecoveryEnabled()
-                        && jobChangelogEnabled.orElse(envChangelogEnabled)) {
+                boolean changelogEnabled =
+                        jobConfiguration
+                                .getOptional(
+                                        StateChangelogOptionsInternal
+                                                .ENABLE_CHANGE_LOG_FOR_APPLICATION)
+                                .orElse(
+                                        clusterConfiguration.getBoolean(
+                                                StateChangelogOptions.ENABLE_STATE_CHANGE_LOG));
+
+                if (localRecoveryConfig.isLocalRecoveryEnabled() && changelogEnabled) {
                     taskLocalStateStore =
                             new ChangelogTaskLocalStateStore(
                                     jobId,

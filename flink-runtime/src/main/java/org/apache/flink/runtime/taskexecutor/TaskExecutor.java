@@ -22,8 +22,6 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
-import org.apache.flink.configuration.StateChangelogOptions;
-import org.apache.flink.configuration.StateChangelogOptionsInternal;
 import org.apache.flink.management.jmx.JMXService;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.JobPermanentBlobService;
@@ -129,6 +127,8 @@ import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.runtime.taskmanager.TaskManagerActions;
 import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.webmonitor.threadinfo.ThreadInfoSamplesRequest;
+import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
+import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -140,12 +140,8 @@ import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 import org.apache.flink.util.concurrent.FutureUtils;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableList;
-import org.apache.flink.shaded.guava30.com.google.common.collect.Sets;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -694,14 +690,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                             tdd.getAllocationId(),
                             taskInformation.getJobVertexId(),
                             tdd.getSubtaskIndex(),
-                            taskManagerConfiguration
-                                    .getConfiguration()
-                                    .getBoolean(StateChangelogOptions.ENABLE_STATE_CHANGE_LOG),
-                            jobInformation
-                                    .getJobConfiguration()
-                                    .getOptional(
-                                            StateChangelogOptionsInternal
-                                                    .ENABLE_CHANGE_LOG_FOR_APPLICATION));
+                            taskManagerConfiguration.getConfiguration(),
+                            jobInformation.getJobConfiguration());
 
             // TODO: Pass config value from user program and do overriding here.
             final StateChangelogStorage<?> changelogStorage;

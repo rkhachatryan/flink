@@ -337,13 +337,11 @@ public class TaskLocalStateStoreImpl implements OwnedTaskLocalStateStore {
                     syncDiscardLocalStateForCollection(statesCopy);
 
                     // delete the local state subdirectory that belong to this subtask.
-                    LocalRecoveryDirectoryProvider directoryProvider =
-                            localRecoveryConfig
-                                    .getLocalStateDirectoryProvider()
-                                    .orElseThrow(LocalRecoveryConfig.localRecoveryNotEnabled());
-
-                    for (int i = 0; i < directoryProvider.allocationBaseDirsCount(); ++i) {
-                        File subtaskBaseDirectory = directoryProvider.selectSubtaskBaseDirectory(i);
+                    for (int i = 0;
+                            i < getLocalRecoveryDirectoryProvider().allocationBaseDirsCount();
+                            ++i) {
+                        File subtaskBaseDirectory =
+                                getLocalRecoveryDirectoryProvider().selectSubtaskBaseDirectory(i);
                         try {
                             deleteDirectory(subtaskBaseDirectory);
                         } catch (IOException e) {

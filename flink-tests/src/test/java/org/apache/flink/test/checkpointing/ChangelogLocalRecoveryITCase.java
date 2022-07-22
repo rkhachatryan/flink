@@ -17,42 +17,31 @@
 
 package org.apache.flink.test.checkpointing;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.changelog.fs.FsStateChangelogStorageFactory;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.StateChangelogOptions;
-import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.test.checkpointing.ChangelogPeriodicMaterializationTestBase.CollectionSink;
-import org.apache.flink.test.checkpointing.ChangelogPeriodicMaterializationTestBase.CountFunction;
 import org.apache.flink.test.util.InfiniteIntegerSource;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
-import org.apache.flink.util.TestLogger;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -61,30 +50,22 @@ import static org.apache.flink.configuration.ClusterOptions.JOB_MANAGER_PROCESS_
 import static org.apache.flink.configuration.ClusterOptions.PROCESS_WORKING_DIR_BASE;
 import static org.apache.flink.configuration.ClusterOptions.TASK_MANAGER_PROCESS_WORKING_DIR_BASE;
 import static org.apache.flink.runtime.testutils.CommonTestUtils.waitForAllTaskRunning;
+import static org.apache.flink.runtime.testutils.CommonTestUtils.waitUntilCondition;
 
 /**
  * Local recovery IT case for changelog. It never fails because local recovery is nice but not
  * necessary.
  */
 @RunWith(Parameterized.class)
-public class ChangelogLocalRecoveryITCase extends TestLogger {
+public class ChangelogLocalRecoveryITCase extends ChangelogPeriodicMaterializationTestBase {
 
     private static final int NUM_TASK_MANAGERS = 2;
     private static final int NUM_TASK_SLOTS = 1;
 
-    @ClassRule public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
-
-    @Parameterized.Parameter public AbstractStateBackend delegatedStateBackend;
-
-    @Parameterized.Parameters(name = "delegated state backend type = {0}")
-    public static Collection<AbstractStateBackend> parameter() {
-        return Arrays.asList(
-                new HashMapStateBackend(),
-                new EmbeddedRocksDBStateBackend(false),
-                new EmbeddedRocksDBStateBackend(true));
+    public ChangelogLocalRecoveryITCase(AbstractStateBackend delegatedStateBackend) {
+        super(delegatedStateBackend);
     }
 
-    private MiniClusterWithClientResource cluster;
     private static String workingDir;
 
     @BeforeClass
@@ -93,6 +74,7 @@ public class ChangelogLocalRecoveryITCase extends TestLogger {
     }
 
     @Before
+    @Override
     public void setup() throws Exception {
         Configuration configuration = new Configuration();
         configuration.setInteger(CheckpointingOptions.MAX_RETAINED_CHECKPOINTS, 1);
@@ -114,11 +96,6 @@ public class ChangelogLocalRecoveryITCase extends TestLogger {
         cluster.getMiniCluster().overrideRestoreModeForChangelogStateBackend();
     }
 
-    @After
-    public void teardown() {
-        cluster.after();
-    }
-
     private JobGraph buildJobGraph(StreamExecutionEnvironment env) {
         env.addSource(new InfiniteIntegerSource())
                 .setParallelism(1)
@@ -127,18 +104,6 @@ public class ChangelogLocalRecoveryITCase extends TestLogger {
                 .addSink(new CollectionSink())
                 .setParallelism(1);
         return env.getStreamGraph().getJobGraph();
-    }
-
-    public void waitForMaterialization(String checkpointPath, JobID jobID) throws Exception {
-        String taskOwnedPath = checkpointPath + "/" + jobID.toString() + "/taskowned";
-        File taskOwned = new File(taskOwnedPath);
-        while (taskOwned.exists()) {
-            if (taskOwned.listFiles().length <= 0) {
-                Thread.sleep(50);
-            } else {
-                break;
-            }
-        }
     }
 
     @Test
@@ -152,7 +117,8 @@ public class ChangelogLocalRecoveryITCase extends TestLogger {
         miniCluster.submitJob(firstJobGraph).get();
         waitForAllTaskRunning(miniCluster, firstJobGraph.getJobID(), false);
         // wait job for doing materialization.
-        waitForMaterialization(checkpointFolder.getAbsolutePath(), firstJobGraph.getJobID());
+        waitUntilCondition(
+                () -> !getAllStateHandleId(firstJobGraph.getJobID(), miniCluster).isEmpty());
         miniCluster.triggerCheckpoint(firstJobGraph.getJobID()).get();
         CompletableFuture<Void> terminationFuture = miniCluster.terminateTaskManager(1);
         terminationFuture.get();

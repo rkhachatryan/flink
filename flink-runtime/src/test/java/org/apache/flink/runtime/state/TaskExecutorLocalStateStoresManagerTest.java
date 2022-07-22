@@ -49,7 +49,6 @@ import java.net.InetAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -167,7 +166,12 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         TaskLocalStateStore taskLocalStateStore =
                 storesManager.localStateStoreForSubtask(
-                        jobID, allocationID, jobVertexID, subtaskIdx, false, Optional.of(false));
+                        jobID,
+                        allocationID,
+                        jobVertexID,
+                        subtaskIdx,
+                        new Configuration(),
+                        new Configuration());
 
         Assert.assertFalse(taskLocalStateStore.getLocalRecoveryConfig().isLocalRecoveryEnabled());
         Assert.assertNull(
@@ -203,7 +207,12 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         TaskLocalStateStore taskLocalStateStore =
                 storesManager.localStateStoreForSubtask(
-                        jobID, allocationID, jobVertexID, subtaskIdx, false, Optional.of(false));
+                        jobID,
+                        allocationID,
+                        jobVertexID,
+                        subtaskIdx,
+                        new Configuration(),
+                        new Configuration());
 
         LocalRecoveryDirectoryProvider directoryProvider =
                 taskLocalStateStore
@@ -263,8 +272,8 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
                         otherAllocationID,
                         jobVertexID,
                         subtaskIdx,
-                        false,
-                        Optional.of(false));
+                        new Configuration(),
+                        new Configuration());
 
         directoryProvider =
                 taskLocalStateStore
@@ -344,9 +353,14 @@ public class TaskExecutorLocalStateStoresManagerTest extends TestLogger {
 
         // register local state stores
         taskExecutorLocalStateStoresManager.localStateStoreForSubtask(
-                jobId, retainedAllocationId, jobVertexId, 0, false, Optional.of(false));
+                jobId,
+                retainedAllocationId,
+                jobVertexId,
+                0,
+                new Configuration(),
+                new Configuration());
         taskExecutorLocalStateStoresManager.localStateStoreForSubtask(
-                jobId, otherAllocationId, jobVertexId, 1, false, Optional.of(false));
+                jobId, otherAllocationId, jobVertexId, 1, new Configuration(), new Configuration());
 
         final Collection<Path> allocationDirectories =
                 TaskExecutorLocalStateStoresManager.listAllocationDirectoriesIn(localStateStore);
