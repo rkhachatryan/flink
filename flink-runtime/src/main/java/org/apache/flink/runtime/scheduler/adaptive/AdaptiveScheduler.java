@@ -794,7 +794,23 @@ public class AdaptiveScheduler
                         LOG,
                         desiredResources,
                         this.initialResourceAllocationTimeout,
-                        this.resourceStabilizationTimeout));
+                        this.resourceStabilizationTimeout,
+                        null));
+    }
+
+    @Override
+    public void goToWaitingForResources(ExecutionGraph executionGraph) {
+        final ResourceCounter desiredResources = calculateDesiredResources();
+        declarativeSlotPool.setResourceRequirements(desiredResources);
+
+        transitionToState(
+                new WaitingForResources.Factory(
+                        this,
+                        LOG,
+                        desiredResources,
+                        this.initialResourceAllocationTimeout,
+                        this.resourceStabilizationTimeout,
+                        executionGraph));
     }
 
     private ResourceCounter calculateDesiredResources() {
@@ -916,7 +932,7 @@ public class AdaptiveScheduler
     }
 
     @Override
-    public void goToCreatingExecutionGraph() {
+    public void goToCreatingExecutionGraph(@Nullable ExecutionGraph previousExecutionGraph) {
         final CompletableFuture<CreatingExecutionGraph.ExecutionGraphWithVertexParallelism>
                 executionGraphWithAvailableResourcesFuture =
                         createExecutionGraphWithAvailableResourcesAsync();

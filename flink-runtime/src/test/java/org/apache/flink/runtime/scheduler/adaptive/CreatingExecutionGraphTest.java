@@ -324,6 +324,11 @@ public class CreatingExecutionGraphTest extends TestLogger {
         }
 
         @Override
+        public void goToWaitingForResources(ExecutionGraph executionGraph) {
+            goToWaitingForResources();
+        }
+
+        @Override
         public Executor getIOExecutor() {
             return Executors.directExecutor();
         }

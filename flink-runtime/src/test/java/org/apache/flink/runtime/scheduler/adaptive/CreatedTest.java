@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler.adaptive;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.runtime.executiongraph.ArchivedExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Test;
@@ -124,6 +125,11 @@ public class CreatedTest extends TestLogger {
         @Override
         public void goToWaitingForResources() {
             waitingForResourcesStateValidator.validateInput(null);
+        }
+
+        @Override
+        public void goToWaitingForResources(ExecutionGraph executionGraph) {
+            goToWaitingForResources();
         }
 
         @Override

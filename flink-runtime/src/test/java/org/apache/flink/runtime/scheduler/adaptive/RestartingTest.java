@@ -180,6 +180,11 @@ public class RestartingTest extends TestLogger {
         }
 
         @Override
+        public void goToWaitingForResources(ExecutionGraph executionGraph) {
+            goToWaitingForResources();
+        }
+
+        @Override
         public ScheduledFuture<?> runIfState(State expectedState, Runnable action, Duration delay) {
             if (!hadStateTransition) {
                 action.run();
