@@ -81,6 +81,7 @@ import org.apache.flink.runtime.scheduler.SchedulerNG;
 import org.apache.flink.runtime.scheduler.VertexParallelismInformation;
 import org.apache.flink.runtime.scheduler.VertexParallelismStore;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.TestingSlotAllocator;
+import org.apache.flink.runtime.scheduler.adaptive.allocator.VertexParallelism;
 import org.apache.flink.runtime.scheduler.exceptionhistory.ExceptionHistoryEntry;
 import org.apache.flink.runtime.scheduler.exceptionhistory.RootExceptionHistoryEntry;
 import org.apache.flink.runtime.slots.ResourceRequirement;
@@ -108,6 +109,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -1401,7 +1403,9 @@ public class AdaptiveSchedulerTest extends TestLogger {
                 adaptiveScheduler.tryToAssignSlots(
                         CreatingExecutionGraph.ExecutionGraphWithVertexParallelism.create(
                                 new StateTrackingMockExecutionGraph(),
-                                new CreatingExecutionGraphTest.TestingVertexParallelism()));
+                                new JobSchedulingPlan(
+                                        new VertexParallelism(Collections.emptyMap()),
+                                        Collections.emptyList())));
 
         assertThat(assignmentResult.isSuccess()).isFalse();
     }

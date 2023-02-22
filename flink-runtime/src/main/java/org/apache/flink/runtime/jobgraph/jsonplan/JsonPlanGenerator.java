@@ -35,25 +35,12 @@ import org.apache.commons.text.StringEscapeUtils;
 import java.io.StringWriter;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 @Internal
 public class JsonPlanGenerator {
 
     private static final String NOT_SET = "";
     private static final String EMPTY = "{}";
-    private static final VertexParallelism EMPTY_VERTEX_PARALLELISM =
-            new VertexParallelism() {
-                @Override
-                public Map<JobVertexID, Integer> getMaxParallelismForVertices() {
-                    return Collections.emptyMap();
-                }
-
-                @Override
-                public int getParallelism(JobVertexID jobVertexId) {
-                    return -1;
-                }
-            };
 
     public static String generatePlan(JobGraph jg) {
         return generatePlan(
@@ -61,7 +48,7 @@ public class JsonPlanGenerator {
                 jg.getName(),
                 jg.getJobType(),
                 jg.getVertices(),
-                EMPTY_VERTEX_PARALLELISM);
+                new VertexParallelism(Collections.emptyMap()));
     }
 
     public static String generatePlan(

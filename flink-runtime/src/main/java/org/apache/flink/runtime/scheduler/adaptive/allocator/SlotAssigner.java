@@ -19,6 +19,8 @@ package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
+import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
+import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotSharingSlotAllocator.ExecutionSlotSharingGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,23 +32,20 @@ import java.util.List;
 public interface SlotAssigner {
 
     AssignmentResult assignSlots(
-            Collection<? extends SlotInfo> slots,
-            Collection<SlotSharingSlotAllocator.ExecutionSlotSharingGroup> groups);
+            Collection<? extends SlotInfo> slots, Collection<ExecutionSlotSharingGroup> groups);
 
     class AssignmentResult {
-        public final List<SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot> assignments;
+        public final List<SlotAssignment> assignments;
         public final Collection<? extends SlotInfo> remainingSlots;
 
         public AssignmentResult(
-                List<SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot> assignments,
-                Collection<? extends SlotInfo> remainingSlots) {
+                List<SlotAssignment> assignments, Collection<? extends SlotInfo> remainingSlots) {
             this.assignments = assignments;
             this.remainingSlots = remainingSlots;
         }
 
         public static AssignmentResult of(
-                List<SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot> assigned,
-                Iterator<? extends SlotInfo> remainingIterator) {
+                List<SlotAssignment> assigned, Iterator<? extends SlotInfo> remainingIterator) {
             List<SlotInfo> list = new ArrayList<>();
             remainingIterator.forEachRemaining(list::add);
             return new AssignmentResult(assigned, list);

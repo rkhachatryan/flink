@@ -23,14 +23,27 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Core result of {@link SlotAllocator#determineParallelism(JobInformation, Collection)}, describing
- * the parallelism each vertex could be scheduled with.
- *
- * <p>{@link SlotAllocator} implementations may encode additional information to be used in {@link
- * SlotAllocator#tryReserveResources(VertexParallelism)}.
+ * Core result of {@link SlotAllocator#determineParallelism(JobInformation, Collection)} among with
+ * {@link org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment
+ * slotAssignments}, describing the parallelism each vertex could be scheduled with.
  */
-public interface VertexParallelism {
-    Map<JobVertexID, Integer> getMaxParallelismForVertices();
+public class VertexParallelism {
+    private final Map<JobVertexID, Integer> maxParallelismForVertices;
 
-    int getParallelism(JobVertexID jobVertexId);
+    public VertexParallelism(Map<JobVertexID, Integer> maxParallelismForVertices) {
+        this.maxParallelismForVertices = maxParallelismForVertices;
+    }
+
+    public int getParallelism(JobVertexID jobVertexId) {
+        return maxParallelismForVertices.getOrDefault(jobVertexId, 0);
+    }
+
+    public int getCumulativeParallelism() {
+        return maxParallelismForVertices.values().stream().reduce(0, Integer::sum);
+    }
+
+    @Override
+    public String toString() {
+        return "VertexParallelism: " + maxParallelismForVertices;
+    }
 }

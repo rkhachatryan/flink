@@ -19,6 +19,8 @@
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.runtime.jobmaster.SlotInfo;
+import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
+import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotSharingSlotAllocator.ExecutionSlotSharingGroup;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,15 +32,11 @@ public class DefaultSlotAssigner implements SlotAssigner {
 
     @Override
     public AssignmentResult assignSlots(
-            Collection<? extends SlotInfo> slots,
-            Collection<SlotSharingSlotAllocator.ExecutionSlotSharingGroup> groups) {
+            Collection<? extends SlotInfo> slots, Collection<ExecutionSlotSharingGroup> groups) {
         Iterator<? extends SlotInfo> iterator = slots.iterator();
-        List<SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot> assigned =
-                new ArrayList<>();
-        for (SlotSharingSlotAllocator.ExecutionSlotSharingGroup group : groups) {
-            assigned.add(
-                    new SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot(
-                            group, iterator.next()));
+        List<SlotAssignment> assigned = new ArrayList<>();
+        for (ExecutionSlotSharingGroup group : groups) {
+            assigned.add(new SlotAssignment(iterator.next(), group));
         }
         return AssignmentResult.of(assigned, iterator);
     }

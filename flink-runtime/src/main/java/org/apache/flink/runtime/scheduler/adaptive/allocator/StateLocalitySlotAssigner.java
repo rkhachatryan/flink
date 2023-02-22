@@ -24,8 +24,8 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
+import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotSharingSlotAllocator.ExecutionSlotSharingGroup;
-import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotSharingSlotAllocator.ExecutionSlotSharingGroupAndSlot;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
@@ -135,14 +135,14 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
                 groups.stream().collect(toMap(ExecutionSlotSharingGroup::getId, identity()));
         Map<AllocationID, SlotInfo> slotsById =
                 slots.stream().collect(toMap(SlotInfo::getAllocationId, identity()));
-        List<ExecutionSlotSharingGroupAndSlot> result = new ArrayList<>();
+        List<SlotAssignment> result = new ArrayList<>();
         AllocationScore score;
         while ((score = scores.poll()) != null) {
             SlotInfo slot = slotsById.remove(score.getAllocationId());
             if (slot != null) {
                 ExecutionSlotSharingGroup group = groupsById.remove(score.getGroup());
                 if (group != null) {
-                    result.add(new ExecutionSlotSharingGroupAndSlot(group, slot));
+                    result.add(new SlotAssignment(slot, group));
                 }
             }
         }
@@ -150,7 +150,7 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         // Distribute the remaining slots with no score
         Iterator<? extends SlotInfo> remainingSlots = slotsById.values().iterator();
         for (ExecutionSlotSharingGroup group : groupsById.values()) {
-            result.add(new ExecutionSlotSharingGroupAndSlot(group, remainingSlots.next()));
+            result.add(new SlotAssignment(remainingSlots.next(), group));
             remainingSlots.remove();
         }
 

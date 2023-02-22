@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.runtime.jobmaster.SlotInfo;
+import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
 import org.apache.flink.runtime.util.ResourceCounter;
 
 import java.util.Collection;
@@ -67,8 +68,8 @@ public class TestingSlotAllocator implements SlotAllocator {
     }
 
     @Override
-    public Optional<ReservedSlots> tryReserveResources(VertexParallelism vertexParallelism) {
-        return tryReserveResourcesFunction.apply(vertexParallelism);
+    public Optional<ReservedSlots> tryReserveResources(JobSchedulingPlan jobSchedulingPlan) {
+        return tryReserveResourcesFunction.apply(jobSchedulingPlan.getVertexParallelism());
     }
 
     public static Builder newBuilder() {

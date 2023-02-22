@@ -18,6 +18,7 @@
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.runtime.jobmaster.SlotInfo;
+import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
 import org.apache.flink.runtime.util.ResourceCounter;
 
 import java.util.Collection;
@@ -43,7 +44,7 @@ public interface SlotAllocator {
      * given job information.
      *
      * <p>Implementations of this method must be side-effect free. There is no guarantee that the
-     * result of this method is ever passed to {@link #tryReserveResources(VertexParallelism)}.
+     * result of this method is ever passed to {@link #tryReserveResources(JobSchedulingPlan)}.
      *
      * @param jobInformation information about the job graph
      * @param slots slots to consider for determining the parallelism
@@ -58,11 +59,10 @@ public interface SlotAllocator {
      * Same as {@link #determineParallelism(JobInformation, Collection)} but additionally determine
      * assignment of slots to execution slot sharing groups.
      */
-    default Optional<? extends VertexParallelismWithSlotSharing>
-            determineParallelismAndCalculateAssignment(
-                    JobInformation jobInformation,
-                    Collection<? extends SlotInfo> slots,
-                    SlotAssigner slotAssigner) {
+    default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> slots,
+            SlotAssigner slotAssigner) {
         throw new UnsupportedOperationException();
     }
 
@@ -71,9 +71,9 @@ public interface SlotAllocator {
      * resources has changed and the reservation with respect to vertexParallelism is no longer
      * possible, then this method returns {@link Optional#empty()}.
      *
-     * @param vertexParallelism information on how slots should be assigned to the slots
+     * @param jobSchedulingPlan information on how slots should be assigned to the slots
      * @return Set of reserved slots if the reservation was successful; otherwise {@link
      *     Optional#empty()}
      */
-    Optional<ReservedSlots> tryReserveResources(VertexParallelism vertexParallelism);
+    Optional<ReservedSlots> tryReserveResources(JobSchedulingPlan jobSchedulingPlan);
 }
