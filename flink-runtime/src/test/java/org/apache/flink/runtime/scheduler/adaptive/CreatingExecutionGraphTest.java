@@ -312,14 +312,9 @@ public class CreatingExecutionGraphTest extends TestLogger {
         }
 
         @Override
-        public void goToWaitingForResources() {
+        public void goToWaitingForResources(ExecutionGraph executionGraph) {
             waitingForResourcesStateValidator.validateInput(null);
             hadStateTransitionHappened = true;
-        }
-
-        @Override
-        public void goToWaitingForResources(ExecutionGraph executionGraph) {
-            goToWaitingForResources();
         }
 
         @Override

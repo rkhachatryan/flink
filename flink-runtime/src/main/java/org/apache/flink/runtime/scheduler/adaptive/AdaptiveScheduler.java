@@ -788,21 +788,6 @@ public class AdaptiveScheduler
     }
 
     @Override
-    public void goToWaitingForResources() {
-        final ResourceCounter desiredResources = calculateDesiredResources();
-        declarativeSlotPool.setResourceRequirements(desiredResources);
-
-        transitionToState(
-                new WaitingForResources.Factory(
-                        this,
-                        LOG,
-                        desiredResources,
-                        this.initialResourceAllocationTimeout,
-                        this.resourceStabilizationTimeout,
-                        null));
-    }
-
-    @Override
     public void goToWaitingForResources(ExecutionGraph executionGraph) {
         final ResourceCounter desiredResources = calculateDesiredResources();
         declarativeSlotPool.setResourceRequirements(desiredResources);

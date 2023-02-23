@@ -165,12 +165,7 @@ public interface StateTransitions {
     /** Interface covering transition to the {@link WaitingForResources} state. */
     interface ToWaitingForResources extends StateTransitions {
 
-        /**
-         * Transitions into the {@link WaitingForResources} state without {@link ExecutionGraph}
-         * (e.g. after creation).
-         */
-        void goToWaitingForResources();
-        /** Transitions into the {@link WaitingForResources} state (e.g. after restarting). */
-        void goToWaitingForResources(ExecutionGraph executionGraph);
+        /** Transitions into the {@link WaitingForResources} state. */
+        void goToWaitingForResources(@Nullable ExecutionGraph executionGraph);
     }
 }

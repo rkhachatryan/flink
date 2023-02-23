@@ -123,13 +123,8 @@ public class CreatedTest extends TestLogger {
         }
 
         @Override
-        public void goToWaitingForResources() {
-            waitingForResourcesStateValidator.validateInput(null);
-        }
-
-        @Override
         public void goToWaitingForResources(ExecutionGraph executionGraph) {
-            goToWaitingForResources();
+            waitingForResourcesStateValidator.validateInput(null);
         }
 
         @Override

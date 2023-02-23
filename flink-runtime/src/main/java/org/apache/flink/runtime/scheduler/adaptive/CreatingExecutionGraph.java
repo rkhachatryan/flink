@@ -143,7 +143,7 @@ public class CreatingExecutionGraph implements State {
             } else {
                 logger.debug(
                         "Failed to reserve and assign the required slots. Waiting for new resources.");
-                context.goToWaitingForResources();
+                context.goToWaitingForResources(null);
             }
         }
     }
