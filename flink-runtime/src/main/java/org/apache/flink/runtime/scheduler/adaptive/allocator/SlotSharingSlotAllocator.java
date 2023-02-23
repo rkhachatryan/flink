@@ -96,31 +96,13 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
     @Override
     public Optional<? extends VertexParallelism> determineParallelism(
             JobInformation jobInformation, Collection<? extends SlotInfo> freeSlots) {
-        return determineParallelismAndCalculateAssignment(
-                        jobInformation,
-                        freeSlots,
-                        // this method is only called to determine parallelism and/or decide whether
-                        // there are enough resources
-                        // so assigner doesn't matter
-                        new DefaultSlotAssigner())
-                .map(JobSchedulingPlan::getVertexParallelism);
-    }
-
-    @Override
-    public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
-            JobInformation jobInformation,
-            Collection<? extends SlotInfo> freeSlots,
-            SlotAssigner slotAssigner) {
-
         // => less slots than slot-sharing groups
         if (jobInformation.getSlotSharingGroups().size() > freeSlots.size()) {
             return Optional.empty();
         }
-
         final Map<SlotSharingGroupId, Integer> slotSharingGroupParallelism =
                 determineSlotsPerSharingGroup(jobInformation, freeSlots.size());
 
-        final Collection<SlotAssignment> assignments = new ArrayList<>();
         final Map<JobVertexID, Integer> allVertexParallelism = new HashMap<>();
 
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
@@ -134,19 +116,36 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
                             containedJobVertices,
                             slotSharingGroupParallelism.get(
                                     slotSharingGroup.getSlotSharingGroupId()));
-
-            final List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
-                    createExecutionSlotSharingGroups(vertexParallelism);
-
-            SlotAssigner.AssignmentResult result =
-                    slotAssigner.assignSlots(freeSlots, sharedSlotToVertexAssignment);
-            assignments.addAll(result.assignments);
-            freeSlots = result.remainingSlots;
             allVertexParallelism.putAll(vertexParallelism);
         }
+        return Optional.of(new VertexParallelism(allVertexParallelism));
+    }
 
-        return Optional.of(
-                new JobSchedulingPlan(new VertexParallelism(allVertexParallelism), assignments));
+    @Override
+    public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+            JobInformation jobInformation,
+            final Collection<? extends SlotInfo> freeSlots,
+            SlotAssigner slotAssigner) {
+        return determineParallelism(jobInformation, freeSlots)
+                .map(
+                        vertexParallelism -> {
+                            Collection<? extends SlotInfo> remainingSlots = freeSlots;
+                            final Collection<SlotAssignment> assignments = new ArrayList<>();
+                            for (SlotSharingGroup slotSharingGroup :
+                                    jobInformation.getSlotSharingGroups()) {
+
+                                List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
+                                        createExecutionSlotSharingGroups(
+                                                vertexParallelism, slotSharingGroup);
+
+                                SlotAssigner.AssignmentResult result =
+                                        slotAssigner.assignSlots(
+                                                remainingSlots, sharedSlotToVertexAssignment);
+                                remainingSlots = result.remainingSlots;
+                                assignments.addAll(result.assignments);
+                            }
+                            return new JobSchedulingPlan(vertexParallelism, assignments);
+                        });
     }
 
     /**
@@ -199,17 +198,20 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
     }
 
     private static List<ExecutionSlotSharingGroup> createExecutionSlotSharingGroups(
-            Map<JobVertexID, Integer> containedJobVertices) {
+            VertexParallelism vertexParallelism, SlotSharingGroup slotSharingGroup) {
         final Map<Integer, Set<ExecutionVertexID>> sharedSlotToVertexAssignment = new HashMap<>();
 
-        containedJobVertices.forEach(
-                (jobVertexId, parallelism) -> {
-                    for (int subtaskIdx = 0; subtaskIdx < parallelism; subtaskIdx++) {
-                        sharedSlotToVertexAssignment
-                                .computeIfAbsent(subtaskIdx, ignored -> new HashSet<>())
-                                .add(new ExecutionVertexID(jobVertexId, subtaskIdx));
-                    }
-                });
+        slotSharingGroup
+                .getJobVertexIds()
+                .forEach(
+                        jobVertexId -> {
+                            int parallelism = vertexParallelism.getParallelism(jobVertexId);
+                            for (int subtaskIdx = 0; subtaskIdx < parallelism; subtaskIdx++) {
+                                sharedSlotToVertexAssignment
+                                        .computeIfAbsent(subtaskIdx, ignored -> new HashSet<>())
+                                        .add(new ExecutionVertexID(jobVertexId, subtaskIdx));
+                            }
+                        });
 
         return sharedSlotToVertexAssignment.values().stream()
                 .map(ExecutionSlotSharingGroup::new)
