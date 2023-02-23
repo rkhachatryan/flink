@@ -94,24 +94,15 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
             allGroups.addAll(createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup));
         }
-        final Map<JobVertexID, Integer> parallelism = new HashMap<>();
-        allGroups.forEach(
-                group ->
-                        group.getContainedExecutionVertices()
-                                .forEach(
-                                        evi ->
-                                                parallelism.merge(
-                                                        evi.getJobVertexId(), 1, Integer::sum)));
+        final Map<JobVertexID, Integer> parallelism = getParallelism(allGroups);
 
         final PriorityQueue<AllocationScore> scores =
                 new PriorityQueue<>(Comparator.reverseOrder());
         for (ExecutionSlotSharingGroup group : allGroups) {
-            calculateScore(group, parallelism, jobInformation, previousAllocations)
-                    .forEach(
-                            (allocationId, score) ->
-                                    scores.add(
-                                            new AllocationScore(
-                                                    group.getId(), allocationId, score)));
+            calculateScore(group, parallelism, jobInformation, previousAllocations).entrySet()
+                    .stream()
+                    .map(e -> new AllocationScore(group.getId(), e.getKey(), e.getValue()))
+                    .forEach(scores::add);
         }
 
         Map<String, ExecutionSlotSharingGroup> groupsById =
@@ -137,6 +128,17 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         }
 
         return assignments;
+    }
+
+    private static Map<JobVertexID, Integer> getParallelism(
+            List<ExecutionSlotSharingGroup> groups) {
+        final Map<JobVertexID, Integer> parallelism = new HashMap<>();
+        for (ExecutionSlotSharingGroup group : groups) {
+            for (ExecutionVertexID evi : group.getContainedExecutionVertices()) {
+                parallelism.merge(evi.getJobVertexId(), 1, Integer::sum);
+            }
+        }
+        return parallelism;
     }
 
     public Map<AllocationID, Integer> calculateScore(
