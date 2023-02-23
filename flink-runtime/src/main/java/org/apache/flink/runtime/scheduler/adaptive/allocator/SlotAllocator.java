@@ -17,11 +17,18 @@
 
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
+import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.util.ResourceCounter;
 
+import javax.annotation.Nullable;
+
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /** Component for calculating the slot requirements and mapping of vertices to slots. */
@@ -62,7 +69,14 @@ public interface SlotAllocator {
     default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            SlotAssigner slotAssigner) {
+            @Nullable ExecutionGraph previousExecutionGraph) {
+        throw new UnsupportedOperationException();
+    }
+
+    default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> slots,
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
         throw new UnsupportedOperationException();
     }
 

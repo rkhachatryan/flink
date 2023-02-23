@@ -48,6 +48,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertFalse;
@@ -201,7 +202,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         final JobSchedulingPlan jobSchedulingPlan =
                 slotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), new DefaultSlotAssigner())
+                                jobInformation, getSlots(50), emptyMap())
                         .get();
 
         final ReservedSlots reservedSlots =
@@ -242,7 +243,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         JobSchedulingPlan jobSchedulingPlan =
                 slotSharingSlotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), new DefaultSlotAssigner())
+                                jobInformation, getSlots(50), emptyMap())
                         .get();
 
         final Optional<? extends ReservedSlots> reservedSlots =
@@ -284,7 +285,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                         .determineParallelismAndCalculateAssignment(
                                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3)),
                                 freeSlots,
-                                new StateLocalitySlotAssigner(locality))
+                                locality)
                         .get();
 
         Map<AllocationID, Set<VertexID>> allocated = new HashMap<>();

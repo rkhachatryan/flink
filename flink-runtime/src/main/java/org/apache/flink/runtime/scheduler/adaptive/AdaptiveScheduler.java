@@ -96,10 +96,8 @@ import org.apache.flink.runtime.scheduler.SchedulerUtils;
 import org.apache.flink.runtime.scheduler.UpdateSchedulerNgOnInternalFailuresListener;
 import org.apache.flink.runtime.scheduler.VertexParallelismInformation;
 import org.apache.flink.runtime.scheduler.VertexParallelismStore;
-import org.apache.flink.runtime.scheduler.adaptive.allocator.DefaultSlotAssigner;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.ReservedSlots;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotAllocator;
-import org.apache.flink.runtime.scheduler.adaptive.allocator.StateLocalitySlotAssigner;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.VertexParallelism;
 import org.apache.flink.runtime.scheduler.adaptive.scalingpolicy.ReactiveScaleUpController;
 import org.apache.flink.runtime.scheduler.adaptive.scalingpolicy.ScaleUpController;
@@ -770,9 +768,7 @@ public class AdaptiveScheduler
                 .determineParallelismAndCalculateAssignment(
                         jobInformation,
                         declarativeSlotPool.getFreeSlotsInformation(),
-                        previousExecutionGraph == null
-                                ? new DefaultSlotAssigner()
-                                : new StateLocalitySlotAssigner(previousExecutionGraph))
+                        previousExecutionGraph)
                 .orElseThrow(
                         () ->
                                 new NoResourceAvailableException(
