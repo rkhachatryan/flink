@@ -202,7 +202,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         final JobSchedulingPlan jobSchedulingPlan =
                 slotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), emptyMap())
+                                jobInformation, getSlots(50), emptyMap(), new StateSizeEstimates())
                         .get();
 
         final ReservedSlots reservedSlots =
@@ -243,7 +243,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         JobSchedulingPlan jobSchedulingPlan =
                 slotSharingSlotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), emptyMap())
+                                jobInformation, getSlots(50), emptyMap(), new StateSizeEstimates())
                         .get();
 
         final Optional<? extends ReservedSlots> reservedSlots =
@@ -276,6 +276,11 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         freeSlots.add(new TestSlotInfo(allocation1));
         freeSlots.add(new TestSlotInfo(allocation2));
 
+        Map<JobVertexID, Long> stateSizes = new HashMap<>();
+        stateSizes.put(vertex1.getJobVertexID(), 10L);
+        stateSizes.put(vertex2.getJobVertexID(), 10L);
+        stateSizes.put(vertex3.getJobVertexID(), 10L);
+
         JobSchedulingPlan schedulingPlan =
                 SlotSharingSlotAllocator.createSlotSharingSlotAllocator(
                                 (allocationId, resourceProfile) ->
@@ -285,7 +290,8 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                         .determineParallelismAndCalculateAssignment(
                                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3)),
                                 freeSlots,
-                                locality)
+                                locality,
+                                new StateSizeEstimates(stateSizes))
                         .get();
 
         Map<AllocationID, Set<VertexID>> allocated = new HashMap<>();

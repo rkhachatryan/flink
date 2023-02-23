@@ -45,7 +45,8 @@ public class DefaultSlotAssigner implements SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
         List<ExecutionSlotSharingGroup> allGroups = new ArrayList<>();
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
             allGroups.addAll(createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup));

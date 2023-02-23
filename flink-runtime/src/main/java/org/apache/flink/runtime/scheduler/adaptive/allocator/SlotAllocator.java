@@ -76,7 +76,8 @@ public interface SlotAllocator {
     default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
         throw new UnsupportedOperationException();
     }
 

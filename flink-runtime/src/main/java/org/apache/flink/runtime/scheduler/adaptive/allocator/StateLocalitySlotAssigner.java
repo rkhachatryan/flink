@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.PriorityQueue;
 
 import static java.util.function.Function.identity;
@@ -50,13 +51,13 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         private final String group;
         private final AllocationID allocationId;
 
-        public AllocationScore(String group, AllocationID allocationId, int score) {
+        public AllocationScore(String group, AllocationID allocationId, long score) {
             this.group = group;
             this.allocationId = allocationId;
             this.score = score;
         }
 
-        private final int score;
+        private final long score;
 
         public String getGroup() {
             return group;
@@ -66,13 +67,13 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             return allocationId;
         }
 
-        public int getScore() {
+        public long getScore() {
             return score;
         }
 
         @Override
         public int compareTo(StateLocalitySlotAssigner.AllocationScore other) {
-            int result = Integer.compare(score, other.score);
+            int result = Long.compare(score, other.score);
             if (result != 0) {
                 return result;
             }
@@ -89,7 +90,8 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
         final List<ExecutionSlotSharingGroup> allGroups = new ArrayList<>();
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
             allGroups.addAll(createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup));
@@ -101,8 +103,13 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         final PriorityQueue<AllocationScore> scores =
                 new PriorityQueue<>(Comparator.reverseOrder());
         for (ExecutionSlotSharingGroup group : allGroups) {
-            calculateScore(group, parallelism, jobInformation, previousAllocations).entrySet()
-                    .stream()
+            calculateScore(
+                            group,
+                            parallelism,
+                            jobInformation,
+                            previousAllocations,
+                            stateSizeEstimates)
+                    .entrySet().stream()
                     .map(e -> new AllocationScore(group.getId(), e.getKey(), e.getValue()))
                     .forEach(scores::add);
         }
@@ -143,12 +150,13 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         return parallelism;
     }
 
-    public Map<AllocationID, Integer> calculateScore(
+    public Map<AllocationID, Long> calculateScore(
             ExecutionSlotSharingGroup group,
             Map<JobVertexID, Integer> parallelism,
             JobInformation jobInformation,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
-        final Map<AllocationID, Integer> score = new HashMap<>();
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
+        final Map<AllocationID, Long> score = new HashMap<>();
         for (ExecutionVertexID evi : group.getContainedExecutionVertices()) {
             final KeyGroupRange kgr =
                     KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
@@ -157,13 +165,21 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
                                     .getMaxParallelism(),
                             parallelism.get(evi.getJobVertexId()),
                             evi.getSubtaskIndex());
+            // Estimate state size per key group. For scoring, assume 1 if size estimate is 0 to
+            // accommodate for averaging non-zero states
+            Optional<Long> kgSizeMaybe =
+                    stateSizeEstimates.estimate(evi.getJobVertexId()).map(e -> Math.max(e, 1L));
+            if (!kgSizeMaybe.isPresent()) {
+                continue;
+            }
             previousAllocations.forEach(
                     (allocationId, potentials) -> {
                         KeyGroupRange prev = potentials.get(evi.getJobVertexId());
                         if (prev != null) {
                             int intersection = prev.getIntersection(kgr).getNumberOfKeyGroups();
                             if (intersection > 0) {
-                                score.merge(allocationId, intersection, Integer::sum);
+                                score.merge(
+                                        allocationId, intersection * kgSizeMaybe.get(), Long::sum);
                             }
                         }
                     });

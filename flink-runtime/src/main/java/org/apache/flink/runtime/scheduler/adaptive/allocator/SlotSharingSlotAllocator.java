@@ -137,14 +137,16 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
                 freeSlots,
                 previousExecutionGraph == null
                         ? Collections.emptyMap()
-                        : calculateLocalKeyGroups(previousExecutionGraph));
+                        : calculateLocalKeyGroups(previousExecutionGraph),
+                StateSizeEstimates.fromGraph(previousExecutionGraph));
     }
 
     @Override
     public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations) {
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
         return determineParallelism(jobInformation, slots)
                 .map(
                         parallelism -> {
@@ -158,7 +160,8 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
                                             jobInformation,
                                             slots,
                                             parallelism,
-                                            previousAllocations));
+                                            previousAllocations,
+                                            stateSizeEstimates));
                         });
     }
 

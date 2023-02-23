@@ -35,5 +35,6 @@ public interface SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations);
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates);
 }
