@@ -128,24 +128,34 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
             SlotAssigner slotAssigner) {
         return determineParallelism(jobInformation, freeSlots)
                 .map(
-                        vertexParallelism -> {
-                            Collection<? extends SlotInfo> remainingSlots = freeSlots;
-                            final Collection<SlotAssignment> assignments = new ArrayList<>();
-                            for (SlotSharingGroup slotSharingGroup :
-                                    jobInformation.getSlotSharingGroups()) {
+                        parallelism ->
+                                new JobSchedulingPlan(
+                                        parallelism,
+                                        assignSlots(
+                                                jobInformation,
+                                                freeSlots,
+                                                slotAssigner,
+                                                parallelism)));
+    }
 
-                                List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
-                                        createExecutionSlotSharingGroups(
-                                                vertexParallelism, slotSharingGroup);
+    private static Collection<SlotAssignment> assignSlots(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> freeSlots,
+            SlotAssigner slotAssigner,
+            VertexParallelism vertexParallelism) {
+        Collection<? extends SlotInfo> remainingSlots = freeSlots;
+        final Collection<SlotAssignment> assignments = new ArrayList<>();
+        for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
 
-                                SlotAssigner.AssignmentResult result =
-                                        slotAssigner.assignSlots(
-                                                remainingSlots, sharedSlotToVertexAssignment);
-                                remainingSlots = result.remainingSlots;
-                                assignments.addAll(result.assignments);
-                            }
-                            return new JobSchedulingPlan(vertexParallelism, assignments);
-                        });
+            List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
+                    createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup);
+
+            SlotAssigner.AssignmentResult result =
+                    slotAssigner.assignSlots(remainingSlots, sharedSlotToVertexAssignment);
+            remainingSlots = result.remainingSlots;
+            assignments.addAll(result.assignments);
+        }
+        return assignments;
     }
 
     /**
