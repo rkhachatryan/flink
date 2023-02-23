@@ -96,6 +96,8 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         }
         final Map<JobVertexID, Integer> parallelism = getParallelism(allGroups);
 
+        // PQ orders the pairs (allocationID, groupID) by score, decreasing
+        // the score is computed as the potential amount of state that would reside locally
         final PriorityQueue<AllocationScore> scores =
                 new PriorityQueue<>(Comparator.reverseOrder());
         for (ExecutionSlotSharingGroup group : allGroups) {
