@@ -66,20 +66,16 @@ public interface SlotAllocator {
      * Same as {@link #determineParallelism(JobInformation, Collection)} but additionally determine
      * assignment of slots to execution slot sharing groups.
      */
-    default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+    Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            @Nullable ExecutionGraph previousExecutionGraph) {
-        throw new UnsupportedOperationException();
-    }
+            @Nullable ExecutionGraph previousExecutionGraph);
 
-    default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+    Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
             Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
-            StateSizeEstimates stateSizeEstimates) {
-        throw new UnsupportedOperationException();
-    }
+            StateSizeEstimates stateSizeEstimates);
 
     /**
      * Reserves slots according to the given assignment if possible. If the underlying set of

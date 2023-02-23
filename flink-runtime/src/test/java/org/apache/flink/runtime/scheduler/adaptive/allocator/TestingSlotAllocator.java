@@ -18,13 +18,19 @@
 
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
+import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
+import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.util.ResourceCounter;
 
+import javax.annotation.Nullable;
+
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /** Testing implementation of {@link SlotAllocator}. */
@@ -33,25 +39,13 @@ public class TestingSlotAllocator implements SlotAllocator {
     private final Function<Iterable<JobInformation.VertexInformation>, ResourceCounter>
             calculateRequiredSlotsFunction;
 
-    private final BiFunction<
-                    JobInformation,
-                    Collection<? extends SlotInfo>,
-                    Optional<? extends VertexParallelism>>
-            determineParallelismFunction;
-
     private final Function<VertexParallelism, Optional<ReservedSlots>> tryReserveResourcesFunction;
 
     private TestingSlotAllocator(
             Function<Iterable<JobInformation.VertexInformation>, ResourceCounter>
                     calculateRequiredSlotsFunction,
-            BiFunction<
-                            JobInformation,
-                            Collection<? extends SlotInfo>,
-                            Optional<? extends VertexParallelism>>
-                    determineParallelismFunction,
             Function<VertexParallelism, Optional<ReservedSlots>> tryReserveResourcesFunction) {
         this.calculateRequiredSlotsFunction = calculateRequiredSlotsFunction;
-        this.determineParallelismFunction = determineParallelismFunction;
         this.tryReserveResourcesFunction = tryReserveResourcesFunction;
     }
 
@@ -64,7 +58,24 @@ public class TestingSlotAllocator implements SlotAllocator {
     @Override
     public Optional<? extends VertexParallelism> determineParallelism(
             JobInformation jobInformation, Collection<? extends SlotInfo> slots) {
-        return determineParallelismFunction.apply(jobInformation, slots);
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> slots,
+            @Nullable ExecutionGraph previousExecutionGraph) {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> slots,
+            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            StateSizeEstimates stateSizeEstimates) {
+        return Optional.empty();
     }
 
     @Override
@@ -80,11 +91,6 @@ public class TestingSlotAllocator implements SlotAllocator {
     public static final class Builder {
         private Function<Iterable<JobInformation.VertexInformation>, ResourceCounter>
                 calculateRequiredSlotsFunction = ignored -> ResourceCounter.empty();
-        private BiFunction<
-                        JobInformation,
-                        Collection<? extends SlotInfo>,
-                        Optional<? extends VertexParallelism>>
-                determineParallelismFunction = (ignoredA, ignoredB) -> Optional.empty();
         private Function<VertexParallelism, Optional<ReservedSlots>> tryReserveResourcesFunction =
                 ignored -> Optional.empty();
 
@@ -92,16 +98,6 @@ public class TestingSlotAllocator implements SlotAllocator {
                 Function<Iterable<JobInformation.VertexInformation>, ResourceCounter>
                         calculateRequiredSlotsFunction) {
             this.calculateRequiredSlotsFunction = calculateRequiredSlotsFunction;
-            return this;
-        }
-
-        public Builder setDetermineParallelismFunction(
-                BiFunction<
-                                JobInformation,
-                                Collection<? extends SlotInfo>,
-                                Optional<? extends VertexParallelism>>
-                        determineParallelismFunction) {
-            this.determineParallelismFunction = determineParallelismFunction;
             return this;
         }
 
@@ -113,9 +109,7 @@ public class TestingSlotAllocator implements SlotAllocator {
 
         public TestingSlotAllocator build() {
             return new TestingSlotAllocator(
-                    calculateRequiredSlotsFunction,
-                    determineParallelismFunction,
-                    tryReserveResourcesFunction);
+                    calculateRequiredSlotsFunction, tryReserveResourcesFunction);
         }
     }
 }
