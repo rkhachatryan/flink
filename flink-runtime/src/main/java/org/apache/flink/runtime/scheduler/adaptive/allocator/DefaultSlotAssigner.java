@@ -42,31 +42,18 @@ public class DefaultSlotAssigner implements SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism) {
-        Collection<? extends SlotInfo> remainingSlots = freeSlots;
-        final Collection<SlotAssignment> assignments = new ArrayList<>();
+        List<ExecutionSlotSharingGroup> allGroups = new ArrayList<>();
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
+            allGroups.addAll(createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup));
+        }
 
-            List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
-                    createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup);
-
-            SlotAssigner.AssignmentResult result =
-                    assignSlots(remainingSlots, sharedSlotToVertexAssignment);
-            remainingSlots = result.remainingSlots;
-            assignments.addAll(result.assignments);
+        Iterator<? extends SlotInfo> iterator = freeSlots.iterator();
+        Collection<SlotAssignment> assignments = new ArrayList<>();
+        for (ExecutionSlotSharingGroup group : allGroups) {
+            assignments.add(new SlotAssignment(iterator.next(), group));
         }
         return assignments;
     }
-
-    private AssignmentResult assignSlots(
-        Collection<? extends SlotInfo> slots, Collection<ExecutionSlotSharingGroup> groups) {
-        Iterator<? extends SlotInfo> iterator = slots.iterator();
-        List<SlotAssignment> assigned = new ArrayList<>();
-        for (ExecutionSlotSharingGroup group : groups) {
-            assigned.add(new SlotAssignment(iterator.next(), group));
-        }
-        return AssignmentResult.of(assigned, iterator);
-    }
-
 
     static List<ExecutionSlotSharingGroup> createExecutionSlotSharingGroups(
             VertexParallelism vertexParallelism, SlotSharingGroup slotSharingGroup) {

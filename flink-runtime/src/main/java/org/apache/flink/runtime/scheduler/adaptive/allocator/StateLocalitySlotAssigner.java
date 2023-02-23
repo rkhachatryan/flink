@@ -116,26 +116,12 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism) {
-        Collection<? extends SlotInfo> remainingSlots = freeSlots;
-        final Collection<SlotAssignment> assignments = new ArrayList<>();
+        final List<ExecutionSlotSharingGroup> allGroups = new ArrayList<>();
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
-
-            List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
-                    createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup);
-
-            SlotAssigner.AssignmentResult result =
-                    assignSlots(remainingSlots, sharedSlotToVertexAssignment);
-            remainingSlots = result.remainingSlots;
-            assignments.addAll(result.assignments);
+            allGroups.addAll(createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup));
         }
-        return assignments;
-    }
-
-    private AssignmentResult assignSlots(
-            Collection<? extends SlotInfo> slots, Collection<ExecutionSlotSharingGroup> groups) {
-
         final Map<JobVertexID, Integer> parallelism = new HashMap<>();
-        groups.forEach(
+        allGroups.forEach(
                 group ->
                         group.getContainedExecutionVertices()
                                 .forEach(
@@ -143,8 +129,9 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
                                                 parallelism.merge(
                                                         evi.getJobVertexId(), 1, Integer::sum)));
 
-        PriorityQueue<AllocationScore> scores = new PriorityQueue<>(Comparator.reverseOrder());
-        for (ExecutionSlotSharingGroup group : groups) {
+        final PriorityQueue<AllocationScore> scores =
+                new PriorityQueue<>(Comparator.reverseOrder());
+        for (ExecutionSlotSharingGroup group : allGroups) {
             calculateScore(group, parallelism)
                     .forEach(
                             (allocationId, score) ->
@@ -152,30 +139,30 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
                                             new AllocationScore(
                                                     group.getId(), allocationId, score)));
         }
+
         Map<String, ExecutionSlotSharingGroup> groupsById =
-                groups.stream().collect(toMap(ExecutionSlotSharingGroup::getId, identity()));
+                allGroups.stream().collect(toMap(ExecutionSlotSharingGroup::getId, identity()));
         Map<AllocationID, SlotInfo> slotsById =
-                slots.stream().collect(toMap(SlotInfo::getAllocationId, identity()));
-        List<SlotAssignment> result = new ArrayList<>();
+                freeSlots.stream().collect(toMap(SlotInfo::getAllocationId, identity()));
         AllocationScore score;
+        final Collection<SlotAssignment> assignments = new ArrayList<>();
         while ((score = scores.poll()) != null) {
             SlotInfo slot = slotsById.remove(score.getAllocationId());
             if (slot != null) {
                 ExecutionSlotSharingGroup group = groupsById.remove(score.getGroup());
                 if (group != null) {
-                    result.add(new SlotAssignment(slot, group));
+                    assignments.add(new SlotAssignment(slot, group));
                 }
             }
         }
-
         // Distribute the remaining slots with no score
         Iterator<? extends SlotInfo> remainingSlots = slotsById.values().iterator();
         for (ExecutionSlotSharingGroup group : groupsById.values()) {
-            result.add(new SlotAssignment(remainingSlots.next(), group));
+            assignments.add(new SlotAssignment(remainingSlots.next(), group));
             remainingSlots.remove();
         }
 
-        return AssignmentResult.of(result, remainingSlots);
+        return assignments;
     }
 
     public Map<AllocationID, Integer> calculateScore(
