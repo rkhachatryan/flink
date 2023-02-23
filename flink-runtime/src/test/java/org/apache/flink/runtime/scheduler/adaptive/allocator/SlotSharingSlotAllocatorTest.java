@@ -47,7 +47,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.is;
@@ -276,12 +275,6 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         freeSlots.add(new TestSlotInfo(allocation1));
         freeSlots.add(new TestSlotInfo(allocation2));
 
-        Map<JobVertexID, Integer> maxDoP =
-                Stream.of(vertex1, vertex2, vertex3)
-                        .collect(
-                                Collectors.toMap(
-                                        JobInformation.VertexInformation::getJobVertexID,
-                                        v -> 100));
         JobSchedulingPlan schedulingPlan =
                 SlotSharingSlotAllocator.createSlotSharingSlotAllocator(
                                 (allocationId, resourceProfile) ->
@@ -291,7 +284,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                         .determineParallelismAndCalculateAssignment(
                                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3)),
                                 freeSlots,
-                                new StateLocalitySlotAssigner(locality, maxDoP))
+                                new StateLocalitySlotAssigner(locality))
                         .get();
 
         Map<AllocationID, Set<VertexID>> allocated = new HashMap<>();

@@ -54,6 +54,7 @@ public class JobSchedulingPlan {
         return slotAssignments;
     }
 
+    /** Assignment of a slot to some target (e.g. a slot sharing group). */
     public static class SlotAssignment {
         private final SlotInfo slotInfo;
         /**

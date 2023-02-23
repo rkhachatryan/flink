@@ -40,7 +40,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.stream.StreamSupport;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -90,25 +89,13 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
     }
 
     private final Map<AllocationID, Map<JobVertexID, KeyGroupRange>> locality;
-    private final Map<JobVertexID, Integer> maxParallelism;
 
     public StateLocalitySlotAssigner(ExecutionGraph archivedExecutionGraph) {
-        this(
-                calculateLocalKeyGroups(archivedExecutionGraph),
-                StreamSupport.stream(
-                                archivedExecutionGraph.getVerticesTopologically().spliterator(),
-                                false)
-                        .collect(
-                                toMap(
-                                        ExecutionJobVertex::getJobVertexId,
-                                        ExecutionJobVertex::getMaxParallelism)));
+        this(calculateLocalKeyGroups(archivedExecutionGraph));
     }
 
-    public StateLocalitySlotAssigner(
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> locality,
-            Map<JobVertexID, Integer> maxParallelism) {
+    public StateLocalitySlotAssigner(Map<AllocationID, Map<JobVertexID, KeyGroupRange>> locality) {
         this.locality = locality;
-        this.maxParallelism = maxParallelism;
     }
 
     @Override
@@ -132,7 +119,7 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
         final PriorityQueue<AllocationScore> scores =
                 new PriorityQueue<>(Comparator.reverseOrder());
         for (ExecutionSlotSharingGroup group : allGroups) {
-            calculateScore(group, parallelism)
+            calculateScore(group, parallelism, jobInformation)
                     .forEach(
                             (allocationId, score) ->
                                     scores.add(
@@ -166,26 +153,28 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
     }
 
     public Map<AllocationID, Integer> calculateScore(
-            ExecutionSlotSharingGroup group, Map<JobVertexID, Integer> parallelism) {
+            ExecutionSlotSharingGroup group,
+            Map<JobVertexID, Integer> parallelism,
+            JobInformation jobInformation) {
         final Map<AllocationID, Integer> score = new HashMap<>();
         for (ExecutionVertexID evi : group.getContainedExecutionVertices()) {
-            if (maxParallelism.containsKey(evi.getJobVertexId())) {
-                final KeyGroupRange kgr =
-                        KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
-                                maxParallelism.get(evi.getJobVertexId()),
-                                parallelism.get(evi.getJobVertexId()),
-                                evi.getSubtaskIndex());
-                locality.forEach(
-                        (allocationId, potentials) -> {
-                            KeyGroupRange prev = potentials.get(evi.getJobVertexId());
-                            if (prev != null) {
-                                int intersection = prev.getIntersection(kgr).getNumberOfKeyGroups();
-                                if (intersection > 0) {
-                                    score.merge(allocationId, intersection, Integer::sum);
-                                }
+            final KeyGroupRange kgr =
+                    KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
+                            jobInformation
+                                    .getVertexInformation(evi.getJobVertexId())
+                                    .getMaxParallelism(),
+                            parallelism.get(evi.getJobVertexId()),
+                            evi.getSubtaskIndex());
+            locality.forEach(
+                    (allocationId, potentials) -> {
+                        KeyGroupRange prev = potentials.get(evi.getJobVertexId());
+                        if (prev != null) {
+                            int intersection = prev.getIntersection(kgr).getNumberOfKeyGroups();
+                            if (intersection > 0) {
+                                score.merge(allocationId, intersection, Integer::sum);
                             }
-                        });
-            }
+                        }
+                    });
         }
         return score;
     }
