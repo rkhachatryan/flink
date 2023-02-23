@@ -48,7 +48,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertFalse;
@@ -202,7 +201,10 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         final JobSchedulingPlan jobSchedulingPlan =
                 slotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), emptyMap(), new StateSizeEstimates())
+                                jobInformation,
+                                getSlots(50),
+                                AllocationsInfo.empty(),
+                                new StateSizeEstimates())
                         .get();
 
         final ReservedSlots reservedSlots =
@@ -243,7 +245,10 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
         JobSchedulingPlan jobSchedulingPlan =
                 slotSharingSlotAllocator
                         .determineParallelismAndCalculateAssignment(
-                                jobInformation, getSlots(50), emptyMap(), new StateSizeEstimates())
+                                jobInformation,
+                                getSlots(50),
+                                AllocationsInfo.empty(),
+                                new StateSizeEstimates())
                         .get();
 
         final Optional<? extends ReservedSlots> reservedSlots =
@@ -290,7 +295,7 @@ public class SlotSharingSlotAllocatorTest extends TestLogger {
                         .determineParallelismAndCalculateAssignment(
                                 new TestJobInformation(Arrays.asList(vertex1, vertex2, vertex3)),
                                 freeSlots,
-                                locality,
+                                new AllocationsInfo(locality),
                                 new StateSizeEstimates(stateSizes))
                         .get();
 

@@ -17,18 +17,14 @@
 
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
-import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
-import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.util.ResourceCounter;
 
 import javax.annotation.Nullable;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 
 /** Component for calculating the slot requirements and mapping of vertices to slots. */
@@ -66,15 +62,21 @@ public interface SlotAllocator {
      * Same as {@link #determineParallelism(JobInformation, Collection)} but additionally determine
      * assignment of slots to execution slot sharing groups.
      */
-    Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
+    default Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            @Nullable ExecutionGraph previousExecutionGraph);
+            @Nullable ExecutionGraph previousExecutionGraph) {
+        return determineParallelismAndCalculateAssignment(
+                jobInformation,
+                slots,
+                AllocationsInfo.fromGraph(previousExecutionGraph),
+                StateSizeEstimates.fromGraph(previousExecutionGraph));
+    }
 
     Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            AllocationsInfo allocationsInfo,
             StateSizeEstimates stateSizeEstimates);
 
     /**

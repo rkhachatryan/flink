@@ -90,7 +90,7 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            AllocationsInfo previousAllocations,
             StateSizeEstimates stateSizeEstimates) {
         final List<ExecutionSlotSharingGroup> allGroups = new ArrayList<>();
         for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
@@ -154,7 +154,7 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             ExecutionSlotSharingGroup group,
             Map<JobVertexID, Integer> parallelism,
             JobInformation jobInformation,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            AllocationsInfo previousAllocations,
             StateSizeEstimates stateSizeEstimates) {
         final Map<AllocationID, Long> score = new HashMap<>();
         for (ExecutionVertexID evi : group.getContainedExecutionVertices()) {
@@ -172,17 +172,22 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
             if (!kgSizeMaybe.isPresent()) {
                 continue;
             }
-            previousAllocations.forEach(
-                    (allocationId, potentials) -> {
-                        KeyGroupRange prev = potentials.get(evi.getJobVertexId());
-                        if (prev != null) {
-                            int intersection = prev.getIntersection(kgr).getNumberOfKeyGroups();
-                            if (intersection > 0) {
-                                score.merge(
-                                        allocationId, intersection * kgSizeMaybe.get(), Long::sum);
-                            }
-                        }
-                    });
+            previousAllocations
+                    .getAllocations()
+                    .forEach(
+                            (allocationId, potentials) -> {
+                                KeyGroupRange prev = potentials.get(evi.getJobVertexId());
+                                if (prev != null) {
+                                    int intersection =
+                                            prev.getIntersection(kgr).getNumberOfKeyGroups();
+                                    if (intersection > 0) {
+                                        score.merge(
+                                                allocationId,
+                                                intersection * kgSizeMaybe.get(),
+                                                Long::sum);
+                                    }
+                                }
+                            });
         }
         return score;
     }

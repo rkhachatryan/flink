@@ -18,14 +18,10 @@
 package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.runtime.clusterframework.types.AllocationID;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
-import org.apache.flink.runtime.state.KeyGroupRange;
 
 import java.util.Collection;
-import java.util.Map;
 
 /** Interface for assigning slots to slot sharing groups. */
 @Internal
@@ -35,6 +31,6 @@ public interface SlotAssigner {
             JobInformation jobInformation,
             Collection<? extends SlotInfo> freeSlots,
             VertexParallelism vertexParallelism,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            AllocationsInfo previousAllocations,
             StateSizeEstimates stateSizeEstimates);
 }

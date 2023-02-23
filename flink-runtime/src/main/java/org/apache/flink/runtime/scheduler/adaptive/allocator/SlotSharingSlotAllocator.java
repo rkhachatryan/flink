@@ -19,9 +19,6 @@ package org.apache.flink.runtime.scheduler.adaptive.allocator;
 
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
-import org.apache.flink.runtime.executiongraph.ExecutionGraph;
-import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
-import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.instance.SlotSharingGroupId;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
@@ -32,16 +29,12 @@ import org.apache.flink.runtime.jobmaster.slotpool.PhysicalSlot;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
-import org.apache.flink.runtime.state.KeyGroupRange;
-import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.util.ResourceCounter;
-import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -130,28 +123,14 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
     @Override
     public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
             JobInformation jobInformation,
-            final Collection<? extends SlotInfo> freeSlots,
-            ExecutionGraph previousExecutionGraph) {
-        return determineParallelismAndCalculateAssignment(
-                jobInformation,
-                freeSlots,
-                previousExecutionGraph == null
-                        ? Collections.emptyMap()
-                        : calculateLocalKeyGroups(previousExecutionGraph),
-                StateSizeEstimates.fromGraph(previousExecutionGraph));
-    }
-
-    @Override
-    public Optional<JobSchedulingPlan> determineParallelismAndCalculateAssignment(
-            JobInformation jobInformation,
             Collection<? extends SlotInfo> slots,
-            Map<AllocationID, Map<JobVertexID, KeyGroupRange>> previousAllocations,
+            AllocationsInfo allocationsInfo,
             StateSizeEstimates stateSizeEstimates) {
         return determineParallelism(jobInformation, slots)
                 .map(
                         parallelism -> {
                             SlotAssigner slotAssigner =
-                                    previousAllocations.isEmpty()
+                                    allocationsInfo.isEmpty()
                                             ? new DefaultSlotAssigner()
                                             : new StateLocalitySlotAssigner();
                             return new JobSchedulingPlan(
@@ -160,7 +139,7 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
                                             jobInformation,
                                             slots,
                                             parallelism,
-                                            previousAllocations,
+                                            allocationsInfo,
                                             stateSizeEstimates));
                         });
     }
@@ -294,30 +273,5 @@ public class SlotSharingSlotAllocator implements SlotAllocator {
         public Collection<ExecutionVertexID> getContainedExecutionVertices() {
             return containedExecutionVertices;
         }
-    }
-
-    private static Map<AllocationID, Map<JobVertexID, KeyGroupRange>> calculateLocalKeyGroups(
-            ExecutionGraph archivedExecutionGraph) {
-        final Map<AllocationID, Map<JobVertexID, KeyGroupRange>> localKeyGroups = new HashMap<>();
-        for (ExecutionJobVertex executionJobVertex :
-                archivedExecutionGraph.getVerticesTopologically()) {
-            for (ExecutionVertex executionVertex : executionJobVertex.getTaskVertices()) {
-                AllocationID allocationId =
-                        executionVertex.getCurrentExecutionAttempt().getAssignedAllocationID();
-                KeyGroupRange kgr =
-                        KeyGroupRangeAssignment.computeKeyGroupRangeForOperatorIndex(
-                                executionJobVertex.getMaxParallelism(),
-                                executionJobVertex.getParallelism(),
-                                executionVertex.getParallelSubtaskIndex());
-                KeyGroupRange previous =
-                        localKeyGroups
-                                .computeIfAbsent(allocationId, ignored -> new HashMap<>())
-                                .put(executionJobVertex.getJobVertexId(), kgr);
-                Preconditions.checkState(
-                        previous == null,
-                        "Can only have a single key group range of a vertex per slot");
-            }
-        }
-        return localKeyGroups;
     }
 }
