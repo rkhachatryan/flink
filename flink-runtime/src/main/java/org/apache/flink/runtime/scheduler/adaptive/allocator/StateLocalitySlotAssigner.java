@@ -23,6 +23,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.runtime.jobmaster.SlotInfo;
 import org.apache.flink.runtime.scheduler.adaptive.JobSchedulingPlan.SlotAssignment;
 import org.apache.flink.runtime.scheduler.adaptive.allocator.SlotSharingSlotAllocator.ExecutionSlotSharingGroup;
@@ -43,6 +44,7 @@ import java.util.stream.StreamSupport;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.flink.runtime.scheduler.adaptive.allocator.DefaultSlotAssigner.createExecutionSlotSharingGroups;
 
 /** A {@link SlotAssigner} that assigns slots based on the number of local key groups. */
 @Internal
@@ -110,7 +112,26 @@ public class StateLocalitySlotAssigner implements SlotAssigner {
     }
 
     @Override
-    public AssignmentResult assignSlots(
+    public Collection<SlotAssignment> assignSlots(
+            JobInformation jobInformation,
+            Collection<? extends SlotInfo> freeSlots,
+            VertexParallelism vertexParallelism) {
+        Collection<? extends SlotInfo> remainingSlots = freeSlots;
+        final Collection<SlotAssignment> assignments = new ArrayList<>();
+        for (SlotSharingGroup slotSharingGroup : jobInformation.getSlotSharingGroups()) {
+
+            List<ExecutionSlotSharingGroup> sharedSlotToVertexAssignment =
+                    createExecutionSlotSharingGroups(vertexParallelism, slotSharingGroup);
+
+            SlotAssigner.AssignmentResult result =
+                    assignSlots(remainingSlots, sharedSlotToVertexAssignment);
+            remainingSlots = result.remainingSlots;
+            assignments.addAll(result.assignments);
+        }
+        return assignments;
+    }
+
+    private AssignmentResult assignSlots(
             Collection<? extends SlotInfo> slots, Collection<ExecutionSlotSharingGroup> groups) {
 
         final Map<JobVertexID, Integer> parallelism = new HashMap<>();
