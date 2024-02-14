@@ -281,7 +281,9 @@ public class RocksDBResourceContainerTest {
         final ThrowingRunnable<Exception> disposer = sharedResources::close;
         OpaqueMemoryResource<RocksDBSharedResources> opaqueResource =
                 new OpaqueMemoryResource<>(sharedResources, 1024L, disposer);
-        BloomFilter blockBasedFilter = new BloomFilter();
+        // todo consider fixing RocksDBResourceContainer#overwriteFilterIfExist
+        // the behavior changed in RocksDB 8 since 6: BF needs to be explicitly partitioned now
+        BloomFilter blockBasedFilter = new BloomFilter(1d, true);
         RocksDBOptionsFactory blockBasedBloomFilterOptionFactory =
                 new RocksDBOptionsFactory() {
 
