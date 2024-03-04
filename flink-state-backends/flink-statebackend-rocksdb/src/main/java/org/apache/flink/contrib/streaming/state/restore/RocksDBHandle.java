@@ -33,6 +33,7 @@ import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
+import org.rocksdb.PerfLevel;
 import org.rocksdb.RocksDB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -146,6 +147,7 @@ class RocksDBHandle implements AutoCloseable {
                         ? new RocksDBNativeMetricMonitor(
                                 nativeMetricOptions, metricGroup, db, dbOptions.statistics())
                         : null;
+        db.setPerfLevel(PerfLevel.DISABLE);
     }
 
     RocksDbKvStateInfo getOrRegisterStateColumnFamilyHandle(
