@@ -61,7 +61,14 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
     }
 
     protected AbstractUdfStreamOperator(StreamOperatorParameters<OUT> parameters, F userFunction) {
-        super(parameters);
+        this(parameters, userFunction, WatermarkConsumerSupplier.defaultSupplier());
+    }
+
+    protected AbstractUdfStreamOperator(
+            StreamOperatorParameters<OUT> parameters,
+            F userFunction,
+            WatermarkConsumerSupplier<OUT> watermarkConsumerSupplier) {
+        super(parameters, watermarkConsumerSupplier);
         this.userFunction = requireNonNull(userFunction);
         checkUdfCheckpointingPreconditions();
     }
